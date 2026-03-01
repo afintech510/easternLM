@@ -83,20 +83,256 @@ function sortProducts(products: ShopProduct[], sort: ShopSortOption) {
   return sorted;
 }
 
-function mapFallbackCatalog(): ShopCatalog {
-  const fallbackCategories: ShopCategory[] = featuredCategories.map((category, index) => ({
-    id: `fallback-${index + 1}`,
-    name: category.name,
-    slug: category.slug,
-    description: category.description,
-    image: null,
-    sortOrder: index + 1,
-  }));
+const fallbackCategories: ShopCategory[] = [
+  { id: "fallback-mulch", name: "Mulch", slug: "mulch", description: "Dyed and natural mulch for beds, trees, and erosion control.", image: null, sortOrder: 1 },
+  { id: "fallback-topsoil", name: "Topsoil", slug: "topsoil", description: "Screened soils for lawns, grading, and planting work.", image: null, sortOrder: 2 },
+  { id: "fallback-gravel-stone", name: "Gravel & Stone", slug: "gravel-stone", description: "Crushed stone blends for drainage, driveways, and bases.", image: null, sortOrder: 3 },
+  { id: "fallback-sand", name: "Sand", slug: "sand", description: "Masonry and leveling sand for patios, pavers, and concrete prep.", image: null, sortOrder: 4 },
+  { id: "fallback-natural-stone", name: "Natural Stone", slug: "natural-stone", description: "Decorative and structural stone for custom outdoor projects.", image: null, sortOrder: 5 },
+  { id: "fallback-pavers", name: "Pavers", slug: "pavers", description: "Concrete and stone pavers for patios, walkways, and hardscapes.", image: null, sortOrder: 6 },
+  { id: "fallback-concrete-supplies", name: "Concrete Supplies", slug: "concrete-supplies", description: "Concrete-ready products and reinforcement for structural work.", image: null, sortOrder: 7 },
+  { id: "fallback-mason-supplies", name: "Mason Supplies", slug: "mason-supplies", description: "Cement, mix, and essentials for masonry and hardscape installs.", image: null, sortOrder: 8 },
+];
+
+const fallbackProducts: ShopProduct[] = [
+  {
+    id: "fallback-black-dyed-mulch",
+    name: "Black Dyed Mulch",
+    slug: "black-dyed-mulch",
+    categoryId: "fallback-mulch",
+    categorySlug: "mulch",
+    categoryName: "Mulch",
+    deliveryType: "bulk",
+    materialClass: "mulch",
+    pricePerUnitCents: 4200,
+    unit: "yard",
+    unitDisplay: "per cubic yard",
+    description: "Long-lasting dyed mulch for curb appeal and moisture retention.",
+    images: ["https://images.unsplash.com/photo-1473448912268-2022ce9509d8"],
+    recommendedUses: ["Plant beds", "Tree rings", "Erosion control"],
+    pairsWellWith: ["hemlock-mulch", "landscape-fabric-roll"],
+    minQty: 1,
+    maxQty: 30,
+    stepQty: 0.5,
+    sortOrder: 1,
+  },
+  {
+    id: "fallback-hemlock-mulch",
+    name: "Hemlock Mulch",
+    slug: "hemlock-mulch",
+    categoryId: "fallback-mulch",
+    categorySlug: "mulch",
+    categoryName: "Mulch",
+    deliveryType: "bulk",
+    materialClass: "mulch",
+    pricePerUnitCents: 5100,
+    unit: "yard",
+    unitDisplay: "per cubic yard",
+    description: "Premium natural mulch with rich color and clean texture.",
+    images: ["https://images.unsplash.com/photo-1492496913980-501348b61469"],
+    recommendedUses: ["Decorative beds", "Foundation planting", "Seasonal refresh"],
+    pairsWellWith: ["black-dyed-mulch", "landscape-fabric-roll"],
+    minQty: 1,
+    maxQty: 30,
+    stepQty: 0.5,
+    sortOrder: 2,
+  },
+  {
+    id: "fallback-screened-topsoil",
+    name: "Screened Topsoil",
+    slug: "screened-topsoil",
+    categoryId: "fallback-topsoil",
+    categorySlug: "topsoil",
+    categoryName: "Topsoil",
+    deliveryType: "bulk",
+    materialClass: "default",
+    pricePerUnitCents: 3900,
+    unit: "yard",
+    unitDisplay: "per cubic yard",
+    description: "Clean screened topsoil for lawn prep, grading, and planting.",
+    images: ["https://images.unsplash.com/photo-1591638844332-d79f111b11f8"],
+    recommendedUses: ["Lawn installation", "Backfill", "Garden beds"],
+    pairsWellWith: ["compost-blend-topsoil", "straw-bale"],
+    minQty: 1,
+    maxQty: 35,
+    stepQty: 0.5,
+    sortOrder: 3,
+  },
+  {
+    id: "fallback-three-quarter-crushed-bluestone",
+    name: "3/4 Crushed Bluestone",
+    slug: "three-quarter-crushed-bluestone",
+    categoryId: "fallback-gravel-stone",
+    categorySlug: "gravel-stone",
+    categoryName: "Gravel & Stone",
+    deliveryType: "bulk",
+    materialClass: "default",
+    pricePerUnitCents: 5200,
+    unit: "yard",
+    unitDisplay: "per cubic yard",
+    description: "Compacting aggregate for driveways and base layers.",
+    images: ["https://images.unsplash.com/photo-1518987048-93e29699f29b"],
+    recommendedUses: ["Driveway base", "Walkway base", "Drainage"],
+    pairsWellWith: ["mason-sand", "landscape-fabric-roll"],
+    minQty: 1,
+    maxQty: 30,
+    stepQty: 0.5,
+    sortOrder: 4,
+  },
+  {
+    id: "fallback-mason-sand",
+    name: "Mason Sand",
+    slug: "mason-sand",
+    categoryId: "fallback-sand",
+    categorySlug: "sand",
+    categoryName: "Sand",
+    deliveryType: "bulk",
+    materialClass: "default",
+    pricePerUnitCents: 4500,
+    unit: "yard",
+    unitDisplay: "per cubic yard",
+    description: "Fine clean sand for paver bedding and masonry applications.",
+    images: ["https://images.unsplash.com/photo-1552298223-1f5fbb79ff8d"],
+    recommendedUses: ["Paver bedding", "Masonry mixing", "Leveling"],
+    pairsWellWith: ["three-quarter-crushed-bluestone", "concrete-mix"],
+    minQty: 1,
+    maxQty: 25,
+    stepQty: 0.5,
+    sortOrder: 5,
+  },
+  {
+    id: "fallback-pennsylvania-fieldstone",
+    name: "Pennsylvania Fieldstone",
+    slug: "pennsylvania-fieldstone",
+    categoryId: "fallback-natural-stone",
+    categorySlug: "natural-stone",
+    categoryName: "Natural Stone",
+    deliveryType: "non-bulk",
+    materialClass: "default",
+    pricePerUnitCents: 985,
+    unit: "sqft",
+    unitDisplay: "per square foot",
+    description: "Natural fieldstone for walls, edging, and outdoor accents.",
+    images: ["https://images.unsplash.com/photo-1504309092620-4d0ec726efa4"],
+    recommendedUses: ["Garden walls", "Stone borders", "Landscape accents"],
+    pairsWellWith: ["type-s-mortar-mix", "edging-block"],
+    minQty: 25,
+    maxQty: 400,
+    stepQty: 5,
+    sortOrder: 6,
+  },
+  {
+    id: "fallback-cambridge-pavers-sahara-chestnut",
+    name: "Cambridge Pavers - Sahara Chestnut",
+    slug: "cambridge-pavers-sahara-chestnut",
+    categoryId: "fallback-pavers",
+    categorySlug: "pavers",
+    categoryName: "Pavers",
+    deliveryType: "non-bulk",
+    materialClass: "default",
+    pricePerUnitCents: 825,
+    unit: "sqft",
+    unitDisplay: "per square foot",
+    description: "Durable concrete paver system for patios and walkways.",
+    images: ["https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b"],
+    recommendedUses: ["Patios", "Walkways", "Pool surrounds"],
+    pairsWellWith: ["polymeric-sand", "edging-block"],
+    minQty: 50,
+    maxQty: 3000,
+    stepQty: 10,
+    sortOrder: 7,
+  },
+  {
+    id: "fallback-concrete-mix",
+    name: "Concrete Mix (80lb)",
+    slug: "concrete-mix",
+    categoryId: "fallback-concrete-supplies",
+    categorySlug: "concrete-supplies",
+    categoryName: "Concrete Supplies",
+    deliveryType: "non-bulk",
+    materialClass: "default",
+    pricePerUnitCents: 799,
+    unit: "bag",
+    unitDisplay: "per 80lb bag",
+    description: "High-strength concrete mix for slabs, posts, and patching work.",
+    images: ["https://images.unsplash.com/photo-1581092795360-fd1ca04f0952"],
+    recommendedUses: ["Footings", "Post setting", "General concrete repair"],
+    pairsWellWith: ["rebar-3-8-inch", "wire-mesh-roll"],
+    minQty: 1,
+    maxQty: 400,
+    stepQty: 1,
+    sortOrder: 8,
+  },
+  {
+    id: "fallback-type-s-mortar-mix",
+    name: "Type S Mortar Mix (80lb)",
+    slug: "type-s-mortar-mix",
+    categoryId: "fallback-mason-supplies",
+    categorySlug: "mason-supplies",
+    categoryName: "Mason Supplies",
+    deliveryType: "non-bulk",
+    materialClass: "default",
+    pricePerUnitCents: 999,
+    unit: "bag",
+    unitDisplay: "per 80lb bag",
+    description: "General-purpose mortar mix for block, brick, and stone setting.",
+    images: ["https://images.unsplash.com/photo-1504711434969-e33886168f5c"],
+    recommendedUses: ["Block walls", "Stone veneer", "Brick repair"],
+    pairsWellWith: ["pennsylvania-fieldstone", "bluestone-treads"],
+    minQty: 1,
+    maxQty: 400,
+    stepQty: 1,
+    sortOrder: 9,
+  },
+  {
+    id: "fallback-polymeric-sand",
+    name: "Polymeric Sand",
+    slug: "polymeric-sand",
+    categoryId: "fallback-mason-supplies",
+    categorySlug: "mason-supplies",
+    categoryName: "Mason Supplies",
+    deliveryType: "non-bulk",
+    materialClass: "default",
+    pricePerUnitCents: 3599,
+    unit: "bag",
+    unitDisplay: "per bag",
+    description: "Jointing sand for interlock pavers that resists washout and weeds.",
+    images: ["https://images.unsplash.com/photo-1441974231531-c6227db76b6e"],
+    recommendedUses: ["Paver joints", "Walkway joints", "Patio joints"],
+    pairsWellWith: ["cambridge-pavers-sahara-chestnut", "nicolock-pavers-granite-city"],
+    minQty: 1,
+    maxQty: 250,
+    stepQty: 1,
+    sortOrder: 10,
+  },
+];
+
+function mapFallbackCatalog(options: GetShopCatalogOptions = {}): ShopCatalog {
+  const selectedSort: ShopSortOption = options.sort ?? "popular";
+  const filteredProducts = options.categorySlug
+    ? fallbackProducts.filter((product) => product.categorySlug === options.categorySlug)
+    : fallbackProducts;
 
   return {
     source: "fallback",
     categories: fallbackCategories,
-    products: [],
+    products: sortProducts(filteredProducts, selectedSort),
+  };
+}
+
+function mapFallbackProductDetail(slug: string): ProductDetailBundle | null {
+  const catalog = mapFallbackCatalog();
+  const product = catalog.products.find((item) => item.slug === slug);
+  if (!product) {
+    return null;
+  }
+
+  const relatedProducts = catalog.products.filter((item) => product.pairsWellWith.includes(item.slug));
+  return {
+    source: "fallback",
+    product,
+    relatedProducts,
+    categories: catalog.categories,
   };
 }
 
@@ -129,9 +365,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       throw productsResult.error;
     }
 
-    const categoryDescriptionMap = new Map(
-      featuredCategories.map((category) => [category.slug, category.description]),
-    );
+    const categoryDescriptionMap = new Map(featuredCategories.map((category) => [category.slug, category.description]));
     const categoryById = new Map(
       categoriesResult.data.map((category) => [
         category.id,
@@ -188,7 +422,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       products: sortProducts(filteredProducts, selectedSort),
     };
   } catch {
-    return mapFallbackCatalog();
+    return mapFallbackCatalog(options);
   }
 }
 
@@ -213,7 +447,7 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
     ]);
 
     if (productResult.error || !productResult.data || categoriesResult.error) {
-      return null;
+      return mapFallbackProductDetail(slug);
     }
 
     const categoryDescriptionMap = new Map(
@@ -232,7 +466,7 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
     const productCategory = categoryById.get(productResult.data.category_id);
 
     if (!productCategory) {
-      return null;
+      return mapFallbackProductDetail(slug);
     }
 
     const product: ShopProduct = {
@@ -309,6 +543,6 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
       categories,
     };
   } catch {
-    return null;
+    return mapFallbackProductDetail(slug);
   }
 }

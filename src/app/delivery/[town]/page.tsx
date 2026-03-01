@@ -186,7 +186,7 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
                 ) : (
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
                     <Image
-                      src={project.images[0] ?? "https://via.placeholder.com/1200x800?text=Project"}
+                      src={project.images[0] ?? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop"}
                       alt={project.title}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"

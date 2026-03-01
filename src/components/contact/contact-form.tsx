@@ -41,11 +41,27 @@ export function ContactForm() {
     defaultValues,
   });
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const onSubmit = async (values: ContactFormValues) => {
-    console.info("Contact form submitted", values);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    reset(defaultValues);
-    setSubmitted(true);
+    setSubmitError(null);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Something went wrong. Please try again.");
+      }
+
+      reset(defaultValues);
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -111,8 +127,13 @@ export function ContactForm() {
       <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
         {isSubmitting ? "Sending..." : "Send Request"}
       </Button>
+      {submitError ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {submitError}
+        </div>
+      ) : null}
       {submitted ? (
-        <p className="text-sm text-primary">Thanks. We received your request and will follow up shortly.</p>
+        <p className="text-sm font-semibold text-accent">Thanks! We received your request and will follow up shortly.</p>
       ) : null}
     </form>
   );

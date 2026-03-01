@@ -84,24 +84,12 @@ export function CartPageClient() {
         </header>
 
         {items.length === 0 ? (
-          <article className="rounded-2xl border bg-card p-6">
+          <article className="rounded-2xl border bg-card p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Your cart is empty. Add items from shop to calculate delivery.
+              Your cart is empty.
             </p>
-            <Button
-              className="mt-4"
-              onClick={() =>
-                addItem({
-                  id: "sample-topsoil",
-                  name: "Sample Topsoil",
-                  quantity: 3,
-                  unitPriceCents: 3900,
-                  deliveryType: "bulk",
-                  materialClass: "default",
-                })
-              }
-            >
-              Add Sample Item
+            <Button asChild className="mt-4">
+              <Link href="/shop">Browse Materials</Link>
             </Button>
           </article>
         ) : (
@@ -142,7 +130,7 @@ export function CartPageClient() {
                   <div>
                     <p className="font-semibold">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.deliveryType} | {item.materialClass}
+                      {item.deliveryType === "bulk" ? "Bulk material" : "Bagged / packaged"}
                     </p>
                     <p className="text-xs text-muted-foreground">Unit: {formatUsd(item.unitPriceCents)}</p>
                   </div>
@@ -340,10 +328,13 @@ export function CartPageClient() {
         )}
 
         {calculation ? (
-          <Button asChild className="w-full">
+          <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
             <Link href="/checkout">Proceed to Checkout</Link>
           </Button>
         ) : null}
+        <Button asChild variant="ghost" className="w-full">
+          <Link href="/shop">Continue Shopping</Link>
+        </Button>
         <p className="text-xs text-muted-foreground">
           Credit card processing fee is shown as a separate line item at checkout.
         </p>

@@ -25,12 +25,16 @@ export function MobileMenu() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button size="icon" variant="outline" className="border-primary/20">
+        <Button
+          size="icon"
+          variant="outline"
+          className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+        >
           <Menu className="size-5" />
           <span className="sr-only">Open navigation menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-80 border-primary/15">
+      <SheetContent side="right" className="w-80">
         <SheetHeader className="text-left">
           <SheetTitle className="[font-family:var(--font-display)] text-primary">
             Eastern Landscape
@@ -63,7 +67,7 @@ export function MobileMenu() {
               </Badge>
             </Link>
           </Button>
-          <Button asChild variant="outline" className="w-full border-primary/20">
+          <Button asChild variant="outline" className="w-full">
             <a href={siteConfig.phoneHref}>
               <Phone className="size-4" />
               {siteConfig.phoneDisplay}

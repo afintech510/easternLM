@@ -44,6 +44,12 @@ export type TownPageBundle = {
   products: TownFeaturedProduct[];
 };
 
+export type TownLink = {
+  slug: string;
+  name: string;
+  tier: "A" | "B";
+};
+
 const fallbackTowns: TownPageData[] = [
   { slug: "center-moriches", name: "Center Moriches", state: "NY", zipCodes: ["11934"], tier: "A", deliveryFeeCents: 4500, distanceMiles: 3.2, driveMinutes: 11, estimatedDeliveryMinutes: 35, localDescription: "Center Moriches deliveries are frequent and typically fast for driveway stone, topsoil, and mulch orders.", localDescriptionExtended: "Early weekday checkout usually gives the best same-day scheduling options.", featuredProjectIds: ["Center Moriches Gravel Driveway Recovery"], featuredProductSlugs: ["three-quarter-crushed-bluestone", "screened-topsoil", "black-dyed-mulch"], testimonialQuote: null, testimonialAuthor: null, faqs: [], routeOrigin: "543 Montauk Hwy, East Moriches, NY 11940", routeDestination: "Center Moriches, NY", sortOrder: 1 },
   { slug: "east-moriches", name: "East Moriches", state: "NY", zipCodes: ["11940"], tier: "A", deliveryFeeCents: 4500, distanceMiles: 2.7, driveMinutes: 10, estimatedDeliveryMinutes: 35, localDescription: "East Moriches is in our core zone with consistent delivery windows for multi-material orders.", localDescriptionExtended: "Bed refresh and drainage combos are common in this area.", featuredProjectIds: ["East Moriches Foundation Refresh"], featuredProductSlugs: ["hemlock-mulch", "screened-topsoil", "pea-gravel"], testimonialQuote: null, testimonialAuthor: null, faqs: [], routeOrigin: "543 Montauk Hwy, East Moriches, NY 11940", routeDestination: "East Moriches, NY", sortOrder: 2 },
@@ -239,7 +245,7 @@ export async function getTownPageBundle(slug: string): Promise<TownPageBundle | 
     name: product.name,
     pricePerUnitCents: product.price_per_unit_cents,
     unitDisplay: product.unit_display,
-    image: product.images?.[0] ?? "https://via.placeholder.com/1200x800?text=Material",
+    image: product.images?.[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=800&fit=crop",
   }));
 
   return {
@@ -247,4 +253,16 @@ export async function getTownPageBundle(slug: string): Promise<TownPageBundle | 
     projects,
     products,
   };
+}
+
+export async function getTownsForProductSlug(productSlug: string, limit = 6): Promise<TownLink[]> {
+  const towns = await getTownPages();
+  return towns
+    .filter((town) => town.featuredProductSlugs.includes(productSlug))
+    .slice(0, limit)
+    .map((town) => ({
+      slug: town.slug,
+      name: town.name,
+      tier: town.tier,
+    }));
 }

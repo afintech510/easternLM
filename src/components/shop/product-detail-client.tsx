@@ -128,7 +128,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     });
   }, [deliveryConfig, deliveryMethod, distancePreview, product, quantity]);
 
-  const imageList = product.images.length > 0 ? product.images : ["https://via.placeholder.com/1200x800?text=Product"];
+  const imageList = product.images.length > 0 ? product.images : ["https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=800&fit=crop"];
 
   return (
     <div className="space-y-8">
@@ -297,7 +297,11 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               </p>
             )}
 
-            {deliveryError ? <p className="text-xs text-destructive">{deliveryError}</p> : null}
+            {deliveryError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {deliveryError}
+              </div>
+            ) : null}
           </article>
 
           <div className="grid gap-2 sm:grid-cols-2">
@@ -330,9 +334,18 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           <h2 className="text-lg font-semibold">Yard Calculator</h2>
           <p className="text-sm text-muted-foreground">Length × Width × Depth(in) ÷ 27 = cubic yards.</p>
           <div className="grid gap-2 sm:grid-cols-3">
-            <Input value={yardLength} onChange={(event) => setYardLength(event.target.value)} inputMode="decimal" />
-            <Input value={yardWidth} onChange={(event) => setYardWidth(event.target.value)} inputMode="decimal" />
-            <Input value={yardDepth} onChange={(event) => setYardDepth(event.target.value)} inputMode="decimal" />
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Length (ft)</label>
+              <Input value={yardLength} onChange={(event) => setYardLength(event.target.value)} inputMode="decimal" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Width (ft)</label>
+              <Input value={yardWidth} onChange={(event) => setYardWidth(event.target.value)} inputMode="decimal" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Depth (in)</label>
+              <Input value={yardDepth} onChange={(event) => setYardDepth(event.target.value)} inputMode="decimal" />
+            </div>
           </div>
           <p className="text-sm font-semibold text-primary">{yardsEstimate.toFixed(2)} cubic yards</p>
           <Button
@@ -352,7 +365,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               product.recommendedUses.map((useCase) => (
                 <span
                   key={useCase}
-                  className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs text-primary"
+                  className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs text-accent"
                 >
                   {useCase}
                 </span>
@@ -372,7 +385,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               <article key={related.id} className="rounded-2xl border bg-card p-4">
                 <Link href={`/shop/${related.slug}`} className="block">
                   <Image
-                    src={related.images[0] ?? "https://via.placeholder.com/800x500?text=Product"}
+                    src={related.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"}
                     alt={related.name}
                     className="h-36 w-full rounded-lg object-cover"
                     width={800}

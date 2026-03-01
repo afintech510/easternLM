@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { JsonLd } from "@/components/seo/json-ld";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 
@@ -86,6 +88,27 @@ type ServiceDetailPageProps = {
   params: Promise<{ slug: string }>;
 };
 
+export async function generateMetadata({ params }: ServiceDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const content = serviceContent[slug];
+
+  if (!content) {
+    return {
+      title: "Service",
+    };
+  }
+
+  return {
+    title: `${content.title} | Eastern Landscape & Mason Supply`,
+    description: content.subtitle,
+    openGraph: {
+      title: content.title,
+      description: content.subtitle,
+      type: "website",
+    },
+  };
+}
+
 export default async function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   const { slug } = await params;
   const content = serviceContent[slug];
@@ -96,6 +119,34 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-12 md:py-16">
+      <JsonLd
+        data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            name: content.title,
+            description: content.subtitle,
+            areaServed: "Suffolk County, NY",
+            provider: {
+              "@type": "LocalBusiness",
+              name: "Eastern Landscape & Mason Supply",
+            },
+            serviceType: slug,
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: content.faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.answer,
+              },
+            })),
+          },
+        ]}
+      />
       <section className="space-y-4 rounded-2xl border bg-card p-6 md:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Service</p>
         <h1 className="[font-family:var(--font-display)] text-4xl text-primary md:text-5xl">{content.title}</h1>

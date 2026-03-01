@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bree_Serif, Public_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import "./globals.css";
@@ -15,10 +16,41 @@ const breeSerif = Bree_Serif({
   subsets: ["latin"],
 });
 
+function resolveMetadataBase() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (!raw) {
+    return new URL("http://localhost:3000");
+  }
+
+  try {
+    return new URL(raw);
+  } catch {
+    try {
+      return new URL(`https://${raw}`);
+    } catch {
+      return new URL("http://localhost:3000");
+    }
+  }
+}
+
 export const metadata: Metadata = {
   title: "Eastern Landscape & Mason Supply",
   description:
     "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
+  metadataBase: resolveMetadataBase(),
+  openGraph: {
+    title: "Eastern Landscape & Mason Supply",
+    description:
+      "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
+    type: "website",
+    siteName: "Eastern Landscape & Mason Supply",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Eastern Landscape & Mason Supply",
+    description:
+      "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
+  },
 };
 
 export default function RootLayout({
@@ -34,6 +66,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+        <Analytics />
       </body>
     </html>
   );
