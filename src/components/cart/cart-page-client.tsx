@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { useCartStore } from "@/stores/cartStore";
 
 function formatUsd(cents: number) {
@@ -49,7 +50,6 @@ export function CartPageClient() {
   const loadDeliveryConfig = useCartStore((state) => state.loadDeliveryConfig);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
-  const [zipInput, setZipInput] = useState(deliveryAddress?.zip ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
 
@@ -191,10 +191,15 @@ export function CartPageClient() {
           {deliveryMethod === "delivery" ? (
             <div className="space-y-2">
               <label className="text-sm font-semibold">Delivery address</label>
-              <Input value={addressInput} onChange={(event) => setAddressInput(event.target.value)} />
-              <label className="text-sm font-semibold">ZIP code</label>
-              <Input value={zipInput} onChange={(event) => setZipInput(event.target.value)} />
-              <Button onClick={() => setDeliveryAddress({ fullAddress: addressInput, zip: zipInput })}>
+              <AddressAutocomplete
+                value={addressInput}
+                onChange={setAddressInput}
+                placeholder="Start typing an address…"
+              />
+              <Button onClick={() => {
+                const zip = addressInput.match(/\b(\d{5})\b/)?.[1] ?? "";
+                setDeliveryAddress({ fullAddress: addressInput, zip });
+              }}>
                 Validate Address
               </Button>
               <label className="block text-sm font-semibold">Requested delivery date</label>

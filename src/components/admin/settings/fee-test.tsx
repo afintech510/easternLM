@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,11 +60,10 @@ export function FeeTest() {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Customer Address</Label>
-          <Input
+          <AddressAutocomplete
             placeholder="123 Main St, Patchogue, NY"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && calculate()}
+            onChange={setAddress}
           />
         </div>
         <Button onClick={calculate} disabled={loading} className="w-full">
