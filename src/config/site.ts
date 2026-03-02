@@ -10,8 +10,8 @@ export const siteConfig = {
   phoneDisplay: "(631) 874-6244",
   phoneHref: "tel:+16318746244",
   email: "sales@easternlm.com",
-  addressLine1: "543 Montauk Highway",
-  addressLine2: "East Moriches, NY 11940",
+  addressLine1: "110 Frowein Road",
+  addressLine2: "Center Moriches, NY 11934",
   hours: [
     "Mon-Fri: 7:00 AM - 5:00 PM",
     "Saturday: 7:00 AM - 3:00 PM",

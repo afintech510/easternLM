@@ -112,7 +112,7 @@ export function CheckoutPageClient() {
               <Input type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} />
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Pickup at yard: 543 Montauk Hwy, East Moriches, NY 11940.</p>
+            <p className="text-sm text-muted-foreground">Pickup at yard: 110 Frowein Road, Center Moriches, NY 11934.</p>
           )}
         </article>
 

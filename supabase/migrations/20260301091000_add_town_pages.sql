@@ -16,7 +16,7 @@ create table if not exists public.town_pages (
   testimonial_quote text,
   testimonial_author text,
   faqs jsonb not null default '[]'::jsonb,
-  route_origin text not null default '543 Montauk Hwy, East Moriches, NY 11940',
+  route_origin text not null default '110 Frowein Road, Center Moriches, NY 11934',
   route_destination text not null,
   is_active boolean not null default true,
   sort_order integer not null default 100,

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { calculateDeliveryFees, type DeliveryPricingConfig, type TruckType } from "@/lib/delivery";
 import type { ShopProduct } from "@/lib/data/catalog";
 import { useCartStore } from "@/stores/cartStore";
@@ -235,10 +236,10 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
             {deliveryMethod === "delivery" ? (
               <div className="space-y-2">
-                <Input
+                <AddressAutocomplete
                   placeholder="Enter full delivery address"
                   value={address}
-                  onChange={(event) => setAddress(event.target.value)}
+                  onChange={setAddress}
                 />
                 <Button
                   disabled={isCheckingDelivery || address.trim().length < 8}
@@ -293,7 +294,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Pickup at 543 Montauk Hwy, East Moriches, NY 11940 during yard hours.
+                Pickup at 110 Frowein Road, Center Moriches, NY 11934 during yard hours.
               </p>
             )}
 

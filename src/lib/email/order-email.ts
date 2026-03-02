@@ -11,7 +11,7 @@ type DeliveryScheduleEntry = {
   feeCents?: number;
 };
 
-const YARD_ADDRESS = "543 Montauk Hwy, East Moriches, NY 11940";
+const YARD_ADDRESS = "110 Frowein Road, Center Moriches, NY 11934";
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {

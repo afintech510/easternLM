@@ -53,7 +53,7 @@ insert into public.site_settings (
 )
 values (
   1,
-  '543 Montauk Hwy, East Moriches, NY 11940',
+  '110 Frowein Road, Center Moriches, NY 11934',
   6.00,
   4.00,
   30.00,

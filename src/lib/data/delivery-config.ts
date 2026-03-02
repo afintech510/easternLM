@@ -54,7 +54,7 @@ export async function getDeliveryRuntimeConfig() {
 
   const originAddress =
     settingsResult.error || !settingsResult.data?.origin_address
-      ? "543 Montauk Hwy, East Moriches, NY 11940"
+      ? "110 Frowein Road, Center Moriches, NY 11934"
       : settingsResult.data.origin_address;
 
   return {
