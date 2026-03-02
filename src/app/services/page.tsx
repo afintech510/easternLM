@@ -1,29 +1,174 @@
 import Link from "next/link";
+import {
+  ArrowRight,
+  ClipboardCheck,
+  FileText,
+  HardHat,
+  Phone,
+} from "lucide-react";
 import { coreServices } from "@/config/content";
+import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
+
+const serviceIcons: Record<string, React.ReactNode> = {
+  landscaping: <span className="text-2xl">🌿</span>,
+  masonry: <span className="text-2xl">🧱</span>,
+  driveways: <span className="text-2xl">🛤️</span>,
+  "property-maintenance": <span className="text-2xl">🏡</span>,
+};
+
+const processSteps = [
+  {
+    number: "1",
+    title: "Free Consultation",
+    description:
+      "We visit your property to discuss your vision, assess site conditions, and understand your goals.",
+    icon: <ClipboardCheck className="size-5" />,
+  },
+  {
+    number: "2",
+    title: "Custom Proposal",
+    description:
+      "You receive a detailed scope, timeline, and transparent pricing — no surprises.",
+    icon: <FileText className="size-5" />,
+  },
+  {
+    number: "3",
+    title: "Expert Execution",
+    description:
+      "Our experienced crew delivers quality craftsmanship with materials sourced from our own yard.",
+    icon: <HardHat className="size-5" />,
+  },
+];
 
 export default function ServicesPage() {
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-12 md:py-16">
-      <section className="space-y-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Services
-        </p>
-        <h1 className="[font-family:var(--font-display)] text-4xl text-primary md:text-5xl">
-          Local Outdoor Service Teams Backed By Yard Supply
-        </h1>
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-primary">
+        <div className="topo-pattern absolute inset-0" />
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            Our Services
+          </p>
+          <h1 className="mt-3 max-w-3xl [font-family:var(--font-display)] text-3xl leading-tight text-primary-foreground md:text-5xl">
+            Expert Landscape & Masonry Services
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-primary-foreground/60 md:text-lg">
+            From design to installation — transforming Suffolk County properties
+            with materials sourced directly from our yard.
+          </p>
+          <Button
+            asChild
+            size="lg"
+            className="mt-8 bg-accent text-accent-foreground shadow-lg shadow-accent/25 hover:bg-accent/90"
+          >
+            <Link href="/contact">
+              Get a Free Estimate
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        {coreServices.map((service) => (
-          <article key={service.slug} className="rounded-2xl border bg-card p-6">
-            <h2 className="text-xl font-semibold">{service.name}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{service.description}</p>
-            <Button asChild className="mt-4">
-              <Link href={`/services/${service.slug}`}>Learn More</Link>
+      {/* Services Grid */}
+      <section className="bg-background py-16 md:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            What We Do
+          </p>
+          <h2 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
+            Comprehensive Outdoor Solutions
+          </h2>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {coreServices.map((service) => (
+              <Link
+                key={service.slug}
+                href={`/services/${service.slug}`}
+                className="group rounded-2xl border bg-card p-8 transition-all hover:border-accent/30 hover:shadow-lg"
+              >
+                <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-accent/10">
+                  {serviceIcons[service.slug]}
+                </div>
+                <h3 className="text-xl font-semibold text-foreground group-hover:text-accent">
+                  {service.name}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {service.description}
+                </p>
+                <p className="mt-4 flex items-center gap-1.5 text-sm font-medium text-accent">
+                  Learn More <ArrowRight className="size-3.5" />
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="bg-warm-bg py-16 md:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-12 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+              Our Process
+            </p>
+            <h2 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
+              How It Works
+            </h2>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {processSteps.map((step) => (
+              <div key={step.number} className="text-center">
+                <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-full bg-accent text-xl font-bold text-accent-foreground">
+                  {step.number}
+                </div>
+                <h3 className="text-lg font-semibold">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="relative overflow-hidden bg-primary py-16 md:py-20">
+        <div className="topo-pattern absolute inset-0" />
+        <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6">
+          <h2 className="[font-family:var(--font-display)] text-3xl text-primary-foreground md:text-4xl">
+            Ready to Transform Your Property?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-primary-foreground/60">
+            Schedule a free on-site consultation. We&apos;ll walk your property, discuss
+            your vision, and deliver a detailed proposal.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Button
+              asChild
+              size="lg"
+              className="bg-accent text-accent-foreground shadow-lg shadow-accent/25 hover:bg-accent/90"
+            >
+              <Link href="/contact">
+                Schedule Your Free Estimate
+                <ArrowRight className="size-4" />
+              </Link>
             </Button>
-          </article>
-        ))}
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            >
+              <a href={siteConfig.phoneHref}>
+                <Phone className="size-4" />
+                {siteConfig.phoneDisplay}
+              </a>
+            </Button>
+          </div>
+        </div>
       </section>
     </div>
   );

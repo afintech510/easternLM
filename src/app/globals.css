@@ -46,37 +46,39 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --color-warm-bg: var(--warm-bg);
 }
 
 :root {
-  --radius: 0.625rem;
-  /* Dark navy/charcoal primary with vivid green accent */
-  --background: oklch(0.975 0.003 260);
-  --foreground: oklch(0.16 0.02 260);
+  --radius: 0.75rem;
+  /* Premium dark navy + vivid green brand palette */
+  --background: oklch(0.985 0.002 80);
+  --foreground: oklch(0.15 0.03 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.02 260);
+  --card-foreground: oklch(0.15 0.03 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.02 260);
-  --primary: oklch(0.28 0.04 260);
+  --popover-foreground: oklch(0.15 0.03 260);
+  --primary: oklch(0.24 0.05 260);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.94 0.006 260);
-  --secondary-foreground: oklch(0.25 0.03 260);
-  --muted: oklch(0.955 0.005 260);
-  --muted-foreground: oklch(0.46 0.02 260);
-  --accent: oklch(0.60 0.17 148);
+  --secondary: oklch(0.955 0.008 80);
+  --secondary-foreground: oklch(0.22 0.04 260);
+  --muted: oklch(0.96 0.004 80);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --accent: oklch(0.64 0.19 152);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.89 0.008 260);
-  --input: oklch(0.91 0.008 260);
-  --ring: oklch(0.60 0.17 148);
-  --chart-1: oklch(0.60 0.17 148);
+  --border: oklch(0.91 0.006 80);
+  --input: oklch(0.92 0.006 80);
+  --ring: oklch(0.64 0.19 152);
+  --warm-bg: oklch(0.97 0.006 80);
+  --chart-1: oklch(0.64 0.19 152);
   --chart-2: oklch(0.55 0.14 200);
-  --chart-3: oklch(0.40 0.06 260);
+  --chart-3: oklch(0.35 0.06 260);
   --chart-4: oklch(0.75 0.15 80);
   --chart-5: oklch(0.65 0.20 30);
   --sidebar: oklch(0.98 0 0);
   --sidebar-foreground: oklch(0.16 0 0);
-  --sidebar-primary: oklch(0.28 0.04 260);
+  --sidebar-primary: oklch(0.24 0.05 260);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.96 0 0);
   --sidebar-accent-foreground: oklch(0.20 0 0);
@@ -103,6 +105,7 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.65 0.17 148);
+  --warm-bg: oklch(0.18 0.015 260);
   --chart-1: oklch(0.65 0.17 148);
   --chart-2: oklch(0.60 0.14 200);
   --chart-3: oklch(0.75 0.15 80);
@@ -125,4 +128,9 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+}
+
+/* Topographic contour pattern for CTA banners */
+.topo-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M30 80 Q60 40 100 60 T170 50' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.07'/%3E%3Cpath d='M20 120 Q70 80 120 100 T180 90' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.05'/%3E%3Cpath d='M10 160 Q50 130 100 145 T190 135' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.07'/%3E%3Cpath d='M25 30 Q80 10 130 25 T185 20' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3Cpath d='M15 190 Q65 170 115 180 T175 175' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.06'/%3E%3C/svg%3E");
 }

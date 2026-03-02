@@ -11,30 +11,34 @@ export function CartActions() {
   const cartItemCount = useCartItemCount();
 
   return (
-    <div className="hidden items-center gap-3 md:flex">
+    <div className="hidden items-center gap-2 lg:flex">
       <Button
         asChild
-        variant="outline"
-        className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+        variant="ghost"
+        size="sm"
+        className="text-foreground/70 hover:text-foreground"
       >
         <a href={siteConfig.phoneHref}>
           <Phone className="size-4" />
-          Call Now
+          <span className="hidden xl:inline">Call</span>
         </a>
       </Button>
       <Button
         asChild
+        size="sm"
         className="relative bg-accent text-accent-foreground hover:bg-accent/90"
       >
         <Link href="/cart">
           <ShoppingCart className="size-4" />
           Cart
-          <Badge
-            className="ml-1 h-5 min-w-5 justify-center rounded-full bg-primary-foreground px-1.5 text-[11px] text-primary"
-            variant="secondary"
-          >
-            {Math.round(cartItemCount)}
-          </Badge>
+          {cartItemCount > 0 && (
+            <Badge
+              className="ml-1 h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground"
+              variant="secondary"
+            >
+              {Math.round(cartItemCount)}
+            </Badge>
+          )}
         </Link>
       </Button>
     </div>

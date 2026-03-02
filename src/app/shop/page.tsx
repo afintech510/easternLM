@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight, SlidersHorizontal } from "lucide-react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
@@ -27,10 +28,7 @@ export const metadata: Metadata = {
 
 function resolveBaseUrl() {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!raw) {
-    return "http://localhost:3000";
-  }
-
+  if (!raw) return "http://localhost:3000";
   try {
     return new URL(raw).origin;
   } catch {
@@ -54,18 +52,13 @@ function resolveSortOption(value?: string): ShopSortOption {
   if (value === "price-asc" || value === "price-desc" || value === "name-asc") {
     return value;
   }
-
   return "popular";
 }
 
 function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption) {
   const params = new URLSearchParams();
-  if (categorySlug) {
-    params.set("category", categorySlug);
-  }
-  if (sort !== "popular") {
-    params.set("sort", sort);
-  }
+  if (categorySlug) params.set("category", categorySlug);
+  if (sort !== "popular") params.set("sort", sort);
   const query = params.toString();
   return query ? `/shop?${query}` : "/shop";
 }
@@ -83,7 +76,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     sort: selectedSort,
   });
 
-  const selectedCategoryLabel = catalog.categories.find((category) => category.slug === selectedCategory)?.name;
+  const selectedCategoryLabel = catalog.categories.find(
+    (category) => category.slug === selectedCategory,
+  )?.name;
+
   const sortedLabel =
     selectedSort === "price-asc"
       ? "Price: Low to High"
@@ -101,7 +97,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-12 md:py-16">
+    <div>
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -114,132 +110,187 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           })),
         }}
       />
-      <section className="space-y-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shop</p>
-        <h1 className="[font-family:var(--font-display)] text-4xl text-primary md:text-5xl">
-          Browse Materials By Category
-        </h1>
-        <p className="max-w-3xl text-muted-foreground">
-          {selectedCategoryLabel ? `Filtered by ${selectedCategoryLabel}.` : "Showing all categories."}
-        </p>
-        {deliveryZip ? (
-          <p className="max-w-3xl rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-sm text-primary">
-            Delivery ZIP preset: <span className="font-semibold">{deliveryZip}</span>
-            {deliveryTown ? ` for ${deliveryTown.replaceAll("-", " ")}` : ""}. Add this ZIP in cart delivery
-            address to calculate route-based fees.
+
+      {/* Hero banner */}
+      <section className="bg-primary">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            Shop
           </p>
-        ) : null}
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="space-y-5">
-          <article className="rounded-2xl border bg-card p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Categories
-            </h2>
-            <div className="mt-3 space-y-2">
-              <Link
-                href={buildShopHref(undefined, selectedSort)}
-                className={`block rounded-lg px-3 py-2 text-sm ${
-                  !selectedCategory ? "bg-accent text-accent-foreground" : "hover:bg-background"
-                }`}
-              >
-                All Materials
-              </Link>
-              {catalog.categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={buildShopHref(category.slug, selectedSort)}
-                  className={`block rounded-lg px-3 py-2 text-sm ${
-                    selectedCategory === category.slug ? "bg-accent text-accent-foreground" : "hover:bg-background"
-                  }`}
-                >
-                  {category.name}
-                </Link>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border bg-card p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Sort</h2>
-            <div className="mt-3 space-y-2">
-              {sortOptions.map((option) => (
-                <Link
-                  key={option.value}
-                  href={buildShopHref(selectedCategory, option.value)}
-                  className={`block rounded-lg px-3 py-2 text-sm ${
-                    selectedSort === option.value ? "bg-accent text-accent-foreground" : "hover:bg-background"
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              ))}
-            </div>
-          </article>
-        </aside>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 text-sm">
-            <p>{catalog.products.length} products</p>
-            <p className="text-muted-foreground">Sort: {sortedLabel}</p>
-          </div>
-
-          {catalog.products.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {catalog.products.map((product) => (
-                <article key={product.id} className="rounded-2xl border bg-card p-4 transition hover:shadow-lg hover:border-accent/30">
-                  <Link href={`/shop/${product.slug}`} className="block overflow-hidden rounded-lg">
-                    <Image
-                      src={product.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"}
-                      alt={product.name}
-                      className="h-48 w-full rounded-lg object-cover transition-transform hover:scale-105"
-                      width={800}
-                      height={500}
-                    />
-                  </Link>
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {product.categoryName}
-                  </p>
-                  <Link href={`/shop/${product.slug}`} className="mt-1 block text-base font-semibold hover:text-accent">
-                    {product.name}
-                  </Link>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
-                  <p className="mt-3 text-sm font-semibold text-accent">
-                    {formatUsd(product.pricePerUnitCents)} {product.unitDisplay}
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/shop/${product.slug}`}>View Details</Link>
-                    </Button>
-                    <AddToCartButton
-                      productId={product.id}
-                      name={product.name}
-                      unitPriceCents={product.pricePerUnitCents}
-                      deliveryType={product.deliveryType}
-                      materialClass={product.materialClass}
-                    />
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <article className="rounded-2xl border bg-card p-6">
-              <p className="text-sm text-muted-foreground">
-                No products found for this filter. Try another category or sort option.
-              </p>
-            </article>
-          )}
-
-          <article className="rounded-2xl border bg-card p-4">
-            <p className="text-sm text-muted-foreground">
-              Need a custom quote for bulk delivery, pickup scheduling, or contractor orders?
+          <h1 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary-foreground md:text-5xl">
+            Browse Materials
+          </h1>
+          <p className="mt-3 max-w-2xl text-base text-primary-foreground/60">
+            {selectedCategoryLabel
+              ? `Showing ${selectedCategoryLabel} products.`
+              : "Bulk landscape materials, natural stone, masonry supplies, and more."}
+          </p>
+          {deliveryZip && (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-foreground/10 px-4 py-2.5 text-sm text-primary-foreground/80">
+              Delivery ZIP: <span className="font-semibold text-accent">{deliveryZip}</span>
+              {deliveryTown ? ` for ${deliveryTown.replaceAll("-", " ")}` : ""}
             </p>
-            <Button asChild className="mt-3">
-              <Link href="/contact">Request quote</Link>
-            </Button>
-          </article>
+          )}
         </div>
       </section>
+
+      {/* Main content */}
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14">
+        <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+          {/* Sidebar */}
+          <aside className="space-y-6">
+            <div className="rounded-2xl border bg-card p-5">
+              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <SlidersHorizontal className="size-3.5" />
+                Categories
+              </h2>
+              <div className="mt-4 space-y-1">
+                <Link
+                  href={buildShopHref(undefined, selectedSort)}
+                  className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    !selectedCategory
+                      ? "bg-accent text-accent-foreground"
+                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  All Materials
+                </Link>
+                {catalog.categories.map((category) => (
+                  <Link
+                    key={category.id}
+                    href={buildShopHref(category.slug, selectedSort)}
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      selectedCategory === category.slug
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {category.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border bg-card p-5">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Sort By
+              </h2>
+              <div className="mt-4 space-y-1">
+                {sortOptions.map((option) => (
+                  <Link
+                    key={option.value}
+                    href={buildShopHref(selectedCategory, option.value)}
+                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      selectedSort === option.value
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* Product grid */}
+          <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between rounded-2xl border bg-card px-5 py-3.5">
+              <p className="text-sm font-medium">
+                {catalog.products.length} product{catalog.products.length !== 1 ? "s" : ""}
+              </p>
+              <p className="text-sm text-muted-foreground">Sort: {sortedLabel}</p>
+            </div>
+
+            {catalog.products.length > 0 ? (
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {catalog.products.map((product) => (
+                  <article
+                    key={product.id}
+                    className="group overflow-hidden rounded-2xl border bg-card transition-all hover:border-accent/30 hover:shadow-lg"
+                  >
+                    <Link
+                      href={`/shop/${product.slug}`}
+                      className="block overflow-hidden"
+                    >
+                      <Image
+                        src={
+                          product.images[0] ??
+                          "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"
+                        }
+                        alt={product.name}
+                        className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        width={800}
+                        height={500}
+                      />
+                    </Link>
+                    <div className="p-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        {product.categoryName}
+                      </p>
+                      <Link
+                        href={`/shop/${product.slug}`}
+                        className="mt-1.5 block text-base font-semibold transition-colors hover:text-accent"
+                      >
+                        {product.name}
+                      </Link>
+                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        {product.description}
+                      </p>
+                      <p className="mt-4 text-lg font-bold text-accent">
+                        {formatUsd(product.pricePerUnitCents)}{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {product.unitDisplay}
+                        </span>
+                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/shop/${product.slug}`}>View Details</Link>
+                        </Button>
+                        <AddToCartButton
+                          productId={product.id}
+                          name={product.name}
+                          unitPriceCents={product.pricePerUnitCents}
+                          deliveryType={product.deliveryType}
+                          materialClass={product.materialClass}
+                        />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border bg-card p-8 text-center">
+                <p className="text-muted-foreground">
+                  No products found for this filter.
+                </p>
+                <Button asChild variant="outline" className="mt-4">
+                  <Link href="/shop">Clear filters</Link>
+                </Button>
+              </div>
+            )}
+
+            {/* Quote CTA */}
+            <div className="rounded-2xl border-2 border-accent/20 bg-accent/5 p-6 md:flex md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold text-foreground">
+                  Need a custom quote for large orders?
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Contractor pricing, bulk delivery scheduling, and volume discounts available.
+                </p>
+              </div>
+              <Button asChild className="mt-4 bg-accent text-accent-foreground hover:bg-accent/90 md:mt-0">
+                <Link href="/contact">
+                  Contact Us
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

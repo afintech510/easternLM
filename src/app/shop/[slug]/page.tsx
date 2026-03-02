@@ -52,7 +52,7 @@ export default async function ShopProductPage({ params }: ShopProductPageProps) 
   const relatedTowns = await getTownsForProductSlug(bundle.product.slug, 6);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-12 md:py-16">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-12 sm:px-6 md:py-16">
       <JsonLd
         data={{
           "@context": "https://schema.org",

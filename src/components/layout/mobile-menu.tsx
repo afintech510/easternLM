@@ -27,8 +27,8 @@ export function MobileMenu() {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          variant="outline"
-          className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+          variant="ghost"
+          className="text-foreground/70 hover:bg-muted hover:text-foreground"
         >
           <Menu className="size-5" />
           <span className="sr-only">Open navigation menu</span>
@@ -36,18 +36,18 @@ export function MobileMenu() {
       </SheetTrigger>
       <SheetContent side="right" className="w-80">
         <SheetHeader className="text-left">
-          <SheetTitle className="[font-family:var(--font-display)] text-primary">
-            Eastern Landscape
+          <SheetTitle className="[font-family:var(--font-display)] text-xl text-primary">
+            Eastern LM
           </SheetTitle>
-          <SheetDescription>Supplies, services, and delivery support.</SheetDescription>
+          <SheetDescription>Landscape & Mason Supply</SheetDescription>
         </SheetHeader>
-        <div className="mt-6 flex flex-col gap-2">
+        <div className="mt-6 flex flex-col gap-1">
           {siteConfig.navLinks.map((link) => (
             <Button
               key={link.href}
               asChild
               variant="ghost"
-              className="justify-start text-base"
+              className="justify-start text-base font-medium"
               onClick={closeMenu}
             >
               <Link href={link.href}>{link.label}</Link>
@@ -55,16 +55,18 @@ export function MobileMenu() {
           ))}
         </div>
         <div className="mt-8 space-y-3">
-          <Button asChild className="w-full" onClick={closeMenu}>
+          <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={closeMenu}>
             <Link href="/cart">
               <ShoppingCart className="size-4" />
               View Cart
-              <Badge
-                className="ml-1 h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
-                variant="secondary"
-              >
-                {Math.round(cartItemCount)}
-              </Badge>
+              {cartItemCount > 0 && (
+                <Badge
+                  className="ml-1 h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground"
+                  variant="secondary"
+                >
+                  {Math.round(cartItemCount)}
+                </Badge>
+              )}
             </Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
