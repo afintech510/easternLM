@@ -7,24 +7,30 @@ export async function middleware(request: NextRequest) {
   // Refresh the session on every request
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
 
   // Only protect /admin routes (except /admin/login)
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    console.log(`[middleware] ${pathname} | user=${user?.id ?? "none"} | userError=${userError?.message ?? "none"}`);
+
     if (!user) {
+      console.log(`[middleware] No user, redirecting to /admin/login`);
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/admin/login";
       return NextResponse.redirect(loginUrl);
     }
 
     // Check admin role
-    const { data: account } = await supabase
+    const { data: account, error: accountError } = await supabase
       .from("accounts")
       .select("role")
       .eq("id", user.id)
       .single();
+
+    console.log(`[middleware] account=${JSON.stringify(account)} | accountError=${accountError?.message ?? "none"}`);
 
     if (!account || account.role !== "admin") {
       const unauthorizedUrl = request.nextUrl.clone();
