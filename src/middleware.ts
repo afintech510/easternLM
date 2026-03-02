@@ -12,8 +12,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes (except /admin/login)
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  // Only protect /admin routes (except login page and login API)
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login" && pathname !== "/api/admin/login") {
     console.log(`[middleware] ${pathname} | user=${user?.id ?? "none"} | userError=${userError?.message ?? "none"}`);
 
     if (!user) {
