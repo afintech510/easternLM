@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,20 +16,25 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
 
-    const supabase = getSupabaseBrowserClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      // Hard redirect so the middleware picks up the new session cookies
+      window.location.href = "/admin";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setLoading(false);
-      return;
     }
-
-    router.push("/admin");
-    router.refresh();
   }
 
   return (
