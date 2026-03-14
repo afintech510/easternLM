@@ -1,70 +1,64 @@
 "use client";
 
 import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const SERVICE_OPTIONS = [
-  { group: "Driveways", options: [
-    { value: "gravel-driveway-new", label: "Gravel driveway — new installation" },
-    { value: "gravel-driveway-resurface", label: "Gravel driveway — resurfacing / top-off" },
-    { value: "paver-driveway", label: "Paver driveway installation" },
-    { value: "driveway-edging", label: "Driveway edging (belgian block, metal, or timber)" },
-    { value: "asphalt-prep", label: "Asphalt prep / grading" },
-  ]},
-  { group: "Landscaping", options: [
-    { value: "landscaping-design", label: "Design & installation" },
-    { value: "landscaping-grading-drainage", label: "Grading & drainage" },
-    { value: "landscaping-sod-lawn", label: "Sod / lawn installation" },
-    { value: "landscaping-retaining-wall", label: "Retaining wall" },
-    { value: "landscaping-garden-beds", label: "Garden beds" },
-  ]},
-  { group: "Masonry", options: [
-    { value: "masonry-patio", label: "Patio" },
-    { value: "masonry-walkway", label: "Walkway" },
-    { value: "masonry-retaining-wall", label: "Retaining wall" },
-    { value: "masonry-fireplace", label: "Fireplace / outdoor kitchen" },
-    { value: "masonry-veneer-steps", label: "Stone veneer / steps" },
-  ]},
-  { group: "Other", options: [
-    { value: "property-maintenance", label: "Property maintenance" },
-    { value: "other", label: "Other (describe below)" },
-  ]},
+// ─── Service type definitions ──────────────────────────────────────
+
+type ServiceOption = { value: string; label: string; icon: string };
+
+const DRIVEWAY_SERVICES: ServiceOption[] = [
+  { value: "gravel-driveway-new", label: "New gravel driveway", icon: "🛤️" },
+  { value: "gravel-driveway-resurface", label: "Resurface / top-off", icon: "🔄" },
+  { value: "paver-driveway", label: "Paver driveway", icon: "🧱" },
+  { value: "driveway-edging", label: "Edging (block, metal, timber)", icon: "📐" },
+  { value: "asphalt-prep", label: "Asphalt prep / grading", icon: "🚜" },
 ];
+
+const LANDSCAPING_SERVICES: ServiceOption[] = [
+  { value: "landscaping-design", label: "Design & installation", icon: "🌿" },
+  { value: "landscaping-grading-drainage", label: "Grading & drainage", icon: "💧" },
+  { value: "landscaping-sod-lawn", label: "Sod / lawn installation", icon: "🌱" },
+  { value: "landscaping-retaining-wall", label: "Retaining wall", icon: "🧱" },
+  { value: "landscaping-garden-beds", label: "Garden beds", icon: "🌺" },
+];
+
+const MASONRY_SERVICES: ServiceOption[] = [
+  { value: "masonry-patio", label: "Patio", icon: "🏗️" },
+  { value: "masonry-walkway", label: "Walkway", icon: "🚶" },
+  { value: "masonry-retaining-wall", label: "Retaining wall", icon: "🧱" },
+  { value: "masonry-fireplace", label: "Fireplace / outdoor kitchen", icon: "🔥" },
+  { value: "masonry-veneer-steps", label: "Stone veneer / steps", icon: "🪨" },
+];
+
+const OTHER_SERVICES: ServiceOption[] = [
+  { value: "property-maintenance", label: "Property maintenance", icon: "🏡" },
+  { value: "other", label: "Something else", icon: "💬" },
+];
+
+const ALL_SERVICES = [...DRIVEWAY_SERVICES, ...LANDSCAPING_SERVICES, ...MASONRY_SERVICES, ...OTHER_SERVICES];
+
+function getServicesForCategory(category?: string): ServiceOption[] {
+  switch (category) {
+    case "driveways": return [...DRIVEWAY_SERVICES, ...OTHER_SERVICES];
+    case "landscaping": return [...LANDSCAPING_SERVICES, ...OTHER_SERVICES];
+    case "masonry": return [...MASONRY_SERVICES, ...OTHER_SERVICES];
+    case "maintenance": return OTHER_SERVICES;
+    default: return ALL_SERVICES;
+  }
+}
 
 const TIMELINE_OPTIONS = [
-  { value: "asap", label: "ASAP / this week" },
-  { value: "within-2-weeks", label: "Within 2 weeks" },
-  { value: "within-a-month", label: "Within a month" },
-  { value: "just-planning", label: "Just getting quotes / planning" },
+  { value: "asap", label: "ASAP / this week", icon: "⚡" },
+  { value: "within-2-weeks", label: "Within 2 weeks", icon: "📅" },
+  { value: "within-a-month", label: "Within a month", icon: "🗓️" },
+  { value: "just-planning", label: "Just getting quotes", icon: "💭" },
 ];
 
-const REFERRAL_OPTIONS = [
-  { value: "google", label: "Google search" },
-  { value: "drove-past", label: "Drove past the yard" },
-  { value: "neighbor-friend", label: "Neighbor / friend referral" },
-  { value: "contractor-referral", label: "Contractor referral" },
-  { value: "facebook", label: "Facebook" },
-  { value: "other", label: "Other" },
-];
-
-const quoteFormSchema = z.object({
-  name: z.string().min(2, "Please enter your name."),
-  phone: z.string().min(10, "Enter a valid 10-digit phone number.").max(20),
-  email: z.string().email("Enter a valid email.").or(z.literal("")),
-  address: z.string().min(3, "Enter your address or town."),
-  serviceType: z.string().min(1, "Select a service type."),
-  description: z.string().optional(),
-  timeline: z.string().optional(),
-  referralSource: z.string().optional(),
-});
-
-type QuoteFormValues = z.infer<typeof quoteFormSchema>;
+// ─── Component ─────────────────────────────────────────────────────
 
 type ServiceQuoteFormProps = {
   defaultServiceType?: string;
@@ -72,184 +66,262 @@ type ServiceQuoteFormProps = {
 };
 
 export function ServiceQuoteForm({ defaultServiceType, serviceCategory }: ServiceQuoteFormProps) {
+  const [step, setStep] = useState(defaultServiceType ? 2 : 1);
+  const [serviceType, setServiceType] = useState(defaultServiceType || "");
+  const [description, setDescription] = useState("");
+  const [timeline, setTimeline] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [referralSource, setReferralSource] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<QuoteFormValues>({
-    resolver: zodResolver(quoteFormSchema),
-    defaultValues: {
-      name: "",
-      phone: "",
-      email: "",
-      address: "",
-      serviceType: defaultServiceType || "",
-      description: "",
-      timeline: "",
-      referralSource: "",
-    },
-  });
+  const services = getServicesForCategory(serviceCategory);
+  const selectedLabel = ALL_SERVICES.find((s) => s.value === serviceType)?.label || serviceType;
 
-  // Filter service options based on category
-  const filteredOptions = serviceCategory
-    ? SERVICE_OPTIONS.filter((g) => {
-        if (serviceCategory === "driveways") return g.group === "Driveways" || g.group === "Other";
-        if (serviceCategory === "landscaping") return g.group === "Landscaping" || g.group === "Other";
-        if (serviceCategory === "masonry") return g.group === "Masonry" || g.group === "Other";
-        if (serviceCategory === "maintenance") return g.group === "Other";
-        return true;
-      })
-    : SERVICE_OPTIONS;
+  async function handleSubmit() {
+    const digits = phone.replace(/\D/g, "");
+    if (!name.trim() || name.trim().length < 2) { setSubmitError("Please enter your name."); return; }
+    if (digits.length !== 10) { setSubmitError("Phone must be 10 digits."); return; }
+    if (!address.trim() || address.trim().length < 3) { setSubmitError("Enter your address or town."); return; }
+    if (!serviceType) { setSubmitError("Select a service type."); return; }
 
-  const onSubmit = async (values: QuoteFormValues) => {
+    setSubmitting(true);
     setSubmitError(null);
 
-    // Extract town from address if possible
-    const town = values.address.split(",").length > 1
-      ? values.address.split(",").slice(-2, -1)[0]?.trim() || null
+    const town = address.split(",").length > 1
+      ? address.split(",").slice(-2, -1)[0]?.trim() || null
       : null;
 
     try {
-      const response = await fetch("/api/leads", {
+      const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...values,
-          phone: values.phone.replace(/\D/g, ""),
+          name: name.trim(),
+          phone: digits,
+          email: email.trim() || undefined,
+          address: address.trim(),
           town,
+          serviceType,
+          description: description.trim() || undefined,
+          timeline: timeline || undefined,
+          referralSource: referralSource || undefined,
         }),
       });
 
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Something went wrong.");
       }
 
-      reset();
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
+
+  // ─── Submitted state ─────────────────────────────────────────────
 
   if (submitted) {
     return (
-      <div className="rounded-2xl border border-accent/30 bg-accent/5 p-8 text-center">
+      <div className="rounded-xl border border-accent/30 bg-accent/5 p-8 text-center">
         <CheckCircle2 className="mx-auto size-12 text-accent" />
-        <h3 className="mt-4 text-xl font-semibold">Thanks! We&apos;ll call you within 1 business day.</h3>
+        <h3 className="mt-4 text-xl font-semibold">We&apos;ll call you within 1 business day.</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          We received your quote request and will reach out to schedule a site visit or provide an estimate.
+          Your quote request for <strong>{selectedLabel}</strong> has been received.
+          We&apos;ll reach out to schedule a site visit or provide an estimate.
         </p>
-        <Button
-          variant="outline"
-          className="mt-4"
-          onClick={() => setSubmitted(false)}
-        >
+        <Button variant="outline" className="mt-4" onClick={() => { setSubmitted(false); setStep(1); setServiceType(""); }}>
           Submit Another Request
         </Button>
       </div>
     );
   }
 
+  // ─── Step indicators ──────────────────────────────────────────────
+
+  const steps = ["Service", "Details", "Contact"];
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-2xl border bg-card p-6">
-      <div className="mb-2">
-        <h3 className="text-lg font-semibold">Get a Free Quote</h3>
-        <p className="text-sm text-muted-foreground">Tell us about your project and we&apos;ll provide a detailed estimate.</p>
+    <div className="rounded-xl border bg-card">
+      {/* Step bar */}
+      <div className="flex border-b">
+        {steps.map((label, i) => {
+          const stepNum = i + 1;
+          const isActive = step === stepNum;
+          const isDone = step > stepNum;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { if (isDone) setStep(stepNum); }}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+                isActive ? "border-b-2 border-accent text-accent" : isDone ? "text-foreground/70 cursor-pointer hover:text-accent" : "text-muted-foreground/50 cursor-default"
+              }`}
+              disabled={!isDone && !isActive}
+            >
+              <span className={`flex size-6 items-center justify-center rounded-full text-xs font-bold ${
+                isActive ? "bg-accent text-accent-foreground" : isDone ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground"
+              }`}>
+                {isDone ? "✓" : stepNum}
+              </span>
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-name">Name *</label>
-          <Input id="quote-name" {...register("name")} placeholder="Your name" />
-          {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-phone">Phone *</label>
-          <Input id="quote-phone" type="tel" {...register("phone")} placeholder="(631) 555-1234" />
-          {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone.message}</p>}
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-email">Email</label>
-          <Input id="quote-email" type="email" {...register("email")} placeholder="you@example.com" />
-          {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-address">Address / Town *</label>
-          <Input id="quote-address" {...register("address")} placeholder="123 Main St, Manorville" />
-          {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address.message}</p>}
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-semibold" htmlFor="quote-service">Service Type *</label>
-        <select
-          id="quote-service"
-          {...register("serviceType")}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Select a service</option>
-          {filteredOptions.map((group) => (
-            <optgroup key={group.group} label={group.group}>
-              {group.options.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+      <div className="p-5">
+        {/* ─── Step 1: What do you need? ───────────────────── */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">What do you need?</h3>
+              <p className="text-sm text-muted-foreground">Pick the service that fits your project.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {services.map((svc) => (
+                <button
+                  key={svc.value}
+                  type="button"
+                  onClick={() => { setServiceType(svc.value); setStep(2); }}
+                  className={`flex items-center gap-3 rounded-lg border p-3 text-left text-sm font-medium transition-all hover:border-accent/50 hover:bg-accent/5 ${
+                    serviceType === svc.value ? "border-accent bg-accent/10 text-accent" : ""
+                  }`}
+                >
+                  <span className="text-xl">{svc.icon}</span>
+                  {svc.label}
+                </button>
               ))}
-            </optgroup>
-          ))}
-        </select>
-        {errors.serviceType && <p className="mt-1 text-xs text-destructive">{errors.serviceType.message}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Step 2: Project details ─────────────────────── */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Tell us about the project</h3>
+              <p className="text-sm text-muted-foreground">
+                Selected: <strong>{selectedLabel}</strong>
+                <button type="button" className="ml-2 text-accent underline" onClick={() => setStep(1)}>change</button>
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="sq-desc">Describe your project (optional)</label>
+              <Textarea
+                id="sq-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Size of area, current condition, what you're looking for..."
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">When do you need this done?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {TIMELINE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTimeline(opt.value)}
+                    className={`flex items-center gap-2 rounded-lg border p-2.5 text-sm font-medium transition-all hover:border-accent/50 ${
+                      timeline === opt.value ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span>{opt.icon}</span> {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="size-4" /> Back
+              </Button>
+              <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setStep(3)}>
+                Next: Contact Info <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Step 3: Contact info ────────────────────────── */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">How do we reach you?</h3>
+              <p className="text-sm text-muted-foreground">We&apos;ll call to discuss your project and schedule a visit.</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="sq-name">Name *</label>
+                <Input id="sq-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="sq-phone">Phone *</label>
+                <Input id="sq-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(631) 555-1234" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="sq-email">Email</label>
+                <Input id="sq-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="sq-address">Address / Town *</label>
+                <Input id="sq-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, Manorville" />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="sq-referral">How did you hear about us?</label>
+              <select
+                id="sq-referral"
+                value={referralSource}
+                onChange={(e) => setReferralSource(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Select one (optional)</option>
+                <option value="google">Google search</option>
+                <option value="drove-past">Drove past the yard</option>
+                <option value="neighbor-friend">Neighbor / friend referral</option>
+                <option value="contractor-referral">Contractor referral</option>
+                <option value="facebook">Facebook</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {submitError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{submitError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep(2)}>
+                <ArrowLeft className="size-4" /> Back
+              </Button>
+              <Button
+                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? "Sending..." : "Get Your Free Quote"}
+              </Button>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Or call <a href="tel:+16318746244" className="font-semibold text-accent hover:underline">(631) 874-6244</a> — Mon-Sat 7am-4pm
+            </p>
+          </div>
+        )}
       </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-semibold" htmlFor="quote-desc">Project Description</label>
-        <Textarea id="quote-desc" rows={3} {...register("description")} placeholder="Briefly describe your project, approximate size, any special considerations..." />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-timeline">Preferred Timeline</label>
-          <select
-            id="quote-timeline"
-            {...register("timeline")}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Select timeline</option>
-            {TIMELINE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-semibold" htmlFor="quote-referral">How did you hear about us?</label>
-          <select
-            id="quote-referral"
-            {...register("referralSource")}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Select one</option>
-            {REFERRAL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <Button type="submit" disabled={isSubmitting} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-        {isSubmitting ? "Submitting..." : "Request Free Quote"}
-      </Button>
-
-      {submitError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {submitError}
-        </div>
-      )}
-    </form>
+    </div>
   );
 }

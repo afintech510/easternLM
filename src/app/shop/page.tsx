@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CheckCircle, Phone, SlidersHorizontal, Truck } from "lucide-react";
+import { ArrowRight, Calculator, CheckCircle, Phone, Search, Truck } from "lucide-react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { getShopCatalog, type ShopSortOption } from "@/lib/data/catalog";
+import { siteConfig } from "@/config/site";
 
 type ShopPageProps = {
   searchParams: Promise<{
     category?: string;
     sort?: string;
-    deliveryZip?: string;
-    town?: string;
+    q?: string;
   }>;
 };
 
@@ -31,36 +31,23 @@ export const metadata: Metadata = {
 function resolveBaseUrl() {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (!raw) return "http://localhost:3000";
-  try {
-    return new URL(raw).origin;
-  } catch {
-    try {
-      return new URL(`https://${raw}`).origin;
-    } catch {
-      return "http://localhost:3000";
-    }
-  }
+  try { return new URL(raw).origin; } catch { try { return new URL(`https://${raw}`).origin; } catch { return "http://localhost:3000"; } }
 }
 
 function formatUsd(cents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(cents / 100);
 }
 
 function resolveSortOption(value?: string): ShopSortOption {
-  if (value === "price-asc" || value === "price-desc" || value === "name-asc") {
-    return value;
-  }
+  if (value === "price-asc" || value === "price-desc" || value === "name-asc") return value;
   return "popular";
 }
 
-function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption) {
+function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption, q?: string) {
   const params = new URLSearchParams();
   if (categorySlug) params.set("category", categorySlug);
   if (sort !== "popular") params.set("sort", sort);
+  if (q) params.set("q", q);
   const query = params.toString();
   return query ? `/shop?${query}` : "/shop";
 }
@@ -69,8 +56,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const query = await searchParams;
   const selectedCategory = query.category;
   const selectedSort = resolveSortOption(query.sort);
-  const deliveryZip = query.deliveryZip?.trim();
-  const deliveryTown = query.town?.trim();
+  const searchQuery = query.q?.trim() || "";
   const baseUrl = resolveBaseUrl();
 
   const catalog = await getShopCatalog({
@@ -78,24 +64,21 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     sort: selectedSort,
   });
 
-  const selectedCategoryLabel = catalog.categories.find(
-    (category) => category.slug === selectedCategory,
-  )?.name;
+  // Client-side search filter (simple substring match)
+  const filteredProducts = searchQuery
+    ? catalog.products.filter((p) =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : catalog.products;
 
-  const sortedLabel =
-    selectedSort === "price-asc"
-      ? "Price: Low to High"
-      : selectedSort === "price-desc"
-        ? "Price: High to Low"
-        : selectedSort === "name-asc"
-          ? "Name: A to Z"
-          : "Popular";
+  const selectedCategoryLabel = catalog.categories.find((c) => c.slug === selectedCategory)?.name;
 
   const sortOptions: Array<{ value: ShopSortOption; label: string }> = [
     { value: "popular", label: "Popular" },
-    { value: "price-asc", label: "Price: Low to High" },
-    { value: "price-desc", label: "Price: High to Low" },
-    { value: "name-asc", label: "Name: A to Z" },
+    { value: "price-asc", label: "Price: Low → High" },
+    { value: "price-desc", label: "Price: High → Low" },
+    { value: "name-asc", label: "A → Z" },
   ];
 
   return (
@@ -104,7 +87,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         data={{
           "@context": "https://schema.org",
           "@type": "ItemList",
-          itemListElement: catalog.products.slice(0, 20).map((product, index) => ({
+          itemListElement: filteredProducts.slice(0, 20).map((product, index) => ({
             "@type": "ListItem",
             position: index + 1,
             url: `${baseUrl}/shop/${product.slug}`,
@@ -113,169 +96,164 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         }}
       />
 
-      {/* Hero banner */}
-      <section className="bg-primary">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            Suffolk County&apos;s Landscape Supply Yard
-          </p>
-          <h1 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary-foreground md:text-5xl">
-            {selectedCategoryLabel ? selectedCategoryLabel : "Landscape & Mason Supply"}
+      {/* ── Compact header ────────────────────────────────── */}
+      <section className="border-b bg-primary">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-10">
+          <h1 className="[font-family:var(--font-display)] text-2xl text-primary-foreground md:text-4xl">
+            {selectedCategoryLabel || "Shop Materials"}
           </h1>
-          <p className="mt-3 max-w-2xl text-base text-primary-foreground/60">
-            {selectedCategoryLabel
-              ? `${catalog.products.length} products available for pickup or delivery.`
-              : "280+ bulk materials with transparent pricing. Order online, delivered to your site."}
+          <p className="mt-1 text-sm text-primary-foreground/60">
+            {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
+            {selectedCategoryLabel ? ` in ${selectedCategoryLabel}` : ""} — pickup or delivery
           </p>
-          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-primary-foreground/70">
-            <span className="flex items-center gap-1.5">
-              <Truck className="size-4 text-accent" />
-              Same-week delivery
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle className="size-4 text-accent" />
-              All materials in stock
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Phone className="size-4 text-accent" />
-              (631) 874-6244
-            </span>
-          </div>
-          {deliveryZip && (
-            <p className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-foreground/10 px-4 py-2.5 text-sm text-primary-foreground/80">
-              Delivery ZIP: <span className="font-semibold text-accent">{deliveryZip}</span>
-              {deliveryTown ? ` for ${deliveryTown.replaceAll("-", " ")}` : ""}
-            </p>
-          )}
         </div>
       </section>
 
-      {/* Main content */}
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14">
-        <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
-          {/* Sidebar */}
-          <aside className="space-y-6">
-            <div className="rounded-2xl border bg-card p-5">
-              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                <SlidersHorizontal className="size-3.5" />
-                Categories
-              </h2>
-              <div className="mt-4 space-y-1">
+      {/* ── Mobile category tabs (horizontal scroll) ────── */}
+      <div className="overflow-x-auto border-b bg-card lg:hidden">
+        <div className="flex gap-1 px-4 py-2">
+          <Link
+            href={buildShopHref(undefined, selectedSort)}
+            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium ${!selectedCategory ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            All
+          </Link>
+          {catalog.categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={buildShopHref(cat.slug, selectedSort)}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap ${selectedCategory === cat.slug ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main layout ───────────────────────────────────── */}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-10">
+        <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
+
+          {/* ── Desktop sidebar ──────────────────────────── */}
+          <aside className="hidden space-y-5 lg:block">
+            {/* Search */}
+            <form action="/shop" method="get" className="relative">
+              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <input
+                type="text"
+                name="q"
+                defaultValue={searchQuery}
+                placeholder="Search products..."
+                className="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-ring/50"
+              />
+              {selectedCategory && <input type="hidden" name="category" value={selectedCategory} />}
+            </form>
+
+            {/* Categories */}
+            <div>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Category</h2>
+              <nav className="space-y-0.5">
                 <Link
                   href={buildShopHref(undefined, selectedSort)}
-                  className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    !selectedCategory
-                      ? "bg-accent text-accent-foreground"
-                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`block rounded-md px-3 py-2 text-sm font-medium ${!selectedCategory ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-muted"}`}
                 >
                   All Materials
                 </Link>
-                {catalog.categories.map((category) => (
+                {catalog.categories.map((cat) => (
                   <Link
-                    key={category.id}
-                    href={buildShopHref(category.slug, selectedSort)}
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      selectedCategory === category.slug
-                        ? "bg-accent text-accent-foreground"
-                        : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                    }`}
+                    key={cat.id}
+                    href={buildShopHref(cat.slug, selectedSort)}
+                    className={`block rounded-md px-3 py-2 text-sm font-medium ${selectedCategory === cat.slug ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-muted"}`}
                   >
-                    {category.name}
+                    {cat.name}
                   </Link>
                 ))}
-              </div>
+              </nav>
             </div>
 
-            <div className="rounded-2xl border bg-card p-5">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Sort By
-              </h2>
-              <div className="mt-4 space-y-1">
-                {sortOptions.map((option) => (
+            {/* Sort */}
+            <div>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Sort</h2>
+              <nav className="space-y-0.5">
+                {sortOptions.map((opt) => (
                   <Link
-                    key={option.value}
-                    href={buildShopHref(selectedCategory, option.value)}
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      selectedSort === option.value
-                        ? "bg-accent text-accent-foreground"
-                        : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                    }`}
+                    key={opt.value}
+                    href={buildShopHref(selectedCategory, opt.value)}
+                    className={`block rounded-md px-3 py-2 text-sm font-medium ${selectedSort === opt.value ? "bg-accent/15 text-accent" : "text-foreground/70 hover:bg-muted"}`}
                   >
-                    {option.label}
+                    {opt.label}
                   </Link>
                 ))}
-              </div>
+              </nav>
+            </div>
+
+            {/* Calculator CTA */}
+            <div className="rounded-xl border-2 border-accent/20 bg-accent/5 p-4">
+              <Calculator className="size-6 text-accent" />
+              <p className="mt-2 text-sm font-semibold">Not sure how much?</p>
+              <p className="mt-1 text-xs text-muted-foreground">Use our material calculator to figure out cubic yards.</p>
+              <Button asChild size="sm" variant="outline" className="mt-3 w-full">
+                <Link href="/calculator">Open Calculator</Link>
+              </Button>
             </div>
           </aside>
 
-          {/* Product grid */}
-          <div className="space-y-6">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between rounded-2xl border bg-card px-5 py-3.5">
-              <p className="text-sm font-medium">
-                {catalog.products.length} product{catalog.products.length !== 1 ? "s" : ""}
-              </p>
-              <p className="text-sm text-muted-foreground">Sort: {sortedLabel}</p>
-            </div>
-
-            {catalog.products.length > 0 ? (
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {catalog.products.map((product) => (
+          {/* ── Product grid ─────────────────────────────── */}
+          <div className="space-y-5">
+            {filteredProducts.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filteredProducts.map((product) => (
                   <article
                     key={product.id}
-                    className="group overflow-hidden rounded-2xl border bg-card transition-all hover:border-accent/30 hover:shadow-lg"
+                    className="group flex flex-col overflow-hidden rounded-xl border bg-card transition-all hover:border-accent/30 hover:shadow-md"
                   >
-                    <Link
-                      href={`/shop/${product.slug}`}
-                      className="block overflow-hidden"
-                    >
+                    {/* Image — big, clickable */}
+                    <Link href={`/shop/${product.slug}`} className="block overflow-hidden">
                       <Image
-                        src={
-                          product.images[0] ??
-                          "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"
-                        }
+                        src={product.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"}
                         alt={product.name}
-                        className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         width={800}
                         height={500}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     </Link>
-                    <div className="p-5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+
+                    {/* Body */}
+                    <div className="flex flex-1 flex-col p-4">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold uppercase tracking-widest text-muted-foreground">
                           {product.categoryName}
-                        </p>
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-green-600">
-                          <CheckCircle className="size-3" />
-                          In Stock
+                        </span>
+                        <span className="flex items-center gap-1 font-medium text-green-600">
+                          <CheckCircle className="size-3" /> In Stock
                         </span>
                       </div>
-                      <Link
-                        href={`/shop/${product.slug}`}
-                        className="mt-1.5 block text-base font-semibold transition-colors hover:text-accent"
-                      >
+
+                      <Link href={`/shop/${product.slug}`} className="mt-1.5 text-base font-semibold leading-tight hover:text-accent">
                         {product.name}
                       </Link>
-                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                        {product.description}
-                      </p>
-                      <p className="mt-4 text-lg font-bold text-accent">
-                        {formatUsd(product.pricePerUnitCents)}{" "}
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {product.unitDisplay}
-                        </span>
-                      </p>
+
+                      {product.description && (
+                        <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">{product.description}</p>
+                      )}
+
+                      {/* Price — prominent */}
+                      <div className="mt-3">
+                        <span className="text-xl font-bold text-accent">{formatUsd(product.pricePerUnitCents)}</span>
+                        <span className="ml-1 text-sm text-muted-foreground">{product.unitDisplay}</span>
+                      </div>
+
                       {product.deliveryType === "bulk" && (
                         <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Truck className="size-3" />
-                          Bulk delivery available
+                          <Truck className="size-3" /> Bulk delivery
                         </p>
                       )}
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+
+                      {/* CTAs */}
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/shop/${product.slug}`}>View Details</Link>
+                          <Link href={`/shop/${product.slug}`}>Details</Link>
                         </Button>
                         <AddToCartButton
                           productId={product.id}
@@ -290,32 +268,31 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border bg-card p-8 text-center">
-                <p className="text-muted-foreground">
-                  No products found for this filter.
-                </p>
+              <div className="rounded-xl border bg-card p-10 text-center">
+                <p className="text-muted-foreground">No products found{searchQuery ? ` for "${searchQuery}"` : ""}.</p>
                 <Button asChild variant="outline" className="mt-4">
                   <Link href="/shop">Clear filters</Link>
                 </Button>
               </div>
             )}
 
-            {/* Quote CTA */}
-            <div className="rounded-2xl border-2 border-accent/20 bg-accent/5 p-6 md:flex md:items-center md:justify-between">
+            {/* Bottom CTA */}
+            <div className="rounded-xl border bg-card p-5 md:flex md:items-center md:justify-between">
               <div>
-                <p className="font-semibold text-foreground">
-                  Need a custom quote for large orders?
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Contractor pricing, bulk delivery scheduling, and volume discounts available.
-                </p>
+                <p className="font-semibold">Need a bulk quote or contractor pricing?</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">Volume discounts available. Call or submit a request.</p>
               </div>
-              <Button asChild className="mt-4 bg-accent text-accent-foreground hover:bg-accent/90 md:mt-0">
-                <Link href="/contact">
-                  Contact Us
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
+              <div className="mt-3 flex gap-2 md:mt-0">
+                <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Link href="/contact">Contact Us</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href={siteConfig.phoneHref}>
+                    <Phone className="size-3.5" />
+                    Call
+                  </a>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

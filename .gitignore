@@ -48,5 +48,6 @@ migration-report.md
 # agent artifacts
 .agent/
 .agents/
+.claude/skills/
 claude-seo/
 skills-lock.json

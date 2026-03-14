@@ -2,55 +2,68 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Phone } from "lucide-react";
+import { Phone, Truck } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { CartActions } from "@/components/layout/cart-actions";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 
+const navItems = [
+  { href: "/shop", label: "Shop" },
+  { href: "/services", label: "Services" },
+  { href: "/delivery", label: "Delivery" },
+  { href: "/calculator", label: "Calculator" },
+  { href: "/gallery", label: "Gallery" },
+  { href: "/contact", label: "Contact" },
+];
+
 export function Header() {
   const pathname = usePathname();
 
+  // Hide full header on admin pages
+  if (pathname.startsWith("/admin")) return null;
+
   return (
     <header className="sticky top-0 z-50">
-      {/* Top utility bar */}
+      {/* ── Utility bar ────────────────────────────────── */}
       <div className="bg-primary text-primary-foreground">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-xs sm:px-6">
-          <p className="hidden sm:block">
-            Same-day delivery on orders placed before 11 AM
+          <p className="flex items-center gap-1.5">
+            <Truck className="size-3 text-accent" />
+            <span className="hidden sm:inline">Same-Day Delivery &middot; Order by 11 AM</span>
+            <span className="sm:hidden">Same-Day Delivery</span>
           </p>
-          <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end sm:gap-6">
-            <span className="text-primary-foreground/60">{siteConfig.hours[0]}</span>
-            <a
-              className="flex items-center gap-1.5 font-semibold transition-colors hover:text-accent"
-              href={siteConfig.phoneHref}
-            >
-              <Phone className="size-3" />
-              {siteConfig.phoneDisplay}
-            </a>
-          </div>
+          <a
+            href={siteConfig.phoneHref}
+            className="flex items-center gap-1.5 font-semibold transition-colors hover:text-accent"
+          >
+            <Phone className="size-3" />
+            {siteConfig.phoneDisplay}
+          </a>
         </div>
       </div>
 
-      {/* Main navigation bar */}
-      <div className="border-b border-border/60 bg-card/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href="/" className="group flex items-baseline gap-2">
+      {/* ── Main nav ───────────────────────────────────── */}
+      <div className="border-b bg-card/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
+          {/* Logo */}
+          <Link href="/" className="group shrink-0">
             <span className="[font-family:var(--font-display)] text-2xl text-primary">
               Eastern
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Landscape & Mason Supply
+            <span className="ml-2 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:inline">
+              Landscape &amp; Mason Supply
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex">
-            {siteConfig.navLinks.map((link) => {
+          {/* Desktop nav */}
+          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
+            {navItems.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-accent/10 text-accent"
                       : "text-foreground/70 hover:bg-muted hover:text-foreground"
@@ -62,10 +75,21 @@ export function Header() {
             })}
           </nav>
 
-          <CartActions />
+          {/* Right side: cart (desktop) + mobile controls */}
+          <div className="flex items-center gap-2">
+            <CartActions />
 
-          <div className="lg:hidden">
-            <MobileMenu />
+            {/* Mobile: phone icon + cart + hamburger */}
+            <div className="flex items-center gap-1 lg:hidden">
+              <a
+                href={siteConfig.phoneHref}
+                className="flex size-9 items-center justify-center rounded-md text-foreground/70 hover:bg-muted hover:text-foreground"
+                aria-label="Call us"
+              >
+                <Phone className="size-5" />
+              </a>
+              <MobileMenu />
+            </div>
           </div>
         </div>
       </div>

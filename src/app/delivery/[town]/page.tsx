@@ -2,74 +2,38 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowRight, Calculator, Clock, MapPin, Phone, Truck } from "lucide-react";
 import { BeforeAfterSlider } from "@/components/gallery/before-after-slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JsonLd } from "@/components/seo/json-ld";
+import { siteConfig } from "@/config/site";
 import { getTownPageBundle, getTownPages, type TownFaq } from "@/lib/data/town-pages";
 
-type TownRouteProps = {
-  params: Promise<{ town: string }>;
-};
+type TownRouteProps = { params: Promise<{ town: string }> };
 
 export const dynamicParams = false;
 export const revalidate = 86400;
 
 function formatUsd(cents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
 function buildMapEmbedSrc(origin: string, destination: string) {
   const mapsKey = process.env.GOOGLE_MAPS_API_KEY;
-
   if (mapsKey) {
-    const params = new URLSearchParams({
-      key: mapsKey,
-      origin,
-      destination,
-      mode: "driving",
-    });
-
-    return `https://www.google.com/maps/embed/v1/directions?${params.toString()}`;
+    return `https://www.google.com/maps/embed/v1/directions?${new URLSearchParams({ key: mapsKey, origin, destination, mode: "driving" })}`;
   }
-
-  const query = new URLSearchParams({
-    q: `${origin} to ${destination}`,
-    output: "embed",
-  });
-
-  return `https://www.google.com/maps?${query.toString()}`;
-}
-
-function buildMapDirectionsHref(origin: string, destination: string) {
-  const params = new URLSearchParams({
-    api: "1",
-    origin,
-    destination,
-    travelmode: "driving",
-  });
-
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+  return `https://www.google.com/maps?${new URLSearchParams({ q: `${origin} to ${destination}`, output: "embed" })}`;
 }
 
 function fallbackFaqs(townName: string): TownFaq[] {
   return [
-    {
-      q: `How much does delivery to ${townName} cost?`,
-      a: "Delivery starts at the listed first-load estimate and is finalized from live route distance and order composition.",
-    },
-    {
-      q: "Can I get same-day delivery?",
-      a: "Weekday orders submitted before cutoff may qualify for same-day dispatch depending on route volume.",
-    },
-    {
-      q: "Can I include access notes?",
-      a: "Yes. Add driveway, wire, gate, and ground constraints during checkout so dispatch can plan safely.",
-    },
+    { q: `How much does delivery to ${townName} cost?`, a: "Delivery starts at the listed first-load estimate. Your exact fee is calculated at checkout based on route distance." },
+    { q: "Can I get same-day delivery?", a: "Orders placed before 11 AM on weekdays may qualify for same-day delivery depending on route volume." },
+    { q: "What materials do you deliver?", a: "We deliver all bulk materials: mulch, topsoil, gravel, stone, sand, and RCA. Bagged items ride free on bulk loads." },
+    { q: "How do I place an order?", a: "Order online at easternlm.com/shop, enter your delivery address at checkout, and we handle the rest. Or call (631) 874-6244." },
   ];
 }
 
@@ -81,235 +45,208 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: TownRouteProps): Promise<Metadata> {
   const { town } = await params;
   const bundle = await getTownPageBundle(town);
-
-  if (!bundle) {
-    return {
-      title: "Delivery Area | Eastern Landscape & Mason Supply",
-    };
-  }
-
+  if (!bundle) return { title: "Delivery Area | Eastern Landscape & Mason Supply" };
   return {
-    title: `Delivery to ${bundle.town.name}, ${bundle.town.state} | Eastern Landscape & Mason Supply`,
-    description: `${bundle.town.name} delivery starts around ${formatUsd(bundle.town.deliveryFeeCents)} with typical drive time around ${bundle.town.driveMinutes} minutes from our yard.`,
+    title: `${bundle.town.name} Delivery | Mulch, Stone, Gravel | Eastern LM`,
+    description: `Bulk material delivery to ${bundle.town.name}, NY. First load from ${formatUsd(bundle.town.deliveryFeeCents)}, ~${bundle.town.driveMinutes} min from our yard. Order online.`,
   };
 }
 
 export default async function TownDeliveryPage({ params }: TownRouteProps) {
   const { town } = await params;
   const bundle = await getTownPageBundle(town);
+  if (!bundle) notFound();
 
-  if (!bundle) {
-    notFound();
-  }
-
-  const { town: townPage, projects, products } = bundle;
-  const firstZip = townPage.zipCodes[0] ?? "";
-  const faqItems = townPage.faqs.length > 0 ? townPage.faqs : fallbackFaqs(townPage.name);
+  const { town: tp, projects, products } = bundle;
+  const firstZip = tp.zipCodes[0] ?? "";
+  const faqItems = tp.faqs.length > 0 ? tp.faqs : fallbackFaqs(tp.name);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-12 md:py-16">
+    <div>
       <JsonLd
         data={[
           {
-            "@context": "https://schema.org",
-            "@type": "Service",
-            name: `Bulk Material Delivery to ${townPage.name}, ${townPage.state}`,
-            description: `Landscape and masonry material delivery to ${townPage.name}. First load starting at ${formatUsd(townPage.deliveryFeeCents)}, ${townPage.driveMinutes} minute drive from our yard.`,
+            "@context": "https://schema.org", "@type": "Service",
+            name: `Bulk Material Delivery to ${tp.name}, ${tp.state}`,
+            description: `Landscape and masonry material delivery to ${tp.name}. First load from ${formatUsd(tp.deliveryFeeCents)}, ${tp.driveMinutes} min drive.`,
             serviceType: "Bulk Material Delivery",
-            areaServed: {
-              "@type": "City",
-              name: townPage.name,
-              containedInPlace: { "@type": "State", name: "New York" },
-            },
-            provider: {
-              "@type": "LocalBusiness",
-              "@id": "https://www.easternlm.com/#business",
-              name: "Eastern Landscape & Mason Supply",
-              telephone: "+16318746244",
-            },
-            offers: {
-              "@type": "Offer",
-              priceCurrency: "USD",
-              price: (townPage.deliveryFeeCents / 100).toFixed(2),
-              description: "First load delivery fee estimate",
-            },
+            areaServed: { "@type": "City", name: tp.name, containedInPlace: { "@type": "State", name: "New York" } },
+            provider: { "@type": "LocalBusiness", "@id": "https://www.easternlm.com/#business", name: "Eastern Landscape & Mason Supply", telephone: "+16318746244" },
+            offers: { "@type": "Offer", priceCurrency: "USD", price: (tp.deliveryFeeCents / 100).toFixed(2) },
           },
           {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: faqItems.map((faq) => ({
-              "@type": "Question",
-              name: faq.q,
-              acceptedAnswer: { "@type": "Answer", text: faq.a },
-            })),
+            "@context": "https://schema.org", "@type": "FAQPage",
+            mainEntity: faqItems.map((faq) => ({ "@type": "Question", name: faq.q, acceptedAnswer: { "@type": "Answer", text: faq.a } })),
           },
         ]}
       />
-      <section className="rounded-2xl border bg-card p-6 md:p-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Delivery Area</Badge>
-          <Badge variant="outline">Tier {townPage.tier}</Badge>
-          <Badge variant="outline">ZIP {townPage.zipCodes.join(", ")}</Badge>
-        </div>
-        <h1 className="mt-3 [font-family:var(--font-display)] text-4xl text-primary md:text-5xl">
-          Material Delivery to {townPage.name}, {townPage.state}
-        </h1>
-        <p className="mt-3 max-w-3xl text-muted-foreground">{townPage.localDescription}</p>
-        {townPage.localDescriptionExtended ? (
-          <p className="mt-3 max-w-3xl text-muted-foreground">{townPage.localDescriptionExtended}</p>
-        ) : null}
-      </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-2xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Estimated First Load</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">{formatUsd(townPage.deliveryFeeCents)}</p>
-        </article>
-        <article className="rounded-2xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Distance from Yard</p>
-          <p className="mt-1 text-2xl font-semibold">{townPage.distanceMiles.toFixed(1)} miles</p>
-        </article>
-        <article className="rounded-2xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Drive Time</p>
-          <p className="mt-1 text-2xl font-semibold">{townPage.driveMinutes} min</p>
-        </article>
-        <article className="rounded-2xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Dispatch Window</p>
-          <p className="mt-1 text-2xl font-semibold">{townPage.estimatedDeliveryMinutes} min</p>
-        </article>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-        <article className="overflow-hidden rounded-2xl border bg-card">
-          <iframe
-            title={`Route map from yard to ${townPage.name}`}
-            src={buildMapEmbedSrc(townPage.routeOrigin, townPage.routeDestination)}
-            className="h-[360px] w-full border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </article>
-
-        <article className="space-y-4 rounded-2xl border bg-card p-5">
-          <h2 className="text-lg font-semibold">Route and Scheduling Notes</h2>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>Delivery pricing is distance and time based from our yard route.</li>
-            <li>Orders placed before weekday cutoff may qualify for same-day service.</li>
-            <li>Access constraints can be added during checkout and are sent to dispatch.</li>
-          </ul>
-          <Button asChild variant="outline">
-            <a href={buildMapDirectionsHref(townPage.routeOrigin, townPage.routeDestination)} target="_blank" rel="noreferrer">
-              Open Route in Google Maps
-            </a>
-          </Button>
-        </article>
-      </section>
-
-      <section className="space-y-4 rounded-2xl border bg-card p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Projects in and Around {townPage.name}</h2>
-          <Badge variant="secondary">{projects.length} matched</Badge>
-        </div>
-
-        {projects.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => (
-              <article key={project.id} className="rounded-xl border bg-background p-3">
-                {project.beforeAfter && project.images.length >= 2 ? (
-                  <BeforeAfterSlider
-                    beforeImage={project.images[0]}
-                    afterImage={project.images[1]}
-                    alt={project.title}
-                  />
-                ) : (
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-                    <Image
-                      src={project.images[0] ?? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop"}
-                      alt={project.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <p className="mt-3 text-sm font-semibold">{project.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{project.description}</p>
-              </article>
-            ))}
+      {/* ── Hero ──────────────────────────────────────────── */}
+      <section className="bg-primary">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge className="bg-accent/20 text-accent border-0">Delivery Area</Badge>
+            <Badge variant="outline" className="border-primary-foreground/20 text-primary-foreground/60">Tier {tp.tier}</Badge>
+            <Badge variant="outline" className="border-primary-foreground/20 text-primary-foreground/60">ZIP {tp.zipCodes.join(", ")}</Badge>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Additional town-tagged project media will appear here as new jobs are completed.
-          </p>
-        )}
-      </section>
+          <h1 className="mt-3 [font-family:var(--font-display)] text-3xl text-primary-foreground md:text-5xl">
+            Material Delivery to {tp.name}, {tp.state}
+          </h1>
+          <p className="mt-3 max-w-2xl text-base text-primary-foreground/60">{tp.localDescription}</p>
 
-      {townPage.testimonialQuote ? (
-        <section className="rounded-2xl border bg-primary/10 p-5">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary/80">Town Testimonial</p>
-          <blockquote className="mt-2 text-lg text-primary">
-            &ldquo;{townPage.testimonialQuote}&rdquo;
-          </blockquote>
-          {townPage.testimonialAuthor ? (
-            <p className="mt-2 text-sm text-muted-foreground">- {townPage.testimonialAuthor}</p>
-          ) : null}
-        </section>
-      ) : null}
-
-      <section className="space-y-4 rounded-2xl border bg-card p-5">
-        <h2 className="text-xl font-semibold">Popular Materials for {townPage.name}</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <article key={product.id} className="rounded-xl border bg-background p-3">
-              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover"
-                />
+          {/* Key stats inline */}
+          <div className="mt-6 flex flex-wrap gap-6">
+            <div className="flex items-center gap-2 text-primary-foreground">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary-foreground/10">
+                <Truck className="size-5 text-accent" />
               </div>
-              <p className="mt-3 text-sm font-semibold">{product.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatUsd(product.pricePerUnitCents)} {product.unitDisplay}
-              </p>
-              <Button asChild size="sm" className="mt-3 w-full">
-                <Link href={`/shop/${product.slug}`}>View Product</Link>
-              </Button>
-            </article>
-          ))}
+              <div>
+                <p className="text-xl font-bold text-accent">{formatUsd(tp.deliveryFeeCents)}</p>
+                <p className="text-xs text-primary-foreground/50">First load</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-primary-foreground">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary-foreground/10">
+                <MapPin className="size-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{tp.distanceMiles.toFixed(1)} mi</p>
+                <p className="text-xs text-primary-foreground/50">From our yard</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-primary-foreground">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary-foreground/10">
+                <Clock className="size-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{tp.driveMinutes} min</p>
+                <p className="text-xs text-primary-foreground/50">Drive time</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-card p-5">
-        <h2 className="text-xl font-semibold">Frequently Asked Questions</h2>
-        <Accordion type="single" collapsible className="mt-4 w-full">
-          {faqItems.map((faq) => (
-            <AccordionItem key={faq.q} value={faq.q}>
-              <AccordionTrigger>{faq.q}</AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </section>
+      <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 md:py-14">
+        {/* ── Map + Order CTA ────────────────────────────── */}
+        <section className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+          <div className="overflow-hidden rounded-xl border">
+            <iframe
+              title={`Route to ${tp.name}`}
+              src={buildMapEmbedSrc(tp.routeOrigin, tp.routeDestination)}
+              className="h-[340px] w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <div className="flex flex-col justify-center space-y-4 rounded-xl border bg-card p-6">
+            <h2 className="text-lg font-semibold">Order Delivery to {tp.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              Browse materials, add to cart, and enter your {tp.name} address at checkout. We calculate the exact delivery fee from your location.
+            </p>
+            <Button asChild size="lg" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href={`/shop?deliveryZip=${encodeURIComponent(firstZip)}&town=${encodeURIComponent(tp.slug)}`}>
+                Shop Materials for {tp.name} <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full">
+              <Link href="/calculator">
+                <Calculator className="size-4" /> Calculate How Much You Need
+              </Link>
+            </Button>
+            <a href={siteConfig.phoneHref} className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-accent">
+              <Phone className="size-4" /> Or call {siteConfig.phoneDisplay}
+            </a>
+          </div>
+        </section>
 
-      <section className="rounded-2xl border bg-primary/10 p-6">
-        <h2 className="text-2xl font-semibold text-primary">Order Delivery to {townPage.name}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Start your order with ZIP {firstZip}. Delivery calculations are validated server-side before payment.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href={`/shop?deliveryZip=${encodeURIComponent(firstZip)}&town=${encodeURIComponent(townPage.slug)}`}>
-              Shop with ZIP Prefilled
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/delivery">View Delivery Policy</Link>
-          </Button>
-        </div>
-      </section>
+        {/* ── Popular Materials ────────────────────────────── */}
+        {products.length > 0 && (
+          <section>
+            <h2 className="mb-4 [font-family:var(--font-display)] text-2xl text-primary">
+              Top Materials Ordered in {tp.name}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((product) => (
+                <Link key={product.id} href={`/shop/${product.slug}`} className="group rounded-xl border bg-card overflow-hidden hover:border-accent/30 hover:shadow-md transition-all">
+                  <div className="relative aspect-[4/3] w-full overflow-hidden">
+                    <Image src={product.image} alt={product.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform group-hover:scale-105" />
+                  </div>
+                  <div className="p-4">
+                    <p className="font-semibold group-hover:text-accent">{product.name}</p>
+                    <p className="mt-1 text-sm font-bold text-accent">{formatUsd(product.pricePerUnitCents)} <span className="font-normal text-muted-foreground">{product.unitDisplay}</span></p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Projects gallery ────────────────────────────── */}
+        {projects.length > 0 && (
+          <section>
+            <h2 className="mb-4 [font-family:var(--font-display)] text-2xl text-primary">
+              Projects Near {tp.name}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {projects.map((project) => (
+                <article key={project.id} className="rounded-xl border bg-card p-3">
+                  {project.beforeAfter && project.images.length >= 2 ? (
+                    <BeforeAfterSlider beforeImage={project.images[0]} afterImage={project.images[1]} alt={project.title} />
+                  ) : (
+                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+                      <Image src={project.images[0] ?? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop"} alt={project.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
+                    </div>
+                  )}
+                  <p className="mt-3 text-sm font-semibold">{project.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{project.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Testimonial ─────────────────────────────────── */}
+        {tp.testimonialQuote && (
+          <section className="rounded-xl border-2 border-accent/20 bg-accent/5 p-6">
+            <blockquote className="text-lg leading-relaxed">&ldquo;{tp.testimonialQuote}&rdquo;</blockquote>
+            {tp.testimonialAuthor && <p className="mt-3 text-sm font-semibold">— {tp.testimonialAuthor}, {tp.name}</p>}
+          </section>
+        )}
+
+        {/* ── FAQ ─────────────────────────────────────────── */}
+        <section>
+          <h2 className="mb-4 [font-family:var(--font-display)] text-2xl text-primary">
+            {tp.name} Delivery FAQ
+          </h2>
+          <Accordion type="single" collapsible className="w-full">
+            {faqItems.map((faq) => (
+              <AccordionItem key={faq.q} value={faq.q}>
+                <AccordionTrigger className="text-left">{faq.q}</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </section>
+
+        {/* ── Service quote CTA ───────────────────────────── */}
+        <section className="rounded-xl bg-primary p-8 text-center">
+          <h2 className="[font-family:var(--font-display)] text-2xl text-primary-foreground md:text-3xl">
+            Need Installation in {tp.name}?
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-primary-foreground/60">
+            We do driveways, landscaping, masonry, and maintenance across Suffolk County. Get a free quote.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href="/services">Get a Free Quote <ArrowRight className="size-4" /></Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+              <a href={siteConfig.phoneHref}><Phone className="size-4" /> {siteConfig.phoneDisplay}</a>
+            </Button>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
