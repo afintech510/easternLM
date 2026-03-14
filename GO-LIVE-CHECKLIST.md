@@ -107,6 +107,31 @@ Last updated: 2026-03-14 (audit pass 2)
 - [ ] **Review extraction quality report** — 1,368 unparsed notes may contain customer data
 - [ ] **Geocode 213 addresses missing town/zip** using Google Maps API
 
+## 301 Redirects (old domains → easternlm.com)
+
+### Middleware redirects (in src/middleware.ts — active now):
+- [x] /driveways → /services/driveways
+- [x] /landscaping → /services/landscaping
+- [x] /masonry → /services/masonry
+- [x] /property-maintenance → /services/property-maintenance
+- [x] /product/{slug} → /shop/{slug} (WooCommerce product URLs)
+- [x] /product-category/{slug} → /shop?category={slug}
+- [x] /my-account → /account/orders
+- [x] Trailing slash handling (/shop/ → /shop, /cart/ → /cart, etc.)
+
+### Nginx redirects (in nginx/easternbuilding-supply-redirects.conf — NOT YET ACTIVE):
+- [ ] **Point easternbuilding.supply DNS to VPS** (5.161.88.134)
+- [ ] **Provision SSL cert**: `certbot certonly --nginx -d easternbuilding.supply -d www.easternbuilding.supply`
+- [ ] **Add nginx config** to VPS: copy `nginx/easternbuilding-supply-redirects.conf` to nginx config
+- [ ] **Reload nginx**: `nginx -t && nginx -s reload`
+- [ ] **Keep WP admin accessible** until Phase 6 custom POS is live
+- [ ] **After Phase 6**: remove WP admin exception, redirect everything
+
+### Post-redirect verification:
+- [ ] Submit updated sitemap to Google Search Console
+- [ ] Monitor Search Console for crawl errors for 4 weeks
+- [ ] Keep 301s in place permanently (do not remove)
+
 ## Pre-Deploy Verification
 
 - [ ] Run `npx next build` locally with production env vars
@@ -115,5 +140,26 @@ Last updated: 2026-03-14 (audit pass 2)
 - [ ] Verify order appears in admin dashboard after checkout
 - [ ] Verify confirmation email received
 - [ ] Test on mobile (cart → checkout → confirmation)
-- [ ] Verify all 25 town pages render correctly
-- [ ] Verify sitemap.xml has correct production URLs
+- [ ] Verify all 65 town pages render correctly
+- [ ] Verify sitemap.xml has correct production URLs (631+ pages)
+- [ ] Verify /materials hub page loads with all product-town links
+
+## Google Search Console Setup
+
+1. Go to https://search.google.com/search-console
+2. Add property: `https://easternlm.com` (URL prefix)
+3. Verify ownership via DNS TXT record or HTML file upload
+4. Submit sitemap: `https://easternlm.com/sitemap.xml`
+5. Request indexing for these high-priority pages first:
+   - / (homepage)
+   - /shop
+   - /materials (hub page)
+   - /services/driveways, /services/landscaping, /services/masonry
+   - /delivery/manorville, /delivery/shirley, /delivery/westhampton-beach
+   - /materials/mulch-delivery-shirley
+   - /materials/gravel-delivery-manorville
+   - /blog/how-much-mulch-do-i-need
+   - /calculator
+6. Monitor "Coverage" report weekly for crawl errors
+7. Check "Core Web Vitals" after 1 week of data
+8. Set up email alerts for critical coverage issues

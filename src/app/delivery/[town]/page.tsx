@@ -246,6 +246,41 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
             </Button>
           </div>
         </section>
+        {/* ── Internal Links: Materials + Services for this town ─ */}
+        <section className="border-t pt-10 md:pt-12">
+          <div className="mb-6">
+            <h2 className="[font-family:var(--font-display)] text-2xl text-primary">
+              Materials We Deliver to {tp.name}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Browse by material type with {tp.name}-specific pricing and info.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["mulch", "topsoil", "gravel", "sand", "rca-fill", "decorative-stone"].map((group) => (
+              <Link
+                key={group}
+                href={`/materials/${group}-delivery-${tp.slug}`}
+                className="rounded-md border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-accent/40 hover:text-accent"
+              >
+                {group.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Delivery
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-8 mb-6">
+            <h3 className="text-lg font-semibold">Services in {tp.name}</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["driveways", "landscaping", "masonry", "property-maintenance"].map((svc) => (
+              <Link
+                key={svc}
+                href={`/services/${svc}/${tp.slug}`}
+                className="rounded-md border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-accent/40 hover:text-accent"
+              >
+                {svc.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
