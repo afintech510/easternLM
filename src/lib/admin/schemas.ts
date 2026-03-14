@@ -20,6 +20,8 @@ export const productSchema = z.object({
   pairs_well_with: z.array(z.string()),
   is_taxable: z.boolean(),
   is_active: z.boolean(),
+  visible_web: z.boolean(),
+  visible_pos: z.boolean(),
   sort_order: z.number().int(),
 });
 

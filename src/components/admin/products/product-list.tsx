@@ -56,6 +56,8 @@ type Product = {
   unit: string;
   unit_display: string;
   is_active: boolean;
+  visible_web: boolean;
+  visible_pos: boolean;
   sort_order: number;
   min_qty: number;
   max_qty: number;
@@ -209,8 +211,11 @@ export function ProductList({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={product.is_active ? "default" : "secondary"} className="text-xs">
-                    {product.is_active ? "Active" : "Inactive"}
+                  <Badge
+                    variant={product.visible_web && product.visible_pos ? "default" : "secondary"}
+                    className={`text-xs ${product.visible_web && !product.visible_pos ? "bg-blue-100 text-blue-800" : !product.visible_web && product.visible_pos ? "bg-amber-100 text-amber-800" : !product.visible_web && !product.visible_pos ? "bg-gray-100 text-gray-500" : ""}`}
+                  >
+                    {product.visible_web && product.visible_pos ? "Web + POS" : product.visible_web ? "Web Only" : product.visible_pos ? "POS Only" : "Hidden"}
                   </Badge>
                 </TableCell>
                 <TableCell>

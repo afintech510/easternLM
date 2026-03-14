@@ -39,6 +39,8 @@ type ProductData = {
   pairs_well_with: string[];
   is_taxable: boolean;
   is_active: boolean;
+  visible_web: boolean;
+  visible_pos: boolean;
   sort_order: number;
 };
 
@@ -87,6 +89,8 @@ export function ProductForm({
           pairs_well_with: product.pairs_well_with,
           is_taxable: product.is_taxable,
           is_active: product.is_active,
+          visible_web: product.visible_web ?? true,
+          visible_pos: product.visible_pos ?? true,
           sort_order: product.sort_order,
         }
       : {
@@ -107,6 +111,8 @@ export function ProductForm({
           pairs_well_with: [],
           is_taxable: true,
           is_active: true,
+          visible_web: true,
+          visible_pos: true,
           sort_order: 100,
         },
   });
@@ -290,23 +296,37 @@ export function ProductForm({
         />
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="isActive"
-            checked={watch("is_active")}
-            onCheckedChange={(v) => setValue("is_active", v)}
-          />
-          <Label htmlFor="isActive">Active</Label>
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Visibility</p>
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="visibleWeb"
+              checked={watch("visible_web")}
+              onCheckedChange={(v) => setValue("visible_web", v)}
+            />
+            <Label htmlFor="visibleWeb">Show on Web Store</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="visiblePos"
+              checked={watch("visible_pos")}
+              onCheckedChange={(v) => setValue("visible_pos", v)}
+            />
+            <Label htmlFor="visiblePos">Show on POS</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="isTaxable"
+              checked={watch("is_taxable")}
+              onCheckedChange={(v) => setValue("is_taxable", v)}
+            />
+            <Label htmlFor="isTaxable">Taxable</Label>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="isTaxable"
-            checked={watch("is_taxable")}
-            onCheckedChange={(v) => setValue("is_taxable", v)}
-          />
-          <Label htmlFor="isTaxable">Taxable</Label>
-        </div>
+        {!watch("visible_web") && !watch("visible_pos") && (
+          <p className="text-xs text-destructive">This product is hidden from all channels.</p>
+        )}
       </div>
 
       <Button type="submit" disabled={isSubmitting} className="w-full">

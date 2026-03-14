@@ -318,7 +318,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
         .select(
           "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
         )
-        .eq("is_active", true)
+        .eq("visible_web", true)
         .order("sort_order", { ascending: true }),
     ]);
 
@@ -463,7 +463,7 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
         .select(
           "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
         )
-        .eq("is_active", true)
+        .eq("visible_web", true)
         .in("slug", product.pairsWellWith)
         .order("sort_order", { ascending: true });
 

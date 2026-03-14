@@ -465,6 +465,80 @@ export type Database = {
           },
         ]
       }
+      product_town_pages: {
+        Row: {
+          calculator_type: string | null
+          common_uses: string[]
+          created_at: string
+          faqs: Json
+          featured_product_slugs: string[]
+          h1: string
+          id: string
+          intro_paragraph: string
+          is_active: boolean
+          local_context: string | null
+          meta_description: string
+          product_group: string
+          project_tips: string | null
+          related_service_slug: string | null
+          schema_type: string
+          slug: string
+          title: string
+          town_slug: string
+          updated_at: string
+        }
+        Insert: {
+          calculator_type?: string | null
+          common_uses?: string[]
+          created_at?: string
+          faqs?: Json
+          featured_product_slugs?: string[]
+          h1: string
+          id?: string
+          intro_paragraph: string
+          is_active?: boolean
+          local_context?: string | null
+          meta_description: string
+          product_group: string
+          project_tips?: string | null
+          related_service_slug?: string | null
+          schema_type?: string
+          slug: string
+          title: string
+          town_slug: string
+          updated_at?: string
+        }
+        Update: {
+          calculator_type?: string | null
+          common_uses?: string[]
+          created_at?: string
+          faqs?: Json
+          featured_product_slugs?: string[]
+          h1?: string
+          id?: string
+          intro_paragraph?: string
+          is_active?: boolean
+          local_context?: string | null
+          meta_description?: string
+          product_group?: string
+          project_tips?: string | null
+          related_service_slug?: string | null
+          schema_type?: string
+          slug?: string
+          title?: string
+          town_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_town_pages_town_slug_fkey"
+            columns: ["town_slug"]
+            isOneToOne: false
+            referencedRelation: "town_pages"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string
@@ -489,6 +563,8 @@ export type Database = {
           unit: string
           unit_display: string
           updated_at: string
+          visible_pos: boolean
+          visible_web: boolean
           wc_id: number | null
         }
         Insert: {
@@ -514,6 +590,8 @@ export type Database = {
           unit: string
           unit_display: string
           updated_at?: string
+          visible_pos?: boolean
+          visible_web?: boolean
           wc_id?: number | null
         }
         Update: {
@@ -539,6 +617,8 @@ export type Database = {
           unit?: string
           unit_display?: string
           updated_at?: string
+          visible_pos?: boolean
+          visible_web?: boolean
           wc_id?: number | null
         }
         Relationships: [
@@ -625,6 +705,71 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_town_pages: {
+        Row: {
+          created_at: string
+          faqs: Json
+          h1: string
+          id: string
+          intro_paragraph: string
+          is_active: boolean
+          local_context: string | null
+          meta_description: string
+          related_product_slugs: string[]
+          schema_type: string
+          service_type: string
+          services_included: string[]
+          slug: string
+          title: string
+          town_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          faqs?: Json
+          h1: string
+          id?: string
+          intro_paragraph: string
+          is_active?: boolean
+          local_context?: string | null
+          meta_description: string
+          related_product_slugs?: string[]
+          schema_type?: string
+          service_type: string
+          services_included?: string[]
+          slug: string
+          title: string
+          town_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          faqs?: Json
+          h1?: string
+          id?: string
+          intro_paragraph?: string
+          is_active?: boolean
+          local_context?: string | null
+          meta_description?: string
+          related_product_slugs?: string[]
+          schema_type?: string
+          service_type?: string
+          services_included?: string[]
+          slug?: string
+          title?: string
+          town_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_town_pages_town_slug_fkey"
+            columns: ["town_slug"]
+            isOneToOne: false
+            referencedRelation: "town_pages"
+            referencedColumns: ["slug"]
           },
         ]
       }
