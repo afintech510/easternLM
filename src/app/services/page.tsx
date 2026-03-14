@@ -34,9 +34,9 @@ const processSteps = [
   },
   {
     number: "3",
-    title: "Expert Execution",
+    title: "Build & Install",
     description:
-      "Our experienced crew delivers quality craftsmanship with materials sourced from our own yard.",
+      "Our crew handles the work start to finish, using materials from our own yard.",
     icon: <HardHat className="size-5" />,
   },
 ];
@@ -52,11 +52,10 @@ export default function ServicesPage() {
             Our Services
           </p>
           <h1 className="mt-3 max-w-3xl [font-family:var(--font-display)] text-3xl leading-tight text-primary-foreground md:text-5xl">
-            Expert Landscape & Masonry Services
+            Landscaping, Masonry & Driveway Services
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-primary-foreground/60 md:text-lg">
-            From design to installation — transforming Suffolk County properties
-            with materials sourced directly from our yard.
+            We handle the full job — design, materials from our yard, and installation by our crew across Suffolk County.
           </p>
           <Button
             asChild
@@ -78,7 +77,7 @@ export default function ServicesPage() {
             What We Do
           </p>
           <h2 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
-            Comprehensive Outdoor Solutions
+            What We Build &amp; Maintain
           </h2>
 
           <div className="mt-10 grid gap-6 md:grid-cols-2">
@@ -139,11 +138,10 @@ export default function ServicesPage() {
         <div className="topo-pattern absolute inset-0" />
         <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6">
           <h2 className="[font-family:var(--font-display)] text-3xl text-primary-foreground md:text-4xl">
-            Ready to Transform Your Property?
+            Let&apos;s Talk About Your Project
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-base text-primary-foreground/60">
-            Schedule a free on-site consultation. We&apos;ll walk your property, discuss
-            your vision, and deliver a detailed proposal.
+            We&apos;ll come out, look at the site, and give you a straight price. No cost, no pressure.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Button

@@ -2,8 +2,9 @@ import type { DeliveryPricingConfig, TruckType } from "@/lib/delivery";
 
 export const defaultDeliveryPricingConfig: DeliveryPricingConfig = {
   milesPerGallon: 6,
-  fuelPricePerGallon: 4,
-  hourlyLaborRate: 30,
+  fuelPricePerGallon: 5,
+  hourlyLaborRate: 32,
+  dumpTimeBufferMinutes: 5,
   profitMultiplier: 2,
   roundToNearest: 5,
   minimumDeliveryFee: 25,

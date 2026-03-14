@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, CheckCircle2, Phone } from "lucide-react";
+import { ArrowRight, Calculator, CheckCircle2, Phone, Truck, Users } from "lucide-react";
 import { JsonLd } from "@/components/seo/json-ld";
+import { ServiceQuoteForm } from "@/components/forms/service-quote-form";
 import {
   Accordion,
   AccordionContent,
@@ -24,7 +25,7 @@ const serviceContent: Record<string, ServicePageContent> = {
   landscaping: {
     title: "Landscaping Services",
     subtitle:
-      "Planting, grading, and material-driven upgrades for residential and commercial spaces.",
+      "Planting, grading, and garden design using materials from our yard.",
     services: [
       "Garden bed design & planting",
       "Soil grading and leveling",
@@ -65,7 +66,7 @@ const serviceContent: Record<string, ServicePageContent> = {
   masonry: {
     title: "Masonry Services",
     subtitle:
-      "Durable stone and hardscape installations designed for Long Island weather cycles.",
+      "Stone patios, walkways, and walls built to handle Long Island winters.",
     services: [
       "Patios and walkways",
       "Retaining walls",
@@ -82,7 +83,7 @@ const serviceContent: Record<string, ServicePageContent> = {
       {
         step: "Base Prep & Drainage",
         detail:
-          "Proper base preparation with compacted aggregate and drainage provisions for longevity.",
+          "We compact the base and add drainage so it doesn't settle or flood.",
       },
       {
         step: "Install, Jointing & Cleanup",
@@ -147,7 +148,7 @@ const serviceContent: Record<string, ServicePageContent> = {
   "property-maintenance": {
     title: "Property Maintenance",
     subtitle:
-      "Recurring maintenance packages that keep properties clean, safe, and presentable.",
+      "Regular lawn care, mulch refresh, and cleanup — on whatever schedule fits your property.",
     services: [
       "Seasonal cleanup",
       "Mulch refresh and edging",
@@ -235,12 +236,32 @@ export default async function ServiceDetailPage({
             "@type": "Service",
             name: content.title,
             description: content.subtitle,
-            areaServed: "Suffolk County, NY",
+            serviceType: content.title,
+            areaServed: {
+              "@type": "State",
+              name: "Suffolk County, New York",
+            },
             provider: {
               "@type": "LocalBusiness",
+              "@id": "https://www.easternlm.com/#business",
               name: "Eastern Landscape & Mason Supply",
+              telephone: "+16318746244",
+              address: {
+                "@type": "PostalAddress",
+                streetAddress: "110 Frowein Road",
+                addressLocality: "Center Moriches",
+                addressRegion: "NY",
+                postalCode: "11934",
+              },
             },
-            serviceType: slug,
+            hasOfferCatalog: {
+              "@type": "OfferCatalog",
+              name: content.title,
+              itemListElement: content.services.map((s) => ({
+                "@type": "Offer",
+                itemOffered: { "@type": "Service", name: s },
+              })),
+            },
           },
           {
             "@context": "https://schema.org",
@@ -355,39 +376,110 @@ export default async function ServiceDetailPage({
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="relative overflow-hidden bg-primary py-14 md:py-18">
-        <div className="topo-pattern absolute inset-0" />
-        <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6">
-          <h2 className="[font-family:var(--font-display)] text-2xl text-primary-foreground md:text-3xl">
-            Request a Free Estimate
-          </h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-primary-foreground/60">
-            Send your project details and we&apos;ll confirm scope, timing, and
-            material requirements.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Button
-              asChild
-              size="lg"
-              className="bg-accent text-accent-foreground shadow-lg shadow-accent/25 hover:bg-accent/90"
-            >
-              <Link href="/contact">
-                Start Estimate Request
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-            >
-              <a href={siteConfig.phoneHref}>
-                <Phone className="size-4" />
-                Call {siteConfig.phoneDisplay}
-              </a>
-            </Button>
+      {/* Dual Conversion Section */}
+      <section className="bg-warm-bg py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-8 text-center">
+            <h2 className="[font-family:var(--font-display)] text-2xl text-primary md:text-3xl">
+              Two Ways to Get Started
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              We&apos;re both a supply yard and a full-service installer.
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* WE'LL DO IT FOR YOU */}
+            <div className="space-y-4">
+              <div className="rounded-2xl border-2 border-accent/30 bg-card p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-accent/15 text-accent">
+                    <Users className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">We&apos;ll Do It For You</h3>
+                    <p className="text-sm text-muted-foreground">Full-service installation by our crew</p>
+                  </div>
+                </div>
+                <ul className="mt-4 space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-accent" />
+                    Our experienced crew handles everything
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-accent" />
+                    Free on-site estimates
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-accent" />
+                    30+ years of Suffolk County expertise
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-accent" />
+                    Materials included from our own yard
+                  </li>
+                </ul>
+              </div>
+              <ServiceQuoteForm
+                serviceCategory={slug === "property-maintenance" ? "maintenance" : slug as "driveways" | "landscaping" | "masonry"}
+              />
+            </div>
+
+            {/* DO IT YOURSELF */}
+            <div className="rounded-2xl border bg-card p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Calculator className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Do It Yourself</h3>
+                  <p className="text-sm text-muted-foreground">Order materials online for delivery or pickup</p>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-primary" />
+                  280+ materials with transparent pricing
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-primary" />
+                  Use our yard calculator for exact quantities
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-primary" />
+                  Same-week delivery across Suffolk County
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-primary" />
+                  Order online — no phone call needed
+                </li>
+              </ul>
+              <div className="mt-6 space-y-3">
+                <Button asChild className="w-full" size="lg">
+                  <Link href="/shop">
+                    <Truck className="size-4" />
+                    Browse & Order Materials
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full" size="lg">
+                  <Link href="/calculator">
+                    <Calculator className="size-4" />
+                    Material Calculator
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <a href={siteConfig.phoneHref}>
+                    <Phone className="size-4" />
+                    Call {siteConfig.phoneDisplay}
+                  </a>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

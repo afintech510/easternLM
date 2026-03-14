@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { ProductImage } from "@/components/ui/product-image";
 import { useEffect, useMemo, useState } from "react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Button } from "@/components/ui/button";
@@ -135,12 +136,14 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     <div className="space-y-8">
       <section className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-3">
-          <Image
+          <ProductImage
             src={imageList[activeImageIndex] ?? imageList[0]}
             alt={product.name}
             className="h-[420px] w-full rounded-2xl border object-cover"
             width={1200}
             height={800}
+            priority
+            sizes="(max-width: 1024px) 100vw, 50vw"
           />
           <div className="grid grid-cols-4 gap-2">
             {imageList.slice(0, 4).map((image, index) => (
@@ -152,7 +155,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 }`}
                 onClick={() => setActiveImageIndex(index)}
               >
-                <Image
+                <ProductImage
                   src={image}
                   alt={`${product.name} ${index + 1}`}
                   className="h-20 w-full object-cover"
@@ -169,10 +172,23 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             {product.categoryName}
           </p>
           <h1 className="[font-family:var(--font-display)] text-4xl text-primary">{product.name}</h1>
-          <p className="text-muted-foreground">{product.description}</p>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="flex items-center gap-1.5 font-medium text-green-600">
+              <svg className="size-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+              In Stock
+            </span>
+            {product.deliveryType === "bulk" && (
+              <span className="text-muted-foreground">Bulk delivery available</span>
+            )}
+          </div>
           <p className="text-2xl font-semibold text-primary">
-            {formatUsd(product.pricePerUnitCents)} {product.unitDisplay}
+            {formatUsd(product.pricePerUnitCents)}{" "}
+            <span className="text-base font-normal text-muted-foreground">{product.unitDisplay}</span>
           </p>
+          {product.priceNote && (
+            <p className="text-sm text-muted-foreground">{product.priceNote}</p>
+          )}
+          <p className="text-muted-foreground">{product.description}</p>
 
           <article className="space-y-3 rounded-2xl border bg-card p-4">
             <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Quantity</h2>
@@ -385,7 +401,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             {relatedProducts.map((related) => (
               <article key={related.id} className="rounded-2xl border bg-card p-4">
                 <Link href={`/shop/${related.slug}`} className="block">
-                  <Image
+                  <ProductImage
                     src={related.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"}
                     alt={related.name}
                     className="h-36 w-full rounded-lg object-cover"
@@ -412,6 +428,37 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         ) : (
           <p className="text-sm text-muted-foreground">Cross-sell recommendations are being finalized.</p>
         )}
+      </section>
+
+      {/* Trust bar */}
+      <section className="grid gap-4 rounded-2xl border bg-card p-5 sm:grid-cols-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Same-Week Delivery</p>
+            <p className="text-xs text-muted-foreground">Across Suffolk County</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Transparent Pricing</p>
+            <p className="text-xs text-muted-foreground">No hidden fees</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Call (631) 874-6244</p>
+            <p className="text-xs text-muted-foreground">Mon–Sat 7am–4pm</p>
+          </div>
+        </div>
       </section>
     </div>
   );

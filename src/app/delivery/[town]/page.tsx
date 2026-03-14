@@ -6,6 +6,7 @@ import { BeforeAfterSlider } from "@/components/gallery/before-after-slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getTownPageBundle, getTownPages, type TownFaq } from "@/lib/data/town-pages";
 
 type TownRouteProps = {
@@ -107,6 +108,43 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-12 md:py-16">
+      <JsonLd
+        data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            name: `Bulk Material Delivery to ${townPage.name}, ${townPage.state}`,
+            description: `Landscape and masonry material delivery to ${townPage.name}. First load starting at ${formatUsd(townPage.deliveryFeeCents)}, ${townPage.driveMinutes} minute drive from our yard.`,
+            serviceType: "Bulk Material Delivery",
+            areaServed: {
+              "@type": "City",
+              name: townPage.name,
+              containedInPlace: { "@type": "State", name: "New York" },
+            },
+            provider: {
+              "@type": "LocalBusiness",
+              "@id": "https://www.easternlm.com/#business",
+              name: "Eastern Landscape & Mason Supply",
+              telephone: "+16318746244",
+            },
+            offers: {
+              "@type": "Offer",
+              priceCurrency: "USD",
+              price: (townPage.deliveryFeeCents / 100).toFixed(2),
+              description: "First load delivery fee estimate",
+            },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqItems.map((faq) => ({
+              "@type": "Question",
+              name: faq.q,
+              acceptedAnswer: { "@type": "Answer", text: faq.a },
+            })),
+          },
+        ]}
+      />
       <section className="rounded-2xl border bg-card p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Delivery Area</Badge>

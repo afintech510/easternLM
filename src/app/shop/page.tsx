@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, CheckCircle, Phone, SlidersHorizontal, Truck } from "lucide-react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,13 @@ type ShopPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Shop Materials | Eastern Landscape & Mason Supply",
-  description: "Browse bulk and non-bulk landscape and masonry products with transparent pricing.",
+  title: "Landscape & Mason Supply | Mulch, Stone, Gravel Delivery Suffolk County",
+  description:
+    "Shop 280+ bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, sand, and masonry supplies delivered across Suffolk County from Center Moriches. Order online.",
   openGraph: {
-    title: "Shop Materials | Eastern Landscape & Mason Supply",
-    description: "Browse bulk and non-bulk landscape and masonry products with transparent pricing.",
+    title: "Shop Landscape & Mason Supply | Eastern LM",
+    description:
+      "280+ bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, and masonry supplies delivered across Suffolk County. Order online today.",
     type: "website",
   },
 };
@@ -115,16 +117,30 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       <section className="bg-primary">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            Shop
+            Suffolk County&apos;s Landscape Supply Yard
           </p>
           <h1 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary-foreground md:text-5xl">
-            Browse Materials
+            {selectedCategoryLabel ? selectedCategoryLabel : "Landscape & Mason Supply"}
           </h1>
           <p className="mt-3 max-w-2xl text-base text-primary-foreground/60">
             {selectedCategoryLabel
-              ? `Showing ${selectedCategoryLabel} products.`
-              : "Bulk landscape materials, natural stone, masonry supplies, and more."}
+              ? `${catalog.products.length} products available for pickup or delivery.`
+              : "280+ bulk materials with transparent pricing. Order online, delivered to your site."}
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-primary-foreground/70">
+            <span className="flex items-center gap-1.5">
+              <Truck className="size-4 text-accent" />
+              Same-week delivery
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle className="size-4 text-accent" />
+              All materials in stock
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Phone className="size-4 text-accent" />
+              (631) 874-6244
+            </span>
+          </div>
           {deliveryZip && (
             <p className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-foreground/10 px-4 py-2.5 text-sm text-primary-foreground/80">
               Delivery ZIP: <span className="font-semibold text-accent">{deliveryZip}</span>
@@ -223,12 +239,19 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                         className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         width={800}
                         height={500}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     </Link>
                     <div className="p-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        {product.categoryName}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          {product.categoryName}
+                        </p>
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-green-600">
+                          <CheckCircle className="size-3" />
+                          In Stock
+                        </span>
+                      </div>
                       <Link
                         href={`/shop/${product.slug}`}
                         className="mt-1.5 block text-base font-semibold transition-colors hover:text-accent"
@@ -244,6 +267,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                           {product.unitDisplay}
                         </span>
                       </p>
+                      {product.deliveryType === "bulk" && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Truck className="size-3" />
+                          Bulk delivery available
+                        </p>
+                      )}
                       <div className="mt-4 grid grid-cols-2 gap-2">
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/shop/${product.slug}`}>View Details</Link>

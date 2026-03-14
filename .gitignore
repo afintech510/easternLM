@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# data files
+*.csv
+*-report.md
+migration-report.md
+
+# agent artifacts
+.agent/
+.agents/
+claude-seo/
+skills-lock.json

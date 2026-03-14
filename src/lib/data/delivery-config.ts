@@ -11,6 +11,7 @@ function mapSiteSettingsToPricingConfig(row: SiteSettingsRow): DeliveryPricingCo
     milesPerGallon: Number(row.miles_per_gallon),
     fuelPricePerGallon: Number(row.fuel_price_per_gallon),
     hourlyLaborRate: Number(row.hourly_labor_rate),
+    dumpTimeBufferMinutes: row.dump_time_buffer_minutes,
     profitMultiplier: Number(row.profit_multiplier),
     roundToNearest: row.round_to_nearest,
     minimumDeliveryFee: row.minimum_delivery_fee_cents / 100,

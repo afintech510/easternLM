@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -78,6 +77,78 @@ export type Database = {
           slug?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          company_name: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          first_order_at: string | null
+          id: string
+          last_name: string | null
+          last_order_at: string | null
+          notes: string | null
+          opted_in_email: boolean
+          opted_in_sms: boolean
+          phone: string | null
+          source: string
+          state: string | null
+          tags: string[]
+          total_orders: number
+          total_spent_cents: number
+          updated_at: string
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          first_order_at?: string | null
+          id?: string
+          last_name?: string | null
+          last_order_at?: string | null
+          notes?: string | null
+          opted_in_email?: boolean
+          opted_in_sms?: boolean
+          phone?: string | null
+          source?: string
+          state?: string | null
+          tags?: string[]
+          total_orders?: number
+          total_spent_cents?: number
+          updated_at?: string
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          first_order_at?: string | null
+          id?: string
+          last_name?: string | null
+          last_order_at?: string | null
+          notes?: string | null
+          opted_in_email?: boolean
+          opted_in_sms?: boolean
+          phone?: string | null
+          source?: string
+          state?: string | null
+          tags?: string[]
+          total_orders?: number
+          total_spent_cents?: number
+          updated_at?: string
+          zip?: string | null
         }
         Relationships: []
       }
@@ -164,6 +235,65 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      order_history: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_notes: string | null
+          delivery_zip: string | null
+          id: string
+          items: Json
+          order_date: string
+          order_total_cents: number | null
+          payment_method: string | null
+          raw_notes: string | null
+          status: string | null
+          wc_order_id: number
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_zip?: string | null
+          id?: string
+          items?: Json
+          order_date: string
+          order_total_cents?: number | null
+          payment_method?: string | null
+          raw_notes?: string | null
+          status?: string | null
+          wc_order_id: number
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_zip?: string | null
+          id?: string
+          items?: Json
+          order_date?: string
+          order_total_cents?: number | null
+          payment_method?: string | null
+          raw_notes?: string | null
+          status?: string | null
+          wc_order_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_history_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -350,6 +480,7 @@ export type Database = {
           min_qty: number
           name: string
           pairs_well_with: string[]
+          price_note: string
           price_per_unit_cents: number
           recommended_uses: string[]
           slug: string
@@ -358,6 +489,7 @@ export type Database = {
           unit: string
           unit_display: string
           updated_at: string
+          wc_id: number | null
         }
         Insert: {
           category_id: string
@@ -373,6 +505,7 @@ export type Database = {
           min_qty: number
           name: string
           pairs_well_with?: string[]
+          price_note?: string
           price_per_unit_cents: number
           recommended_uses?: string[]
           slug: string
@@ -381,6 +514,7 @@ export type Database = {
           unit: string
           unit_display: string
           updated_at?: string
+          wc_id?: number | null
         }
         Update: {
           category_id?: string
@@ -396,6 +530,7 @@ export type Database = {
           min_qty?: number
           name?: string
           pairs_well_with?: string[]
+          price_note?: string
           price_per_unit_cents?: number
           recommended_uses?: string[]
           slug?: string
@@ -404,6 +539,7 @@ export type Database = {
           unit?: string
           unit_display?: string
           updated_at?: string
+          wc_id?: number | null
         }
         Relationships: [
           {
@@ -411,6 +547,83 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_leads: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          created_at: string
+          customer_id: string | null
+          description: string | null
+          email: string | null
+          id: string
+          internal_notes: string | null
+          metadata: Json
+          name: string
+          phone: string
+          photo_urls: string[]
+          quoted_amount_cents: number | null
+          referral_source: string | null
+          service_type: string
+          status: string
+          timeline: string | null
+          town: string | null
+          updated_at: string
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json
+          name: string
+          phone: string
+          photo_urls?: string[]
+          quoted_amount_cents?: number | null
+          referral_source?: string | null
+          service_type: string
+          status?: string
+          timeline?: string | null
+          town?: string | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          email?: string | null
+          id?: string
+          internal_notes?: string | null
+          metadata?: Json
+          name?: string
+          phone?: string
+          photo_urls?: string[]
+          quoted_amount_cents?: number | null
+          referral_source?: string | null
+          service_type?: string
+          status?: string
+          timeline?: string | null
+          town?: string | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
@@ -612,7 +825,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

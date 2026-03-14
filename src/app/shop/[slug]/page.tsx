@@ -17,19 +17,32 @@ export async function generateMetadata({ params }: ShopProductPageProps): Promis
   const bundle = await getShopProductBySlug(slug);
 
   if (!bundle) {
-    return {
-      title: "Product",
-    };
+    return { title: "Product" };
   }
 
+  const p = bundle.product;
+  const price = `$${(p.pricePerUnitCents / 100).toFixed(2)}`;
+  const isBulk = p.deliveryType === "bulk";
+
+  // SEO-optimized title: under 60 chars, includes product + location signal
+  const titleBase = p.name.replace(/\s*\([^)]*\)\s*/g, "").trim(); // strip parenthetical
+  const metaTitle = `${titleBase} ${p.unitDisplay} | Suffolk County Delivery`;
+
+  // Meta description: under 155 chars, includes price + CTA
+  const descSnippet = p.description
+    ? p.description.split(".")[0] + "."
+    : `${p.name} available for ${isBulk ? "bulk delivery" : "pickup"}.`;
+  const metaDesc = `${descSnippet} ${price} ${p.unitDisplay}. ${isBulk ? "Bulk delivery across Suffolk County." : "Pickup at our Center Moriches yard."} Order online today.`.substring(0, 155);
+
   return {
-    title: `${bundle.product.name} | Eastern Landscape & Mason Supply`,
-    description: bundle.product.description,
+    title: metaTitle.length <= 60 ? metaTitle : `${titleBase} | Eastern LM Supply`,
+    description: metaDesc,
     openGraph: {
-      title: bundle.product.name,
-      description: bundle.product.description,
+      title: `${titleBase} — ${price} ${p.unitDisplay}`,
+      description: metaDesc,
       type: "website",
-      images: bundle.product.images[0] ? [{ url: bundle.product.images[0] }] : undefined,
+      siteName: "Eastern Landscape & Mason Supply",
+      images: p.images[0] ? [{ url: p.images[0], width: 1200, height: 630 }] : undefined,
     },
   };
 }
@@ -59,13 +72,28 @@ export default async function ShopProductPage({ params }: ShopProductPageProps) 
           "@type": "Product",
           name: bundle.product.name,
           description: bundle.product.description,
-          image: bundle.product.images,
+          image: bundle.product.images.length > 0 ? bundle.product.images : undefined,
           category: bundle.product.categoryName,
+          brand: {
+            "@type": "Brand",
+            name: "Eastern Landscape & Mason Supply",
+          },
           offers: {
             "@type": "Offer",
             priceCurrency: "USD",
             price: (bundle.product.pricePerUnitCents / 100).toFixed(2),
             availability: "https://schema.org/InStock",
+            seller: {
+              "@type": "LocalBusiness",
+              name: "Eastern Landscape & Mason Supply",
+              address: {
+                "@type": "PostalAddress",
+                streetAddress: "110 Frowein Road",
+                addressLocality: "Center Moriches",
+                addressRegion: "NY",
+                postalCode: "11934",
+              },
+            },
           },
         }}
       />

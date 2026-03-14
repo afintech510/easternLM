@@ -29,6 +29,7 @@ export type DeliveryPricingConfig = {
   milesPerGallon: number;
   fuelPricePerGallon: number;
   hourlyLaborRate: number;
+  dumpTimeBufferMinutes: number;
   profitMultiplier: number;
   roundToNearest: number;
   minimumDeliveryFee: number;
@@ -218,7 +219,9 @@ function calculateFirstLoadFeeCents({
   pricingConfig: DeliveryPricingConfig;
 }) {
   const roundTripMiles = oneWayMiles * 2;
-  const roundTripMinutes = durationSeconds / 60;
+  // Round-trip duration = 2x one-way + dump time buffer (on-site unloading)
+  const dumpBufferSeconds = (pricingConfig.dumpTimeBufferMinutes ?? 5) * 60;
+  const roundTripMinutes = (durationSeconds * 2 + dumpBufferSeconds) / 60;
 
   const fuelCost = (roundTripMiles / pricingConfig.milesPerGallon) * pricingConfig.fuelPricePerGallon;
   const laborCost = (roundTripMinutes / 60) * pricingConfig.hourlyLaborRate;
