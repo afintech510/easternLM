@@ -58,7 +58,7 @@ export function AddToCartButton({
 
   return (
     <Button
-      className={`mt-3 w-full transition-colors ${justAdded ? "bg-green-600 text-white hover:bg-green-600" : ""}`}
+      className={`w-full transition-colors ${justAdded ? "bg-green-600 text-white hover:bg-green-600" : ""}`}
       size="sm"
       disabled={isSubmitting || justAdded}
       onClick={handleClick}

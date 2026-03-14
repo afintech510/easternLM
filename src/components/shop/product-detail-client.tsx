@@ -292,7 +292,9 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 </Link>
                 <Link href={`/shop/${related.slug}`} className="mt-2 block text-sm font-semibold hover:text-accent">{related.name}</Link>
                 <p className="mt-0.5 text-sm font-bold text-accent">{formatUsd(related.pricePerUnitCents)} <span className="font-normal text-muted-foreground">{related.unitDisplay}</span></p>
-                <AddToCartButton productId={related.id} name={related.name} unitPriceCents={related.pricePerUnitCents} deliveryType={related.deliveryType} materialClass={related.materialClass} />
+                <div className="mt-3">
+                  <AddToCartButton productId={related.id} name={related.name} unitPriceCents={related.pricePerUnitCents} deliveryType={related.deliveryType} materialClass={related.materialClass} />
+                </div>
               </article>
             ))}
           </div>
