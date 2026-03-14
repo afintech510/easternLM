@@ -14,10 +14,7 @@ export async function middleware(request: NextRequest) {
 
   // Only protect /admin routes (except login page and login API)
   if (pathname.startsWith("/admin") && pathname !== "/admin/login" && pathname !== "/api/admin/login") {
-    console.log(`[middleware] ${pathname} | user=${user?.id ?? "none"} | userError=${userError?.message ?? "none"}`);
-
     if (!user) {
-      console.log(`[middleware] No user, redirecting to /admin/login`);
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/admin/login";
       return NextResponse.redirect(loginUrl);
@@ -29,8 +26,6 @@ export async function middleware(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .single();
-
-    console.log(`[middleware] account=${JSON.stringify(account)} | accountError=${accountError?.message ?? "none"}`);
 
     if (!account || account.role !== "admin") {
       const unauthorizedUrl = request.nextUrl.clone();

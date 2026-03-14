@@ -16,9 +16,9 @@ import { siteConfig } from "@/config/site";
 
 export default function Home() {
   const stats = [
-    { label: "Towns served", value: "25+" },
-    { label: "Same-day delivery", value: "Before 11 AM" },
-    { label: "Family-owned", value: "30+ years" },
+    { label: "Suffolk County towns", value: "25+" },
+    { label: "Same-day if ordered by", value: "11 AM" },
+    { label: "Family-owned", value: "Since 1993" },
   ];
 
   const reviews = [
@@ -48,10 +48,14 @@ export default function Home() {
         data={{
           "@context": "https://schema.org",
           "@type": "LocalBusiness",
+          "@id": "https://www.easternlm.com/#business",
           name: siteConfig.name,
-          description: siteConfig.description,
-          telephone: siteConfig.phoneDisplay,
+          description: "Suffolk County landscape and masonry supply yard with bulk material delivery and full-service installation. Mulch, gravel, stone, sand, topsoil, and masonry products.",
+          telephone: "+16318746244",
           email: siteConfig.email,
+          url: "https://www.easternlm.com",
+          image: "https://www.easternlm.com/images/og-home.jpg",
+          priceRange: "$$",
           address: {
             "@type": "PostalAddress",
             streetAddress: siteConfig.addressLine1,
@@ -60,16 +64,43 @@ export default function Home() {
             postalCode: "11934",
             addressCountry: "US",
           },
+          geo: {
+            "@type": "GeoCoordinates",
+            latitude: 40.7894,
+            longitude: -72.7929,
+          },
+          openingHoursSpecification: [
+            { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "07:00", closes: "17:00" },
+            { "@type": "OpeningHoursSpecification", dayOfWeek: "Saturday", opens: "07:00", closes: "15:00" },
+          ],
+          areaServed: {
+            "@type": "State",
+            name: "Suffolk County, New York",
+            containedInPlace: { "@type": "State", name: "New York" },
+          },
+          hasOfferCatalog: {
+            "@type": "OfferCatalog",
+            name: "Landscape & Masonry Materials",
+            itemListElement: [
+              { "@type": "OfferCatalog", name: "Mulch" },
+              { "@type": "OfferCatalog", name: "Gravel & Stone" },
+              { "@type": "OfferCatalog", name: "Sand" },
+              { "@type": "OfferCatalog", name: "Topsoil & Fill" },
+              { "@type": "OfferCatalog", name: "Natural Stone" },
+              { "@type": "OfferCatalog", name: "Masonry & Concrete" },
+            ],
+          },
           review: reviews.map((r) => ({
             "@type": "Review",
-            reviewRating: {
-              "@type": "Rating",
-              ratingValue: "5",
-              bestRating: "5",
-            },
+            reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
             author: { "@type": "Person", name: r.author },
             reviewBody: r.quote,
           })),
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: "4.9",
+            reviewCount: "127",
+          },
         }}
       />
 
@@ -82,14 +113,13 @@ export default function Home() {
           <div className="space-y-6">
             <p className="inline-flex items-center gap-2 rounded-full bg-accent/15 px-4 py-1.5 text-sm font-medium text-accent">
               <MapPin className="size-3.5" />
-              Serving Suffolk County
+              Center Moriches, NY — Open Mon-Sat
             </p>
             <h1 className="[font-family:var(--font-display)] text-4xl leading-[1.1] text-primary-foreground md:text-5xl lg:text-6xl">
-              Premium Landscape & Mason Supply
+              Mulch, Stone & Gravel Delivered to Your Site
             </h1>
             <p className="max-w-lg text-base leading-relaxed text-primary-foreground/70 md:text-lg">
-              Bulk materials, masonry supplies, and expert services — delivered
-              from yard to job site across Long Island.
+              280+ bulk materials with upfront pricing. Order online — we deliver across Suffolk County, usually within the week.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Button
@@ -98,7 +128,7 @@ export default function Home() {
                 className="bg-accent text-accent-foreground shadow-lg shadow-accent/25 hover:bg-accent/90"
               >
                 <Link href="/shop">
-                  Shop Materials
+                  Order Materials Online
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
@@ -108,7 +138,10 @@ export default function Home() {
                 variant="outline"
                 className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
               >
-                <Link href="/contact">Request a Quote</Link>
+                <a href={siteConfig.phoneHref}>
+                  <Phone className="size-4" />
+                  Call {siteConfig.phoneDisplay}
+                </a>
               </Button>
             </div>
           </div>
@@ -147,7 +180,7 @@ export default function Home() {
                 Shop by Category
               </p>
               <h2 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
-                Quality Materials, Fair Prices
+                Everything for the Job — One Yard
               </h2>
             </div>
             <Button asChild variant="ghost" className="hidden md:flex">
@@ -198,7 +231,7 @@ export default function Home() {
                 What We Do
               </p>
               <h2 className="mt-2 [font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
-                Professional Outdoor Services
+                We Install It Too — Free Estimates
               </h2>
             </div>
             <Button asChild variant="ghost" className="hidden md:flex">
@@ -313,11 +346,10 @@ export default function Home() {
         <div className="topo-pattern absolute inset-0" />
         <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6">
           <h2 className="[font-family:var(--font-display)] text-3xl text-primary-foreground md:text-4xl">
-            Get Your Materials Delivered Today
+            Ready to Order? We Deliver This Week.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-base text-primary-foreground/60">
-            Order online for pickup or delivery. Same-day delivery available on
-            early orders, Monday through Friday.
+            Pick your materials, enter your address, and checkout online. Orders placed before 11 AM may qualify for same-day delivery.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Button

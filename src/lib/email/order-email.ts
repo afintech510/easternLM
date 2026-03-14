@@ -207,12 +207,17 @@ export async function sendOrderConfirmationEmail(input: {
     </div>
   `;
 
-  await resend.emails.send({
-    from: fromEmail,
-    to: order.customer_email,
-    subject: `Order Confirmation - ${order.id}`,
-    html,
-  });
+  try {
+    await resend.emails.send({
+      from: fromEmail,
+      to: order.customer_email,
+      subject: `Order Confirmation - ${order.id}`,
+      html,
+    });
 
-  return { sent: true as const };
+    return { sent: true as const };
+  } catch (error) {
+    console.error("[order-email] Failed to send:", error instanceof Error ? error.message : error);
+    return { sent: false, reason: "Resend API error" as const };
+  }
 }

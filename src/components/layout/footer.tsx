@@ -96,7 +96,11 @@ export function Footer() {
         <div className="border-t border-primary-foreground/10">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs text-primary-foreground/40 sm:px-6 md:flex-row md:items-center md:justify-between">
             <p>&copy; {thisYear} Eastern Landscape & Mason Supply. All rights reserved.</p>
-            <p>Proudly serving Suffolk County, Long Island.</p>
+            <div className="flex gap-4">
+              <Link href="/privacy-policy" className="hover:text-primary-foreground/70">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-primary-foreground/70">Terms</Link>
+              <span>Proudly serving Suffolk County, Long Island.</span>
+            </div>
           </div>
         </div>
       </div>

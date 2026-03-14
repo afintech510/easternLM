@@ -11,9 +11,7 @@ export default function AboutPage() {
           A Family Yard Built Around Reliable Supply And Honest Service
         </h1>
         <p className="max-w-3xl text-muted-foreground">
-          Eastern Landscape & Mason Supply has served Suffolk County contractors and homeowners for
-          over three decades. We combine yard inventory with local field knowledge so jobs move from
-          estimate to delivery without guesswork.
+          We&apos;ve been supplying materials and doing installation work across Suffolk County since the 1990s. We know the local soil, the weather, and how to get jobs done right.
         </p>
       </section>
 
@@ -34,7 +32,7 @@ export default function AboutPage() {
         <article className="rounded-xl border bg-card p-5">
           <h2 className="text-lg font-semibold">How We Deliver</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Route-based truck dispatch with cutoff-aware scheduling and clear service-area rules.
+            Our trucks run routes across Suffolk County daily. Order before 11 AM and you may get same-day delivery.
           </p>
         </article>
       </section>

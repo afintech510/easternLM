@@ -15,8 +15,9 @@ const truckTypes: TruckType[] = [
 
 const pricingConfig: DeliveryPricingConfig = {
   milesPerGallon: 6,
-  fuelPricePerGallon: 4,
-  hourlyLaborRate: 30,
+  fuelPricePerGallon: 5,
+  hourlyLaborRate: 32,
+  dumpTimeBufferMinutes: 5,
   profitMultiplier: 2,
   roundToNearest: 5,
   minimumDeliveryFee: 25,
@@ -34,10 +35,10 @@ function milesToMeters(miles: number) {
   return miles * 1609.344;
 }
 
-function distance(oneWayMiles: number, roundTripMinutes: number): DistanceMatrixResult {
+function distance(oneWayMiles: number, oneWayMinutes: number): DistanceMatrixResult {
   return {
     distanceMeters: milesToMeters(oneWayMiles),
-    durationSeconds: roundTripMinutes * 60,
+    durationSeconds: oneWayMinutes * 60,
   };
 }
 
@@ -54,7 +55,10 @@ function item(partial: Partial<CartItem> = {}): CartItem {
 }
 
 describe("calculateDeliveryFees", () => {
-  test("Test 1: 8mi address returns $60 first-load fee with formula", () => {
+  test("Test 1: 8mi/35min address returns $110 first-load fee", () => {
+    // RT miles=16, RT min=35*2+5=75
+    // Fuel: (16/6)*5=$13.33, Labor: (75/60)*32=$40, Raw=$53.33
+    // x2=$106.67, ceil5=$110
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 3 })],
       distanceResult: distance(8, 35),
@@ -64,10 +68,13 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    expect(result.firstLoadFeeCents).toBe(6000);
+    expect(result.firstLoadFeeCents).toBe(11000);
   });
 
-  test("Test 2: 15mi address returns about $95 first-load fee", () => {
+  test("Test 2: 15mi/55min address returns $175 first-load fee", () => {
+    // RT miles=30, RT min=55*2+5=115
+    // Fuel: (30/6)*5=$25, Labor: (115/60)*32=$61.33, Raw=$86.33
+    // x2=$172.67, ceil5=$175
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 3 })],
       distanceResult: distance(15, 55),
@@ -77,10 +84,13 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    expect(result.firstLoadFeeCents).toBe(9500);
+    expect(result.firstLoadFeeCents).toBe(17500);
   });
 
-  test("Test 3: 25mi address returns about $145 first-load fee", () => {
+  test("Test 3: 25mi/75min address returns $250 first-load fee", () => {
+    // RT miles=50, RT min=75*2+5=155
+    // Fuel: (50/6)*5=$41.67, Labor: (155/60)*32=$82.67, Raw=$124.33
+    // x2=$248.67, ceil5=$250
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 3 })],
       distanceResult: distance(25, 75),
@@ -90,10 +100,13 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    expect(result.firstLoadFeeCents).toBe(14500);
+    expect(result.firstLoadFeeCents).toBe(25000);
   });
 
-  test("Test 4: very close address applies $25 minimum fee", () => {
+  test("Test 4: very close 2mi/8min applies $30 fee (above $25 min)", () => {
+    // RT miles=4, RT min=8*2+5=21
+    // Fuel: (4/6)*5=$3.33, Labor: (21/60)*32=$11.20, Raw=$14.53
+    // x2=$29.07, ceil5=$30
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 3 })],
       distanceResult: distance(2, 8),
@@ -103,7 +116,7 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    expect(result.firstLoadFeeCents).toBe(2500);
+    expect(result.firstLoadFeeCents).toBe(3000);
   });
 
   test("Test 5: address beyond max radius flags outside service area", () => {
@@ -120,7 +133,8 @@ describe("calculateDeliveryFees", () => {
     expect(result.checkoutBlocked).toBe(true);
   });
 
-  test("Test 6: second load is 75% of first and rounded", () => {
+  test("Test 6: second load is 75% of first, ceil to $5", () => {
+    // First = $110, additional = $110 * 0.75 = $82.50, ceil5 = $85
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 7 })],
       distanceResult: distance(8, 35),
@@ -130,11 +144,11 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    expect(result.firstLoadFeeCents).toBe(6000);
-    expect(result.additionalLoadFeeCents).toBe(4500);
+    expect(result.firstLoadFeeCents).toBe(11000);
+    expect(result.additionalLoadFeeCents).toBe(8500);
   });
 
-  test("Test 7: three loads totals $150 (60 + 45 + 45)", () => {
+  test("Test 7: three loads totals $110+85+85=$280", () => {
     const result = calculateDeliveryFees({
       cartItems: [item({ quantity: 45 })],
       distanceResult: distance(8, 35),
@@ -145,7 +159,7 @@ describe("calculateDeliveryFees", () => {
     });
 
     expect(result.totalLoads).toBe(3);
-    expect(result.deliveryFeeCents).toBe(15000);
+    expect(result.deliveryFeeCents).toBe(28000);
   });
 
   test("Test 8: 3yd topsoil selects Small Dump", () => {
@@ -244,7 +258,7 @@ describe("calculateDeliveryFees", () => {
     });
 
     expect(result.totalLoads).toBe(1);
-    expect(result.deliveryFeeCents).toBe(6000);
+    expect(result.deliveryFeeCents).toBe(11000);
   });
 
   test("Test 15: bulk + non-bulk keeps non-bulk riding free", () => {
@@ -261,7 +275,7 @@ describe("calculateDeliveryFees", () => {
     });
 
     expect(result.totalLoads).toBe(1);
-    expect(result.deliveryFeeCents).toBe(6000);
+    expect(result.deliveryFeeCents).toBe(11000);
   });
 
   test("Test 16: all pickup returns $0 delivery and no minimum", () => {
@@ -348,8 +362,8 @@ describe("calculateDeliveryFees", () => {
       deliveryMethod: "delivery",
     });
 
-    const expectedTax = Math.round((10000 + 6000) * 0.0875);
-    const expectedSurcharge = Math.round((10000 + 6000 + expectedTax) * 0.03);
+    const expectedTax = Math.round((10000 + 11000) * 0.0875);
+    const expectedSurcharge = Math.round((10000 + 11000 + expectedTax) * 0.03);
 
     expect(result.taxCents).toBe(expectedTax);
     expect(result.ccSurchargeCents).toBe(expectedSurcharge);

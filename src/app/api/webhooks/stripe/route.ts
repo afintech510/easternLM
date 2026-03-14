@@ -418,6 +418,14 @@ export async function POST(request: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       await handleCheckoutCompleted(session, stripe);
+    } else if (event.type === "checkout.session.expired") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const supabaseAdmin = getSupabaseAdminClient();
+      await supabaseAdmin
+        .from("orders")
+        .update({ status: "expired" })
+        .eq("stripe_checkout_session_id", session.id)
+        .eq("status", "pending");
     }
 
     return NextResponse.json({ received: true });
