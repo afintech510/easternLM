@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, CheckCircle, MapPin, Phone, Truck } from "lucide-react";
+import { Calculator, Check, CheckCircle, MapPin, Phone, Truck } from "lucide-react";
+import { toast } from "sonner";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,10 +105,20 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     }
   }
 
+  const [justAdded, setJustAdded] = useState(false);
+
   async function handleAddToCart() {
     setIsAdding(true);
     await addItem({ id: product.id, name: product.name, quantity, unitPriceCents: product.pricePerUnitCents, deliveryType: product.deliveryType, materialClass: product.materialClass, fulfillmentMethod: deliveryMethod });
     setIsAdding(false);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 2000);
+
+    toast.success(`${product.name} added to cart`, {
+      description: `${quantity} × ${formatUsd(product.pricePerUnitCents)} = ${formatUsd(lineTotal)}`,
+      action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
+      duration: 3000,
+    });
   }
 
   return (
@@ -227,8 +238,8 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           </div>
 
           {/* ── Add to Cart — big, impossible to miss ──── */}
-          <Button onClick={handleAddToCart} disabled={isAdding} size="lg" className="w-full bg-accent text-accent-foreground text-lg shadow-lg shadow-accent/20 hover:bg-accent/90">
-            {isAdding ? "Adding..." : `Add to Cart — ${formatUsd(lineTotal)}`}
+          <Button onClick={handleAddToCart} disabled={isAdding || justAdded} size="lg" className={`w-full text-lg shadow-lg transition-colors ${justAdded ? "bg-green-600 text-white shadow-green-600/20 hover:bg-green-600" : "bg-accent text-accent-foreground shadow-accent/20 hover:bg-accent/90"}`}>
+            {isAdding ? "Adding..." : justAdded ? <><Check className="size-5" /> Added to Cart</> : `Add to Cart — ${formatUsd(lineTotal)}`}
           </Button>
 
           {/* Phone fallback */}
