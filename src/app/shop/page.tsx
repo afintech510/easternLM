@@ -221,37 +221,40 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
                     {/* Body */}
                     <div className="flex flex-1 flex-col p-4">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold uppercase tracking-widest text-muted-foreground">
-                          {product.categoryName}
-                        </span>
-                        <span className="flex items-center gap-1 font-medium text-green-600">
-                          <CheckCircle className="size-3" /> In Stock
-                        </span>
+                      {/* Info area — grows to push buttons down */}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold uppercase tracking-widest text-muted-foreground">
+                            {product.categoryName}
+                          </span>
+                          <span className="flex items-center gap-1 font-medium text-green-600">
+                            <CheckCircle className="size-3" /> In Stock
+                          </span>
+                        </div>
+
+                        <Link href={`/shop/${product.slug}`} className="mt-1.5 block text-base font-semibold leading-tight line-clamp-2 hover:text-accent">
+                          {product.name}
+                        </Link>
+
+                        {product.description && (
+                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
+                        )}
+
+                        {/* Price — prominent */}
+                        <div className="mt-3">
+                          <span className="text-xl font-bold text-accent">{formatUsd(product.pricePerUnitCents)}</span>
+                          <span className="ml-1 text-sm text-muted-foreground">{product.unitDisplay}</span>
+                        </div>
+
+                        {product.deliveryType === "bulk" && (
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Truck className="size-3" /> Bulk delivery
+                          </p>
+                        )}
                       </div>
 
-                      <Link href={`/shop/${product.slug}`} className="mt-1.5 text-base font-semibold leading-tight hover:text-accent">
-                        {product.name}
-                      </Link>
-
-                      {product.description && (
-                        <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">{product.description}</p>
-                      )}
-
-                      {/* Price — prominent */}
-                      <div className="mt-3">
-                        <span className="text-xl font-bold text-accent">{formatUsd(product.pricePerUnitCents)}</span>
-                        <span className="ml-1 text-sm text-muted-foreground">{product.unitDisplay}</span>
-                      </div>
-
-                      {product.deliveryType === "bulk" && (
-                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Truck className="size-3" /> Bulk delivery
-                        </p>
-                      )}
-
-                      {/* CTAs */}
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      {/* Button area — always pinned to bottom */}
+                      <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3">
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/shop/${product.slug}`}>Details</Link>
                         </Button>

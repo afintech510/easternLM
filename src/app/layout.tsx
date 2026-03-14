@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bree_Serif, Public_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { Toaster } from "sonner";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import "./globals.css";
@@ -66,6 +67,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+        <Toaster position="top-right" richColors toastOptions={{ className: "text-sm" }} />
         <Analytics />
       </body>
     </html>

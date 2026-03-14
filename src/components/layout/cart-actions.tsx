@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Phone, ShoppingCart } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,17 @@ import { useCartItemCount } from "@/stores/cartStore";
 
 export function CartActions() {
   const cartItemCount = useCartItemCount();
+  const [bounce, setBounce] = useState(false);
+  const prevCount = useRef(cartItemCount);
+
+  useEffect(() => {
+    if (cartItemCount > prevCount.current) {
+      setBounce(true);
+      const timer = setTimeout(() => setBounce(false), 400);
+      return () => clearTimeout(timer);
+    }
+    prevCount.current = cartItemCount;
+  }, [cartItemCount]);
 
   return (
     <div className="hidden items-center gap-2 lg:flex">
@@ -29,11 +41,13 @@ export function CartActions() {
         className="relative bg-accent text-accent-foreground hover:bg-accent/90"
       >
         <Link href="/cart">
-          <ShoppingCart className="size-4" />
+          <span className={`inline-flex transition-transform duration-300 ${bounce ? "scale-125" : "scale-100"}`}>
+            <ShoppingCart className="size-4" />
+          </span>
           Cart
           {cartItemCount > 0 && (
             <Badge
-              className="ml-1 h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground"
+              className={`ml-1 h-5 min-w-5 justify-center rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground transition-transform duration-300 ${bounce ? "scale-110" : "scale-100"}`}
               variant="secondary"
             >
               {Math.round(cartItemCount)}
