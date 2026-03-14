@@ -120,3 +120,57 @@ Site is fully functional and accessible at https://staging.easternlm.com with pr
 - `.claude/commands/open-session.md` — Committed and pushed
 - `.claude/commands/save-session.md` — Committed and pushed
 - `SESSION_LOG.md` — Committed and pushed
+
+## Session 3 — 2026-03-14
+
+### What Was Accomplished
+- **Customer Database:** Imported 14,681 WC orders → 2,677 customers, deduplicated by phone/email, auto-tagged (repeat, high-value, contractor, product-type buyers). Search API at /api/admin/customers/search
+- **Product Catalog:** 33 bulk products with descriptions, recommended uses, cross-sells. 188 non-bulk with generated descriptions. SEO meta tags on all product pages.
+- **Delivery Fee Formula:** Fixed round-trip duration + dump buffer. Updated fuel $4→$5, labor $30→$32. 24 tests passing. Validated against 5 real addresses.
+- **Service Lead System:** service_leads table, multi-step ServiceQuoteForm (visual buttons, 3 steps), /api/leads endpoint, admin leads page, notification email, auto-customer linking
+- **JSON-LD:** LocalBusiness (homepage), Service+FAQPage (services, towns), Product (shop)
+- **Legal:** /privacy-policy, /terms, CC surcharge disclosure, footer links
+- **Blog:** "How Much Mulch Do I Need?" targeting mulch calculator suffolk county
+- **Health Endpoints:** /api/health (Supabase+Stripe+env), /api/health/keepalive (auto-restore)
+- **Full UI Redesign:** Design system (MASTER.md), homepage (8 sections), shop (search, mobile tabs), product detail (big price, calculator, toast feedback), service pages (double conversion), header (utility bar, mobile phone icon), footer (4-column), cart (sticky mobile bar), checkout (guest flow, security badges), calculator (3-step guided), town pages (stats in hero, map+CTA), admin dashboard (stats+feeds), admin customers (search+history)
+- **Cart Feedback:** Sonner toast on add-to-cart, button green flash "✓ Added", cart icon bounce
+- **Content Quality:** Removed AI patterns from services, about page copy
+- **Infrastructure:** Resend API key configured, Stripe webhook secret configured, all health checks green
+- **CLAUDE.md:** Created from scratch (was missing from project root)
+
+### Decisions Made
+- Design system uses logo navy-teal (hue 230) + warm amber accent (hue 70) + sandy backgrounds
+- ServiceQuoteForm uses multi-step wizard (not single long form) for higher completion rate
+- Admin password reset to Stone110! for adam@easternbuilding.supply
+- .claude/skills/ added to .gitignore (1,244 skills were accidentally being staged)
+
+### Known Issues / Blockers
+- **Product images:** WC server (easternbuilding.supply) is DOWN — all 140 product images broken, fallback to Unsplash placeholder
+- **Stripe:** Still on test keys — need to swap to live for production
+- **DNS:** staging.easternlm.com works, but easternlm.com and www not yet pointed to VPS
+- **Resend sending domain:** Not yet verified in Resend dashboard
+- **Categories:** 20 in DB but design targets 14 — may have extras from WC import
+- **Supabase free tier:** Keep-alive endpoint built but cron not yet configured on VPS
+
+### CLAUDE.md Status
+- Was MISSING from project root (only existed as claude-seo/CLAUDE.md which is a third-party SEO skill)
+- Created fresh with full project context this session
+
+### Infrastructure State
+- VPS: Container UP, 14% disk usage (62GB free)
+- Supabase: ACTIVE, all tables operational (products, order_history, customers, service_leads)
+- DNS/SSL: staging.easternlm.com active with Let's Encrypt. Production DNS not configured.
+- Resend: API key set, from email configured, domain verification pending
+- Stripe: Test keys active, webhook secret configured, all health checks green
+
+### Current Project State
+The site is feature-complete for Phase 1. Full e-commerce flow (browse → cart → checkout → Stripe → webhook → order), service lead capture (quote form → DB → email notification → admin management), customer database (14,681 orders, 2,677 customers with tags and order history search), and complete UI redesign with earthy design system. Deployed at https://staging.easternlm.com. Main remaining work is production go-live: swap to Stripe live keys, point DNS, verify Resend domain, and replace placeholder product images.
+
+### Priority TODO (in order)
+1. Verify Resend sending domain in dashboard
+2. Switch Stripe to live keys
+3. Point DNS (easternlm.com + www) to VPS IP 5.161.88.134
+4. Set up keep-alive cron on VPS for Supabase
+5. Replace placeholder product images with real photography
+6. Run end-to-end payment test with real card
+7. Consolidate categories from 20 to 14
