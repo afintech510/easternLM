@@ -66,3 +66,57 @@ The site has a fully functional e-commerce flow (browse → cart → checkout �
 - `.claude/commands/open-session.md` — NEW: session opening skill
 - `.claude/commands/save-session.md` — NEW: session saving skill
 - `SESSION_LOG.md` — NEW: session continuity log
+
+## Session 2 — 2026-03-13
+
+### What Was Accomplished
+- Fixed nginx routing: `staging.easternlm.com` was serving Host Hampton instead of EasternLM
+  - Added `easternlm_upstream` block pointing to `easternlm-web:3000`
+  - Added HTTP→HTTPS redirect for `staging.easternlm.com`, `www.easternlm.com`, `easternlm.com`
+  - Added HTTPS server block with Let's Encrypt certs (already existed at `/etc/letsencrypt/live/staging.easternlm.com/`)
+  - Tested config, reloaded nginx — site now served correctly
+- Cleaned VPS disk: **85% → 8%** (recovered ~55GB from Docker build cache and unused images)
+- Created GitHub repo: `afintech510/easternLM` (private), pushed all code
+- Set up dual-remote git workflow: `origin` (GitHub) + `vps` (bare repo on VPS)
+- Verified all pages returning 200 on https://staging.easternlm.com
+- Full project review completed with comprehensive memory entry
+
+### Decisions Made
+- Used Let's Encrypt certs (already provisioned) instead of Cloudflare origin certs for easternlm
+- Added `easternlm.com` and `www.easternlm.com` to nginx config preemptively (for when production DNS is set up)
+- GitHub repo set to private (contains business logic and API route code)
+- Kept both `origin` (GitHub) and `vps` remotes — push to both on deploy
+
+### Known Issues / Blockers
+- **Supabase free tier auto-pauses** — restored this session, still needs permanent fix
+- **Missing env vars in container:** RESEND_API_KEY, RESEND_FROM_EMAIL, STRIPE_WEBHOOK_SECRET
+- **Product images** are still Unsplash placeholders
+- **Debug endpoints** still present (/api/admin/debug, middleware console.logs)
+- **Docker image size** — easternlm image is 1.27GB (copies full node_modules; should use standalone output)
+- **Let's Encrypt cert renewal** — certbot not installed on host (runs in container), need to verify auto-renewal
+
+### Infrastructure State
+- VPS Container: `easternlm-web` UP (port 3100→3000) on `hosthampton_hampton_net`
+- Supabase: ACTIVE_HEALTHY
+- Nginx: Updated with EasternLM server blocks, SSL via Let's Encrypt
+- Disk: 8% used (67GB free)
+- GitHub: https://github.com/afintech510/easternLM (private)
+- Last deploy: commit `3040691`
+
+### Current Project State
+Site is fully functional and accessible at https://staging.easternlm.com with premium UI, working e-commerce flow, admin dashboard, and proper nginx routing with SSL. Code is synced to both GitHub and VPS. Main gaps are production env vars (email, Stripe webhook), real product photos, and Supabase tier upgrade.
+
+### Updated Priority TODO (in order)
+1. Fix Supabase auto-pause (upgrade plan or keep-alive cron)
+2. Configure missing env vars (Resend, Stripe webhook secret) in container
+3. Optimize Docker image size (use Next.js standalone output)
+4. Switch to Stripe live keys for production
+5. Replace placeholder product images with real photography
+6. Set up DNS for www.easternLM.com → VPS
+7. Remove debug endpoints and middleware logging
+
+### Files Changed This Session
+- `/opt/hosthampton/nginx/nginx.conf` (VPS) — Added easternlm upstream, HTTP redirect, HTTPS server block
+- `.claude/commands/open-session.md` — Committed and pushed
+- `.claude/commands/save-session.md` — Committed and pushed
+- `SESSION_LOG.md` — Committed and pushed
