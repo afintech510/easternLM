@@ -362,6 +362,120 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_assignments: {
+        Row: {
+          access_constraints: Json
+          access_notes: string | null
+          actual_arrival: string | null
+          actual_completion: string | null
+          actual_departure: string | null
+          assigned_by: string | null
+          created_at: string
+          delivery_date: string
+          destination_address: string
+          destination_town: string | null
+          dispatch_notes: string | null
+          distance_miles: number | null
+          drive_minutes: number | null
+          driver_name: string | null
+          driver_notes: string | null
+          driver_phone: string | null
+          estimated_arrival: string | null
+          estimated_departure: string | null
+          has_spreading: boolean
+          id: string
+          load_number: number
+          material_summary: string
+          order_id: string
+          spreading_yards: number | null
+          status: string
+          time_slot: string | null
+          total_yards: number | null
+          truck_id: string | null
+          truck_type: string
+          updated_at: string
+        }
+        Insert: {
+          access_constraints?: Json
+          access_notes?: string | null
+          actual_arrival?: string | null
+          actual_completion?: string | null
+          actual_departure?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          delivery_date: string
+          destination_address: string
+          destination_town?: string | null
+          dispatch_notes?: string | null
+          distance_miles?: number | null
+          drive_minutes?: number | null
+          driver_name?: string | null
+          driver_notes?: string | null
+          driver_phone?: string | null
+          estimated_arrival?: string | null
+          estimated_departure?: string | null
+          has_spreading?: boolean
+          id?: string
+          load_number?: number
+          material_summary: string
+          order_id: string
+          spreading_yards?: number | null
+          status?: string
+          time_slot?: string | null
+          total_yards?: number | null
+          truck_id?: string | null
+          truck_type: string
+          updated_at?: string
+        }
+        Update: {
+          access_constraints?: Json
+          access_notes?: string | null
+          actual_arrival?: string | null
+          actual_completion?: string | null
+          actual_departure?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          delivery_date?: string
+          destination_address?: string
+          destination_town?: string | null
+          dispatch_notes?: string | null
+          distance_miles?: number | null
+          drive_minutes?: number | null
+          driver_name?: string | null
+          driver_notes?: string | null
+          driver_phone?: string | null
+          estimated_arrival?: string | null
+          estimated_departure?: string | null
+          has_spreading?: boolean
+          id?: string
+          load_number?: number
+          material_summary?: string
+          order_id?: string
+          spreading_yards?: number | null
+          status?: string
+          time_slot?: string | null
+          total_yards?: number | null
+          truck_id?: string | null
+          truck_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_assignments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_fee_cache: {
         Row: {
           additional_load_fee_cents: number
@@ -1532,6 +1646,42 @@ export type Database = {
           name?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      trucks: {
+        Row: {
+          created_at: string
+          default_driver_name: string | null
+          default_driver_phone: string | null
+          id: string
+          is_active: boolean
+          license_plate: string | null
+          name: string
+          notes: string | null
+          truck_type: string
+        }
+        Insert: {
+          created_at?: string
+          default_driver_name?: string | null
+          default_driver_phone?: string | null
+          id: string
+          is_active?: boolean
+          license_plate?: string | null
+          name: string
+          notes?: string | null
+          truck_type: string
+        }
+        Update: {
+          created_at?: string
+          default_driver_name?: string | null
+          default_driver_phone?: string | null
+          id?: string
+          is_active?: boolean
+          license_plate?: string | null
+          name?: string
+          notes?: string | null
+          truck_type?: string
         }
         Relationships: []
       }
