@@ -992,6 +992,81 @@ export type Database = {
         }
         Relationships: []
       }
+      upsells: {
+        Row: {
+          created_at: string
+          description: string
+          flat_price_cents: number | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_taxable: boolean
+          linked_product_slugs: string[]
+          name: string
+          per_yard_price_cents: number | null
+          pricing_type: string
+          short_description: string
+          slug: string
+          sort_order: number
+          tiered_pricing: Json | null
+          trigger_calculator_types: string[]
+          trigger_categories: string[]
+          trigger_contexts: string[]
+          trigger_material_classes: string[]
+          trigger_product_types: string[]
+          updated_at: string
+          upsell_type: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          flat_price_cents?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_taxable?: boolean
+          linked_product_slugs?: string[]
+          name: string
+          per_yard_price_cents?: number | null
+          pricing_type: string
+          short_description: string
+          slug: string
+          sort_order?: number
+          tiered_pricing?: Json | null
+          trigger_calculator_types?: string[]
+          trigger_categories?: string[]
+          trigger_contexts?: string[]
+          trigger_material_classes?: string[]
+          trigger_product_types?: string[]
+          updated_at?: string
+          upsell_type?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          flat_price_cents?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_taxable?: boolean
+          linked_product_slugs?: string[]
+          name?: string
+          per_yard_price_cents?: number | null
+          pricing_type?: string
+          short_description?: string
+          slug?: string
+          sort_order?: number
+          tiered_pricing?: Json | null
+          trigger_calculator_types?: string[]
+          trigger_categories?: string[]
+          trigger_contexts?: string[]
+          trigger_material_classes?: string[]
+          trigger_product_types?: string[]
+          updated_at?: string
+          upsell_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
