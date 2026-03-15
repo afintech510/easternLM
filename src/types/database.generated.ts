@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audience_segments: {
+        Row: {
+          created_at: string
+          description: string | null
+          filter: Json
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          filter?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          filter?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calculator_events: {
         Row: {
           created_at: string
@@ -71,6 +104,156 @@ export type Database = {
           id?: string
           session_id?: string | null
           source_page?: string | null
+        }
+        Relationships: []
+      }
+      campaign_sends: {
+        Row: {
+          campaign_id: string
+          channel: string
+          clicked_at: string | null
+          created_at: string
+          customer_id: string
+          email: string | null
+          email_id: string | null
+          error_message: string | null
+          id: string
+          link_clicked: boolean
+          phone: string | null
+          sent_at: string | null
+          sms_sid: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          channel: string
+          clicked_at?: string | null
+          created_at?: string
+          customer_id: string
+          email?: string | null
+          email_id?: string | null
+          error_message?: string | null
+          id?: string
+          link_clicked?: boolean
+          phone?: string | null
+          sent_at?: string | null
+          sms_sid?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          channel?: string
+          clicked_at?: string | null
+          created_at?: string
+          customer_id?: string
+          email?: string | null
+          email_id?: string | null
+          error_message?: string | null
+          id?: string
+          link_clicked?: boolean
+          phone?: string | null
+          sent_at?: string | null
+          sms_sid?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_sends_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          audience_filter: Json
+          channel: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          email_body_html: string | null
+          email_subject: string | null
+          id: string
+          name: string
+          requires_approval: boolean
+          scheduled_at: string | null
+          slug: string
+          sms_body: string | null
+          started_at: string | null
+          status: string
+          target_url: string | null
+          total_clicked: number
+          total_delivered: number
+          total_failed: number
+          total_opted_out: number
+          total_recipients: number
+          total_sent: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audience_filter?: Json
+          channel: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          email_body_html?: string | null
+          email_subject?: string | null
+          id?: string
+          name: string
+          requires_approval?: boolean
+          scheduled_at?: string | null
+          slug: string
+          sms_body?: string | null
+          started_at?: string | null
+          status?: string
+          target_url?: string | null
+          total_clicked?: number
+          total_delivered?: number
+          total_failed?: number
+          total_opted_out?: number
+          total_recipients?: number
+          total_sent?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audience_filter?: Json
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          email_body_html?: string | null
+          email_subject?: string | null
+          id?: string
+          name?: string
+          requires_approval?: boolean
+          scheduled_at?: string | null
+          slug?: string
+          sms_body?: string | null
+          started_at?: string | null
+          status?: string
+          target_url?: string | null
+          total_clicked?: number
+          total_delivered?: number
+          total_failed?: number
+          total_opted_out?: number
+          total_recipients?: number
+          total_sent?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -982,8 +1165,13 @@ export type Database = {
           hourly_labor_rate: number
           id: number
           local_radius_miles: number
+          marketing_approval_required: boolean
+          marketing_enabled: boolean
+          max_campaigns_per_month: number
+          max_emails_per_day: number
           max_loads_per_day_per_address: number
           max_service_radius_miles: number
+          max_sms_per_day: number
           miles_per_gallon: number
           minimum_delivery_fee_cents: number
           minimum_order_cents: number
@@ -994,6 +1182,8 @@ export type Database = {
           profit_multiplier: number
           round_to_nearest: number
           same_day_cutoff_hour: number
+          sms_quiet_hours_end: number
+          sms_quiet_hours_start: number
           tax_rate: number
           timezone: string
           twilio_enabled: boolean
@@ -1012,8 +1202,13 @@ export type Database = {
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
+          marketing_approval_required?: boolean
+          marketing_enabled?: boolean
+          max_campaigns_per_month?: number
+          max_emails_per_day?: number
           max_loads_per_day_per_address?: number
           max_service_radius_miles?: number
+          max_sms_per_day?: number
           miles_per_gallon?: number
           minimum_delivery_fee_cents?: number
           minimum_order_cents?: number
@@ -1024,6 +1219,8 @@ export type Database = {
           profit_multiplier?: number
           round_to_nearest?: number
           same_day_cutoff_hour?: number
+          sms_quiet_hours_end?: number
+          sms_quiet_hours_start?: number
           tax_rate?: number
           timezone?: string
           twilio_enabled?: boolean
@@ -1042,8 +1239,13 @@ export type Database = {
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
+          marketing_approval_required?: boolean
+          marketing_enabled?: boolean
+          max_campaigns_per_month?: number
+          max_emails_per_day?: number
           max_loads_per_day_per_address?: number
           max_service_radius_miles?: number
+          max_sms_per_day?: number
           miles_per_gallon?: number
           minimum_delivery_fee_cents?: number
           minimum_order_cents?: number
@@ -1054,6 +1256,8 @@ export type Database = {
           profit_multiplier?: number
           round_to_nearest?: number
           same_day_cutoff_hour?: number
+          sms_quiet_hours_end?: number
+          sms_quiet_hours_start?: number
           tax_rate?: number
           timezone?: string
           twilio_enabled?: boolean
