@@ -224,6 +224,147 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_up_templates: {
+        Row: {
+          channel: string
+          cooldown_days: number
+          created_at: string
+          delay_minutes: number
+          email_body_html: string | null
+          email_subject: string | null
+          id: string
+          is_active: boolean
+          max_sends_per_customer: number
+          name: string
+          send_window_end: number
+          send_window_start: number
+          slug: string
+          sms_body: string | null
+          sort_order: number
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          cooldown_days?: number
+          created_at?: string
+          delay_minutes?: number
+          email_body_html?: string | null
+          email_subject?: string | null
+          id?: string
+          is_active?: boolean
+          max_sends_per_customer?: number
+          name: string
+          send_window_end?: number
+          send_window_start?: number
+          slug: string
+          sms_body?: string | null
+          sort_order?: number
+          trigger_event?: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          cooldown_days?: number
+          created_at?: string
+          delay_minutes?: number
+          email_body_html?: string | null
+          email_subject?: string | null
+          id?: string
+          is_active?: boolean
+          max_sends_per_customer?: number
+          name?: string
+          send_window_end?: number
+          send_window_start?: number
+          slug?: string
+          sms_body?: string | null
+          sort_order?: number
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      follow_ups: {
+        Row: {
+          channel: string
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          email: string | null
+          email_id: string | null
+          error_message: string | null
+          id: string
+          link_clicked: boolean
+          metadata: Json
+          order_id: string | null
+          phone: string | null
+          review_submitted: boolean
+          scheduled_at: string
+          sent_at: string | null
+          sms_sid: string | null
+          status: string
+          template_slug: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          email?: string | null
+          email_id?: string | null
+          error_message?: string | null
+          id?: string
+          link_clicked?: boolean
+          metadata?: Json
+          order_id?: string | null
+          phone?: string | null
+          review_submitted?: boolean
+          scheduled_at: string
+          sent_at?: string | null
+          sms_sid?: string | null
+          status?: string
+          template_slug: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          email?: string | null
+          email_id?: string | null
+          error_message?: string | null
+          id?: string
+          link_clicked?: boolean
+          metadata?: Json
+          order_id?: string | null
+          phone?: string | null
+          review_submitted?: boolean
+          scheduled_at?: string
+          sent_at?: string | null
+          sms_sid?: string | null
+          status?: string
+          template_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_ups_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gallery_projects: {
         Row: {
           before_after: boolean
@@ -807,7 +948,10 @@ export type Database = {
           cc_surcharge_rate: number
           created_at: string
           dump_time_buffer_minutes: number
+          follow_up_enabled: boolean
+          follow_up_timezone: string
           fuel_price_per_gallon: number
+          google_review_url: string | null
           hourly_labor_rate: number
           id: number
           local_radius_miles: number
@@ -825,6 +969,7 @@ export type Database = {
           same_day_cutoff_hour: number
           tax_rate: number
           timezone: string
+          twilio_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -833,7 +978,10 @@ export type Database = {
           cc_surcharge_rate?: number
           created_at?: string
           dump_time_buffer_minutes?: number
+          follow_up_enabled?: boolean
+          follow_up_timezone?: string
           fuel_price_per_gallon?: number
+          google_review_url?: string | null
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
@@ -851,6 +999,7 @@ export type Database = {
           same_day_cutoff_hour?: number
           tax_rate?: number
           timezone?: string
+          twilio_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -859,7 +1008,10 @@ export type Database = {
           cc_surcharge_rate?: number
           created_at?: string
           dump_time_buffer_minutes?: number
+          follow_up_enabled?: boolean
+          follow_up_timezone?: string
           fuel_price_per_gallon?: number
+          google_review_url?: string | null
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
@@ -877,6 +1029,7 @@ export type Database = {
           same_day_cutoff_hour?: number
           tax_rate?: number
           timezone?: string
+          twilio_enabled?: boolean
           updated_at?: string
         }
         Relationships: []

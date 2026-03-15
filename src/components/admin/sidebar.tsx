@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   ClipboardList,
   Users,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/trucks", label: "Truck Fleet", icon: Truck },
   { href: "/admin/leads", label: "Service Leads", icon: ClipboardList },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/follow-ups", label: "Follow-Ups", icon: MessageSquare },
   { href: "/admin/gallery", label: "Gallery", icon: Image },
   { href: "/admin/cache", label: "Fee Cache", icon: Database },
 ];
