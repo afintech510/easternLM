@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+const SMS_CONSENT_TEXT =
+  "I agree to receive text messages from Eastern Landscape & Mason Supply regarding my order or inquiry. Message and data rates may apply. Message frequency varies. Reply STOP to opt out at any time.";
 
 const contactSchema = z.object({
   fullName: z.string().min(2),
@@ -7,6 +11,7 @@ const contactSchema = z.object({
   phone: z.string().min(10).max(20),
   projectType: z.string().min(1),
   message: z.string().min(20),
+  smsConsent: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +27,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please fill out all fields correctly." }, { status: 400 });
   }
 
-  const { fullName, email, phone, projectType, message } = parsed.data;
+  const { fullName, email, phone, projectType, message, smsConsent } = parsed.data;
+
+  // Log SMS consent if given
+  if (smsConsent) {
+    const supabase = getSupabaseAdminClient();
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
+    const userAgent = request.headers.get("user-agent") || null;
+    await supabase.from("sms_consent_log").insert({
+      phone,
+      email,
+      name: fullName,
+      consent_given: true,
+      consent_source: "contact_form",
+      consent_text: SMS_CONSENT_TEXT,
+      ip_address: ip,
+      user_agent: userAgent,
+    });
+  }
 
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;

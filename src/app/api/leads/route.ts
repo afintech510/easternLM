@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
+const SMS_CONSENT_TEXT =
+  "I agree to receive text messages from Eastern Landscape & Mason Supply regarding my order or inquiry. Message and data rates may apply. Message frequency varies. Reply STOP to opt out at any time.";
+
 const SERVICE_TYPES = [
   "gravel-driveway-new",
   "gravel-driveway-resurface",
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
   const description = String(body.description || "").trim() || null;
   const timeline = String(body.timeline || "").trim() || null;
   const referralSource = String(body.referralSource || "").trim() || null;
+  const smsConsent = body.smsConsent === true;
   const photoUrls = Array.isArray(body.photoUrls) ? body.photoUrls.filter((u): u is string => typeof u === "string") : [];
 
   // Validate
@@ -101,6 +105,22 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: "Failed to save lead" }, { status: 500 });
+  }
+
+  // Log SMS consent if given
+  if (smsConsent) {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null;
+    const userAgent = request.headers.get("user-agent") || null;
+    await supabase.from("sms_consent_log").insert({
+      phone,
+      email,
+      name,
+      consent_given: true,
+      consent_source: "quote_form",
+      consent_text: SMS_CONSENT_TEXT,
+      ip_address: ip,
+      user_agent: userAgent,
+    });
   }
 
   // Send notification email (non-blocking)
