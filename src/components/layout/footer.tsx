@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
+import { NewsletterSignup } from "@/components/marketing/newsletter-signup";
 
 export function Footer() {
   const thisYear = new Date().getFullYear();
@@ -84,23 +85,17 @@ export function Footer() {
             </div>
           </section>
 
-          {/* Column 4: CTA + Pro Program */}
+          {/* Column 4: Newsletter + Pro Program */}
           <section className="space-y-5">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/40">For Contractors</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/40">Stay Updated</h3>
+            <NewsletterSignup />
             <div className="rounded-lg border border-primary-foreground/10 bg-primary-foreground/5 p-4">
               <p className="text-sm font-semibold">Pro Contractor Pricing</p>
               <p className="mt-1 text-xs text-primary-foreground/60">
-                Volume discounts, priority scheduling, and dedicated account support for licensed contractors.
+                Volume discounts, priority scheduling, and dedicated account support.
               </p>
               <Button asChild size="sm" variant="outline" className="mt-3 w-full border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                 <Link href="/contact">Apply for Pro Account</Link>
-              </Button>
-            </div>
-            <div className="text-center">
-              <Button asChild variant="outline" size="lg" className="w-full border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                <a href={siteConfig.phoneHref}>
-                  <Phone className="size-4" /> Call Now
-                </a>
               </Button>
             </div>
           </section>
