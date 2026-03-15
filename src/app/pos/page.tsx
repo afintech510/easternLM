@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreditCard, LogOut, Minus, Package, Plus, Search, Trash2, Wifi, X } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
+import { ReceiptPrinter } from "@/lib/pos/printer";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -63,7 +64,11 @@ export default function PosRegisterPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
+  const [autoPrint, setAutoPrint] = useState(true);
+  const [autoDrawer, setAutoDrawer] = useState(true);
+  const [printerConnected, setPrinterConnected] = useState(false);
   const terminalRef = useRef(new PosTerminal());
+  const printerRef = useRef(new ReceiptPrinter());
 
   // Load products
   useEffect(() => {
@@ -152,6 +157,41 @@ export default function PosRegisterPage() {
     setShowCustomItem(false);
   }
 
+  async function afterSale(method: "card" | "cash", orderPayload: Record<string, unknown>) {
+    // Print receipt
+    if (autoPrint) {
+      const receiptItems = (orderPayload.items as Array<Record<string, unknown>>).map((i) => ({
+        productName: i.product_name as string,
+        quantity: i.quantity as number,
+        unit: "ea",
+        unitPriceCents: i.unit_price_cents as number,
+        lineTotalCents: i.line_total_cents as number,
+      }));
+      await printerRef.current.printReceipt({
+        createdAt: new Date().toISOString(),
+        items: receiptItems,
+        subtotalCents: orderPayload.subtotal_cents as number,
+        taxCents: orderPayload.tax_cents as number,
+        deliveryFeeCents: (orderPayload.delivery_fee_cents as number) || 0,
+        ccSurchargeCents: method === "card" ? (orderPayload.cc_fee_cents as number) || 0 : 0,
+        totalCents: orderPayload.grand_total_cents as number,
+        paymentMethod: method === "card" ? "card_terminal" : "cash",
+        cashTenderedCents: orderPayload.cash_tendered_cents as number | undefined,
+        changeDueCents: orderPayload.cash_tendered_cents
+          ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
+          : undefined,
+        customerName: orderPayload.customer_name as string,
+        deliveryAddress: orderPayload.delivery_address as string | undefined,
+        notes: orderPayload.notes as string | undefined,
+      });
+    }
+
+    // Open cash drawer on cash sales
+    if (method === "cash" && autoDrawer) {
+      await printerRef.current.openCashDrawer();
+    }
+  }
+
   function resetRegister() {
     setItems([]);
     setCustomerName("Walk-in");
@@ -218,6 +258,7 @@ export default function PosRegisterPage() {
 
         if (result.success) {
           setCardPaymentStatus("Payment approved!");
+          await afterSale(method, orderPayload);
           setTimeout(resetRegister, 1500);
         } else {
           setCardPaymentStatus("Payment failed: " + (result.error || "Unknown"));
@@ -225,6 +266,7 @@ export default function PosRegisterPage() {
         }
       } else {
         // Cash — sale already recorded
+        await afterSale(method, orderPayload);
         resetRegister();
       }
     } finally {
