@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { LogOut, Minus, Package, Plus, Search, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CreditCard, LogOut, Minus, Package, Plus, Search, Trash2, Wifi, X } from "lucide-react";
 import { formatUsd } from "@/lib/format";
+import { PosTerminal } from "@/lib/pos/terminal";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -60,6 +61,9 @@ export default function PosRegisterPage() {
   const [customItemPrice, setCustomItemPrice] = useState("");
   const [processing, setProcessing] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
+  const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
+  const terminalRef = useRef(new PosTerminal());
 
   // Load products
   useEffect(() => {
@@ -69,6 +73,9 @@ export default function PosRegisterPage() {
         setProducts(data.products || []);
         setCategories(data.categories || []);
       });
+    // Auto-connect simulated reader in test mode
+    terminalRef.current.useSimulated();
+    setTerminalStatus("simulated");
   }, []);
 
   // Filtered products
@@ -145,48 +152,80 @@ export default function PosRegisterPage() {
     setShowCustomItem(false);
   }
 
+  function resetRegister() {
+    setItems([]);
+    setCustomerName("Walk-in");
+    setCustomerPhone("");
+    setDeliveryMethod("pickup");
+    setDeliveryFeeCents(0);
+    setDeliveryAddress("");
+    setOrderNotes("");
+    setPaymentMethod(null);
+    setShowCashDialog(false);
+    setCashTendered("");
+    setCardPaymentStatus(null);
+  }
+
   async function completeSale(method: "card" | "cash") {
     setProcessing(true);
     try {
-      const res = await fetch("/api/pos/checkout", {
+      // Create order first
+      const orderPayload = {
+        items: items.map((i) => ({
+          product_id: i.product.id,
+          product_name: i.product.name,
+          product_slug: i.product.slug,
+          quantity: i.quantity,
+          unit_price_cents: i.price_cents,
+          line_total_cents: i.price_cents * i.quantity,
+        })),
+        subtotal_cents: subtotalCents,
+        tax_cents: taxCents,
+        cc_fee_cents: method === "card" ? ccFeeCents : 0,
+        delivery_fee_cents: deliveryFeeCents,
+        grand_total_cents: method === "card" ? grandTotalCents : subtotalCents + taxCents + deliveryFeeCents,
+        payment_method: method === "card" ? "card_terminal" : "cash",
+        delivery_method: deliveryMethod,
+        delivery_address: deliveryMethod === "delivery" ? deliveryAddress : null,
+        customer_name: customerName,
+        customer_phone: customerPhone || null,
+        notes: orderNotes || null,
+        cash_tendered_cents: method === "cash" ? Math.round(parseFloat(cashTendered) * 100) : null,
+      };
+
+      const orderRes = await fetch("/api/pos/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: items.map((i) => ({
-            product_id: i.product.id,
-            product_name: i.product.name,
-            product_slug: i.product.slug,
-            quantity: i.quantity,
-            unit_price_cents: i.price_cents,
-            line_total_cents: i.price_cents * i.quantity,
-          })),
-          subtotal_cents: subtotalCents,
-          tax_cents: taxCents,
-          cc_fee_cents: ccFeeCents,
-          delivery_fee_cents: deliveryFeeCents,
-          grand_total_cents: grandTotalCents,
-          payment_method: method === "card" ? "card_terminal" : "cash",
-          delivery_method: deliveryMethod,
-          delivery_address: deliveryMethod === "delivery" ? deliveryAddress : null,
-          customer_name: customerName,
-          customer_phone: customerPhone || null,
-          notes: orderNotes || null,
-          cash_tendered_cents: method === "cash" ? Math.round(parseFloat(cashTendered) * 100) : null,
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
-      if (res.ok) {
-        // Sale complete — clear register
-        setItems([]);
-        setCustomerName("Walk-in");
-        setCustomerPhone("");
-        setDeliveryMethod("pickup");
-        setDeliveryFeeCents(0);
-        setDeliveryAddress("");
-        setOrderNotes("");
-        setPaymentMethod(null);
-        setShowCashDialog(false);
-        setCashTendered("");
+      if (!orderRes.ok) {
+        const err = await orderRes.json();
+        alert("Order failed: " + (err.error || "Unknown error"));
+        return;
+      }
+
+      const { orderId } = await orderRes.json();
+
+      if (method === "card") {
+        // Process card payment via Stripe Terminal
+        setCardPaymentStatus("Waiting for card...");
+        const totalForCard = grandTotalCents;
+        const result = await terminalRef.current.collectPayment({
+          amountCents: totalForCard,
+          orderId,
+        });
+
+        if (result.success) {
+          setCardPaymentStatus("Payment approved!");
+          setTimeout(resetRegister, 1500);
+        } else {
+          setCardPaymentStatus("Payment failed: " + (result.error || "Unknown"));
+          setTimeout(() => setCardPaymentStatus(null), 3000);
+        }
+      } else {
+        // Cash — sale already recorded
+        resetRegister();
       }
     } finally {
       setProcessing(false);
@@ -423,12 +462,27 @@ export default function PosRegisterPage() {
           </div>
         </div>
 
+        {/* Terminal status + Card payment status */}
+        {cardPaymentStatus && (
+          <div className="border-t border-zinc-800 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg bg-amber-900/30 px-3 py-2 text-sm text-amber-300">
+              <CreditCard className="h-4 w-4 animate-pulse" />
+              {cardPaymentStatus}
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="border-t border-zinc-800 p-3 space-y-2">
+          {/* Terminal indicator */}
+          <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
+            <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
+            {terminalStatus === "simulated" ? "Simulated Reader" : terminalStatus === "connected" ? "Reader Connected" : "No Reader"}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => { setPaymentMethod("card"); completeSale("card"); }}
-              disabled={items.length === 0 || processing}
+              disabled={items.length === 0 || processing || terminalStatus === "disconnected"}
               className="rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-30"
             >
               PAY — CARD (F2)
