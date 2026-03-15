@@ -919,6 +919,86 @@ export type Database = {
           },
         ]
       }
+      pos_daily_reports: {
+        Row: {
+          card_count: number
+          card_total_cents: number
+          cash_count: number
+          cash_total_cents: number
+          closed_at: string | null
+          closed_by: string | null
+          counted_cash_cents: number | null
+          created_at: string
+          delivery_count: number
+          expected_cash_cents: number
+          id: string
+          notes: string | null
+          pickup_count: number
+          refund_count: number
+          refund_total_cents: number
+          register_id: string | null
+          report_date: string
+          total_sales_cents: number
+          total_transactions: number
+          variance_cents: number | null
+          void_count: number
+        }
+        Insert: {
+          card_count?: number
+          card_total_cents?: number
+          cash_count?: number
+          cash_total_cents?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cash_cents?: number | null
+          created_at?: string
+          delivery_count?: number
+          expected_cash_cents?: number
+          id?: string
+          notes?: string | null
+          pickup_count?: number
+          refund_count?: number
+          refund_total_cents?: number
+          register_id?: string | null
+          report_date: string
+          total_sales_cents?: number
+          total_transactions?: number
+          variance_cents?: number | null
+          void_count?: number
+        }
+        Update: {
+          card_count?: number
+          card_total_cents?: number
+          cash_count?: number
+          cash_total_cents?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cash_cents?: number | null
+          created_at?: string
+          delivery_count?: number
+          expected_cash_cents?: number
+          id?: string
+          notes?: string | null
+          pickup_count?: number
+          refund_count?: number
+          refund_total_cents?: number
+          register_id?: string | null
+          report_date?: string
+          total_sales_cents?: number
+          total_transactions?: number
+          variance_cents?: number | null
+          void_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_daily_reports_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_town_pages: {
         Row: {
           calculator_type: string | null
