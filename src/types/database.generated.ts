@@ -47,6 +47,33 @@ export type Database = {
         }
         Relationships: []
       }
+      calculator_events: {
+        Row: {
+          created_at: string
+          data: Json
+          event_type: string
+          id: string
+          session_id: string | null
+          source_page: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          event_type: string
+          id?: string
+          session_id?: string | null
+          source_page?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          event_type?: string
+          id?: string
+          session_id?: string | null
+          source_page?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
