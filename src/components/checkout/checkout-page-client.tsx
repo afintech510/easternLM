@@ -36,6 +36,8 @@ export function CheckoutPageClient() {
   const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [optInSms, setOptInSms] = useState(true);
+  const [optInEmail, setOptInEmail] = useState(true);
 
   const canCheckout = useMemo(() => {
     if (!calculation || items.length === 0) return false;
@@ -69,7 +71,7 @@ export function CheckoutPageClient() {
           accessConstraints,
           deliveryDate,
           clientGrandTotalCents: calculation!.grandTotalCents,
-          customer: { fullName, email, phone },
+          customer: { fullName, email, phone, optInSms, optInEmail },
           createAccount: false,
         }),
       });
@@ -107,6 +109,18 @@ export function CheckoutPageClient() {
                   <label className="mb-1 block text-sm font-medium" htmlFor="co-phone">Phone</label>
                   <Input id="co-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(631) 555-1234" />
                 </div>
+              </div>
+
+              {/* Marketing opt-in */}
+              <div className="mt-3 space-y-2 border-t pt-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                  Send me deals and seasonal updates via text
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                  Send me deals and seasonal updates via email
+                </label>
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { PromoPopup } from "@/components/marketing/promo-popup";
 import "./globals.css";
 
 const publicSans = Public_Sans({
@@ -68,6 +69,7 @@ export default function RootLayout({
           <Footer />
         </div>
         <Toaster position="top-right" richColors toastOptions={{ className: "text-sm" }} />
+        <PromoPopup />
         <Analytics />
       </body>
     </html>
