@@ -16,6 +16,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { coreServices } from "@/config/content";
 import { siteConfig } from "@/config/site";
+import { getGoogleReviews } from "@/lib/data/reviews";
 
 const materialCategories = [
   { name: "Mulch", slug: "mulch", price: "from $20/yd", desc: "Black, brown, red, natural" },
@@ -28,34 +29,8 @@ const materialCategories = [
   { name: "Bagged Materials", slug: "bagged-material", price: "per bag", desc: "Mulch, soil, gravel, salt bags" },
 ];
 
-export default function Home() {
-  const reviews = [
-    {
-      quote: "Reliable deliveries and clear communication every order. Eastern has been our go-to yard for three seasons now.",
-      author: "Mike R.",
-      location: "Shirley, NY",
-    },
-    {
-      quote: "Great yard team and fast turnaround on stone and mulch. Pricing is always fair and upfront.",
-      author: "Jennifer S.",
-      location: "Moriches, NY",
-    },
-    {
-      quote: "Best supply yard on the east end. Pricing is straightforward and pickup is easy.",
-      author: "Tom D.",
-      location: "Patchogue, NY",
-    },
-    {
-      quote: "Ordered 10 yards of black mulch for a job in Westhampton. Delivered next morning, exactly where we needed it.",
-      author: "Carlos M.",
-      location: "Eastport, NY",
-    },
-    {
-      quote: "They installed our patio and the stone came right from their yard. One crew, one phone call, done right.",
-      author: "Lisa K.",
-      location: "Manorville, NY",
-    },
-  ];
+export default async function Home() {
+  const { rating, totalReviews, reviews: googleReviews, reviewUrl } = await getGoogleReviews();
 
   return (
     <div>
@@ -97,13 +72,13 @@ export default function Home() {
               { "@type": "OfferCatalog", name: "Masonry & Concrete" },
             ],
           },
-          review: reviews.slice(0, 3).map((r) => ({
+          review: googleReviews.slice(0, 3).map((r) => ({
             "@type": "Review",
-            reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-            author: { "@type": "Person", name: r.author },
-            reviewBody: r.quote,
+            reviewRating: { "@type": "Rating", ratingValue: String(r.rating), bestRating: "5" },
+            author: { "@type": "Person", name: r.author_name },
+            reviewBody: r.text,
           })),
-          aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", reviewCount: "127" },
+          aggregateRating: { "@type": "AggregateRating", ratingValue: String(rating), reviewCount: String(totalReviews) },
         }}
       />
 
@@ -267,7 +242,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 6. TESTIMONIALS ────────────────────────────────────── */}
+      {/* ── 6. TESTIMONIALS (Real Google Reviews) ──────────────── */}
       <section className="bg-warm-bg py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex items-end justify-between">
@@ -275,7 +250,9 @@ export default function Home() {
               <h2 className="[font-family:var(--font-display)] text-3xl text-primary md:text-4xl">
                 What Customers Say
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">4.9 stars across 127 reviews</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {rating.toFixed(1)} stars across {totalReviews} Google reviews
+              </p>
             </div>
             <div className="hidden items-center gap-1 text-accent md:flex">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -285,42 +262,85 @@ export default function Home() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {reviews.slice(0, 3).map((review) => (
-              <article key={review.author} className="rounded-xl border bg-card p-6">
+            {googleReviews.slice(0, 3).map((review) => (
+              <article key={review.author_name} className="rounded-xl border bg-card p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  {review.profile_photo_url ? (
+                    <img src={review.profile_photo_url} alt="" className="h-9 w-9 rounded-full" loading="lazy" />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                      {review.author_name.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold">{review.author_name}</p>
+                    <p className="text-xs text-muted-foreground">{review.relative_time_description}</p>
+                  </div>
+                </div>
                 <div className="flex items-center gap-1 text-accent">
-                  {Array.from({ length: 5 }).map((_, i) => (
+                  {Array.from({ length: review.rating }).map((_, i) => (
                     <Star key={i} className="size-4 fill-current" />
                   ))}
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  &ldquo;{review.quote}&rdquo;
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground line-clamp-4">
+                  &ldquo;{review.text}&rdquo;
                 </p>
-                <div className="mt-4 border-t pt-3">
-                  <p className="text-sm font-semibold">{review.author}</p>
-                  <p className="text-xs text-muted-foreground">{review.location}</p>
-                </div>
               </article>
             ))}
           </div>
 
           {/* Second row — hidden on mobile */}
-          <div className="mt-5 hidden gap-5 lg:grid lg:grid-cols-2">
-            {reviews.slice(3).map((review) => (
-              <article key={review.author} className="rounded-xl border bg-card p-6">
-                <div className="flex items-center gap-1 text-accent">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="size-4 fill-current" />
-                  ))}
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  &ldquo;{review.quote}&rdquo;
-                </p>
-                <div className="mt-4 border-t pt-3">
-                  <p className="text-sm font-semibold">{review.author}</p>
-                  <p className="text-xs text-muted-foreground">{review.location}</p>
-                </div>
-              </article>
-            ))}
+          {googleReviews.length > 3 && (
+            <div className="mt-5 hidden gap-5 lg:grid lg:grid-cols-2">
+              {googleReviews.slice(3).map((review) => (
+                <article key={review.author_name} className="rounded-xl border bg-card p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    {review.profile_photo_url ? (
+                      <img src={review.profile_photo_url} alt="" className="h-9 w-9 rounded-full" loading="lazy" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                        {review.author_name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold">{review.author_name}</p>
+                      <p className="text-xs text-muted-foreground">{review.relative_time_description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-accent">
+                    {Array.from({ length: review.rating }).map((_, i) => (
+                      <Star key={i} className="size-4 fill-current" />
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground line-clamp-4">
+                    &ldquo;{review.text}&rdquo;
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {/* Leave a Review CTA */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            {reviewUrl && (
+              <a
+                href={reviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
+              >
+                <Star className="size-4" />
+                Leave a Review
+              </a>
+            )}
+            <a
+              href="https://www.google.com/maps/place/Eastern+Landscape+%26+Mason+Supply/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-muted-foreground underline hover:text-foreground"
+            >
+              See all reviews on Google
+            </a>
           </div>
         </div>
       </section>

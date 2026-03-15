@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Clock, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowRight, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 
@@ -110,7 +110,16 @@ export function Footer() {
         <div className="border-t border-primary-foreground/10">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs text-primary-foreground/40 sm:px-6 md:flex-row md:items-center md:justify-between">
             <p>&copy; {thisYear} Eastern Landscape &amp; Mason Supply. All rights reserved.</p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <a
+                href="https://www.google.com/maps/place/Eastern+Landscape+%26+Mason+Supply/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary-foreground/60 hover:text-primary-foreground/80"
+              >
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span className="font-medium">5.0 on Google</span>
+              </a>
               <Link href="/privacy-policy" className="hover:text-primary-foreground/70">Privacy Policy</Link>
               <Link href="/terms" className="hover:text-primary-foreground/70">Terms</Link>
               <span>Serving Suffolk County, Long Island</span>

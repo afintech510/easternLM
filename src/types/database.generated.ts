@@ -404,6 +404,33 @@ export type Database = {
         }
         Relationships: []
       }
+      google_reviews_cache: {
+        Row: {
+          fetched_at: string
+          id: number
+          overall_rating: number | null
+          place_id: string
+          reviews: Json
+          total_reviews: number | null
+        }
+        Insert: {
+          fetched_at?: string
+          id?: number
+          overall_rating?: number | null
+          place_id: string
+          reviews?: Json
+          total_reviews?: number | null
+        }
+        Update: {
+          fetched_at?: string
+          id?: number
+          overall_rating?: number | null
+          place_id?: string
+          reviews?: Json
+          total_reviews?: number | null
+        }
+        Relationships: []
+      }
       order_history: {
         Row: {
           created_at: string
