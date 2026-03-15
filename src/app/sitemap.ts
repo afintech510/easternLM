@@ -29,6 +29,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/about", priority: 0.5, freq: "monthly" },
     { path: "/gallery", priority: 0.5, freq: "weekly" },
     { path: "/blog", priority: 0.5, freq: "weekly" },
+    { path: "/calculator/driveway", priority: 0.8, freq: "monthly" },
+    { path: "/calculator/mulch", priority: 0.8, freq: "monthly" },
+    { path: "/calculator/topsoil", priority: 0.8, freq: "monthly" },
+    { path: "/calculator/shed-base", priority: 0.7, freq: "monthly" },
+    { path: "/calculator/fill", priority: 0.7, freq: "monthly" },
+    { path: "/calculator/rca", priority: 0.7, freq: "monthly" },
+    { path: "/calculator/sand", priority: 0.7, freq: "monthly" },
     { path: "/privacy-policy", priority: 0.3, freq: "monthly" },
     { path: "/terms", priority: 0.3, freq: "monthly" },
   ].map((r) => ({
