@@ -614,6 +614,63 @@ export type Database = {
         }
         Relationships: []
       }
+      held_orders: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_address: string | null
+          delivery_fee_cents: number | null
+          delivery_method: string
+          id: string
+          items: Json
+          notes: string | null
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_fee_cents?: number | null
+          delivery_method?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_fee_cents?: number | null
+          delivery_method?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "held_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "held_orders_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_history: {
         Row: {
           created_at: string
@@ -765,7 +822,11 @@ export type Database = {
           id: string
           materials_subtotal_cents: number
           metadata: Json
+          payment_method: string | null
           placed_at: string
+          pos_register_id: string | null
+          pos_staff_id: string | null
+          source: string
           status: string
           stripe_checkout_session_id: string | null
           tax_cents: number
@@ -795,7 +856,11 @@ export type Database = {
           id?: string
           materials_subtotal_cents: number
           metadata?: Json
+          payment_method?: string | null
           placed_at?: string
+          pos_register_id?: string | null
+          pos_staff_id?: string | null
+          source?: string
           status?: string
           stripe_checkout_session_id?: string | null
           tax_cents: number
@@ -825,7 +890,11 @@ export type Database = {
           id?: string
           materials_subtotal_cents?: number
           metadata?: Json
+          payment_method?: string | null
           placed_at?: string
+          pos_register_id?: string | null
+          pos_staff_id?: string | null
+          source?: string
           status?: string
           stripe_checkout_session_id?: string | null
           tax_cents?: number
@@ -837,6 +906,13 @@ export type Database = {
           {
             foreignKeyName: "orders_account_id_fkey"
             columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_pos_staff_id_fkey"
+            columns: ["pos_staff_id"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
@@ -1177,6 +1253,7 @@ export type Database = {
           minimum_order_cents: number
           operating_days: string[]
           origin_address: string
+          pos_quick_product_slugs: string[]
           pro_discount_pickup_only: boolean
           pro_discount_rate: number
           profit_multiplier: number
@@ -1214,6 +1291,7 @@ export type Database = {
           minimum_order_cents?: number
           operating_days?: string[]
           origin_address: string
+          pos_quick_product_slugs?: string[]
           pro_discount_pickup_only?: boolean
           pro_discount_rate?: number
           profit_multiplier?: number
@@ -1251,6 +1329,7 @@ export type Database = {
           minimum_order_cents?: number
           operating_days?: string[]
           origin_address?: string
+          pos_quick_product_slugs?: string[]
           pro_discount_pickup_only?: boolean
           pro_discount_rate?: number
           profit_multiplier?: number
