@@ -8,6 +8,7 @@ import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JsonLd } from "@/components/seo/json-ld";
+import { CalculatorByType } from "@/components/calculators/calculator-by-type";
 import { siteConfig } from "@/config/site";
 import { getProductTownPages, getProductTownPageBySlug, type ProductTownFeaturedProduct } from "@/lib/data/product-town-pages";
 
@@ -226,21 +227,13 @@ export default async function ProductTownPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* ── 3. CALCULATOR CTA ────────────────────────────── */}
+        {/* ── 3. EMBEDDED CALCULATOR ────────────────────────── */}
         {page.calculatorType && (
-          <section className="rounded-xl border-2 border-accent/25 bg-accent/5 p-6 md:flex md:items-center md:gap-6">
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-accent/15">
-              <Calculator className="size-7 text-accent" />
-            </div>
-            <div className="mt-3 flex-1 md:mt-0">
-              <h2 className="text-xl font-semibold">How Much {page.productGroup} Do You Need?</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enter your area dimensions — we calculate cubic yards. Then add to cart with delivery to {town.name}.
-              </p>
-            </div>
-            <Button asChild size="lg" className="mt-4 w-full shrink-0 bg-accent text-accent-foreground shadow-lg shadow-accent/20 hover:bg-accent/90 md:mt-0 md:w-auto">
-              <Link href="/calculator">Open Calculator <ArrowRight className="size-4" /></Link>
-            </Button>
+          <section>
+            <h2 className="mb-4 [font-family:var(--font-display)] text-2xl text-primary">
+              How Much {page.productGroup} Do You Need?
+            </h2>
+            <CalculatorByType type={page.calculatorType} />
           </section>
         )}
 
