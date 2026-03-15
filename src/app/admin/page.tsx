@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { ClipboardList, DollarSign, Package, Phone, Search, ShoppingCart, Truck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";

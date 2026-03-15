@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CacheList } from "@/components/admin/cache/cache-list";
 

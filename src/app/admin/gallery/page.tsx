@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { GalleryManager } from "@/components/admin/gallery/gallery-manager";
 

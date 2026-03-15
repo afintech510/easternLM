@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "@/components/admin/settings/settings-form";
 import { FeeTest } from "@/components/admin/settings/fee-test";
