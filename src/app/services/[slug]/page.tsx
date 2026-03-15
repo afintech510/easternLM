@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight, Calculator, CheckCircle2, Phone, Truck, Users } from "lucide-react";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ServiceQuoteForm } from "@/components/forms/service-quote-form";
+import { CalculatorByType } from "@/components/calculators/calculator-by-type";
 import {
   Accordion,
   AccordionContent,
@@ -22,6 +23,7 @@ type ServicePageContent = {
   faqs: { question: string; answer: string }[];
   diyProducts: { name: string; slug: string }[];
   category: "driveways" | "landscaping" | "masonry" | "maintenance";
+  calculatorType: string;
 };
 
 const serviceContent: Record<string, ServicePageContent> = {
@@ -52,6 +54,7 @@ const serviceContent: Record<string, ServicePageContent> = {
       { name: "Gravel & Stone", slug: "gravel-stone" },
     ],
     category: "landscaping",
+    calculatorType: "mulch",
   },
   masonry: {
     title: "Masonry Services",
@@ -80,6 +83,7 @@ const serviceContent: Record<string, ServicePageContent> = {
       { name: "Masonry & Concrete", slug: "masonry-concrete" },
     ],
     category: "masonry",
+    calculatorType: "sand",
   },
   driveways: {
     title: "Driveway Services",
@@ -108,6 +112,7 @@ const serviceContent: Record<string, ServicePageContent> = {
       { name: "Topsoil & Fill", slug: "topsoil-fill" },
     ],
     category: "driveways",
+    calculatorType: "driveway",
   },
   "property-maintenance": {
     title: "Property Maintenance",
@@ -135,6 +140,7 @@ const serviceContent: Record<string, ServicePageContent> = {
       { name: "Landscape & Drainage", slug: "landscape" },
     ],
     category: "maintenance",
+    calculatorType: "mulch",
   },
 };
 
@@ -296,19 +302,16 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
                     <Truck className="size-4" /> Shop & Order Materials
                   </Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full" size="lg">
-                  <Link href="/calculator">
-                    <Calculator className="size-4" /> Material Calculator
-                  </Link>
-                </Button>
               </div>
             </div>
+
+            {/* Embedded calculator */}
+            <CalculatorByType type={content.calculatorType} />
 
             {/* Phone CTA card */}
             <div className="rounded-xl border bg-card p-5 text-center">
               <p className="text-sm font-semibold">Not sure which option?</p>
-              <p className="mt-1 text-sm text-muted-foreground">Call us — we&apos;ll help you figure it out.</p>
-              <Button asChild size="lg" variant="outline" className="mt-3 w-full">
+              <Button asChild size="lg" variant="outline" className="mt-2 w-full">
                 <a href={siteConfig.phoneHref}>
                   <Phone className="size-4" /> {siteConfig.phoneDisplay}
                 </a>

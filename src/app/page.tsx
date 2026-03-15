@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstantQuoteWidget } from "@/components/quote/instant-quote-widget";
 import {
   ArrowRight,
   Calculator,
@@ -259,32 +260,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 5. CALCULATOR CTA ──────────────────────────────────── */}
+      {/* ── 5. INSTANT QUOTE WIDGET ──────────────────────────── */}
       <section className="bg-background py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="rounded-xl border-2 border-accent/25 bg-accent/5 p-8 md:flex md:items-center md:gap-8 md:p-10">
-            <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-accent/15">
-              <Calculator className="size-8 text-accent" />
-            </div>
-            <div className="mt-4 flex-1 md:mt-0">
-              <h2 className="[font-family:var(--font-display)] text-2xl text-primary md:text-3xl">
-                How Much Do You Need?
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enter your area dimensions. We&apos;ll calculate the cubic yards — then add to cart and checkout.
-              </p>
-            </div>
-            <Button
-              asChild
-              size="lg"
-              className="mt-4 w-full shrink-0 bg-accent text-accent-foreground shadow-lg shadow-accent/20 hover:bg-accent/90 md:mt-0 md:w-auto"
-            >
-              <Link href="/calculator">
-                Open Calculator
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </div>
+          <InstantQuoteWidget />
         </div>
       </section>
 
