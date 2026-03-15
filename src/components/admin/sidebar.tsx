@@ -15,12 +15,14 @@ import {
   Users,
   MessageSquare,
   Megaphone,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/operations", label: "Operations", icon: Activity },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/settings", label: "Settings", icon: Settings },
