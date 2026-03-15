@@ -23,6 +23,8 @@ export type Database = {
           is_pro_member: boolean
           phone: string | null
           role: string
+          sms_consent_at: string | null
+          sms_opt_in: boolean
           updated_at: string
         }
         Insert: {
@@ -33,6 +35,8 @@ export type Database = {
           is_pro_member?: boolean
           phone?: string | null
           role?: string
+          sms_consent_at?: string | null
+          sms_opt_in?: boolean
           updated_at?: string
         }
         Update: {
@@ -43,6 +47,8 @@ export type Database = {
           is_pro_member?: boolean
           phone?: string | null
           role?: string
+          sms_consent_at?: string | null
+          sms_opt_in?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -940,6 +946,8 @@ export type Database = {
           placed_at: string
           pos_register_id: string | null
           pos_staff_id: string | null
+          sms_consent_at: string | null
+          sms_opt_in: boolean
           source: string
           status: string
           stripe_checkout_session_id: string | null
@@ -974,6 +982,8 @@ export type Database = {
           placed_at?: string
           pos_register_id?: string | null
           pos_staff_id?: string | null
+          sms_consent_at?: string | null
+          sms_opt_in?: boolean
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
@@ -1008,6 +1018,8 @@ export type Database = {
           placed_at?: string
           pos_register_id?: string | null
           pos_staff_id?: string | null
+          sms_consent_at?: string | null
+          sms_opt_in?: boolean
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
@@ -1535,6 +1547,45 @@ export type Database = {
           timezone?: string
           twilio_enabled?: boolean
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_consent_log: {
+        Row: {
+          consent_given: boolean
+          consent_source: string
+          consent_text: string
+          created_at: string
+          email: string | null
+          id: string
+          ip_address: string | null
+          name: string | null
+          phone: string
+          user_agent: string | null
+        }
+        Insert: {
+          consent_given: boolean
+          consent_source: string
+          consent_text: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          name?: string | null
+          phone: string
+          user_agent?: string | null
+        }
+        Update: {
+          consent_given?: boolean
+          consent_source?: string
+          consent_text?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          name?: string | null
+          phone?: string
+          user_agent?: string | null
         }
         Relationships: []
       }
