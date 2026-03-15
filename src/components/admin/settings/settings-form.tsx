@@ -31,6 +31,11 @@ type Settings = {
   max_loads_per_day_per_address: number;
   pro_discount_rate: number;
   pro_discount_pickup_only: boolean;
+  google_review_url: string;
+  follow_up_enabled: boolean;
+  twilio_enabled: boolean;
+  marketing_enabled: boolean;
+  follow_up_timezone: string;
 };
 
 const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -65,6 +70,7 @@ export function SettingsForm({ initialSettings }: { initialSettings: Settings })
         <TabsTrigger value="tax">Tax & Fees</TabsTrigger>
         <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
         <TabsTrigger value="pro">Pro Program</TabsTrigger>
+        <TabsTrigger value="integrations">Integrations</TabsTrigger>
       </TabsList>
 
       <TabsContent value="delivery">
@@ -217,6 +223,54 @@ export function SettingsForm({ initialSettings }: { initialSettings: Settings })
                 onCheckedChange={(v) => update("pro_discount_pickup_only", v)}
               />
               <Label>Pro discount applies to pickup only</Label>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="integrations">
+        <Card>
+          <CardHeader>
+            <CardTitle>Google Reviews</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Google Review URL</Label>
+              <Input
+                value={settings.google_review_url || ""}
+                onChange={(e) => update("google_review_url", e.target.value)}
+                placeholder="https://g.page/r/YOUR_ID/review"
+              />
+              <p className="text-xs text-muted-foreground">Get this from Google Business Profile &rarr; &quot;Ask for reviews&quot;</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Follow-Ups &amp; Marketing</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={settings.follow_up_enabled ?? true}
+                onCheckedChange={(v) => update("follow_up_enabled", v)}
+              />
+              <Label>Post-delivery follow-ups (review requests)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={settings.twilio_enabled ?? false}
+                onCheckedChange={(v) => update("twilio_enabled", v)}
+              />
+              <Label>SMS via Twilio</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={settings.marketing_enabled ?? false}
+                onCheckedChange={(v) => update("marketing_enabled", v)}
+              />
+              <Label>Marketing campaigns</Label>
             </div>
           </CardContent>
         </Card>
