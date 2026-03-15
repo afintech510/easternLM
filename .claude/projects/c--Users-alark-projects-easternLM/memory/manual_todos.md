@@ -24,7 +24,10 @@ type: project
 ## VPS Cron Jobs to Add
 
 - [ ] **Follow-up processor** — `*/5 * * * * curl -sf "https://easternlm.com/api/cron/follow-ups?key=elm_cron_2026_secret" > /dev/null`
+- [ ] **Campaign processor** — `* * * * * curl -sf "https://easternlm.com/api/cron/campaigns?key=elm_cron_2026_secret" > /dev/null`
 - [ ] **Reviews refresh** — `0 6 * * * curl -sf "https://easternlm.com/api/cron/refresh-reviews?key=elm_cron_2026_secret" > /dev/null`
+- [ ] **Morning briefing** — `0 6 * * 1-6 curl -sf "https://easternlm.com/api/cron/morning-briefing?key=elm_cron_2026_secret" > /dev/null`
+- [ ] **Delivery notifications** — `*/2 * * * * curl -sf "https://easternlm.com/api/cron/delivery-notify?key=elm_cron_2026_secret" > /dev/null`
 - [ ] **Supabase keep-alive** — `*/5 * * * * curl -sf "https://easternlm.com/api/health" > /dev/null`
 
 ## Content & Media

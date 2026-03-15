@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function UnsubscribePage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-muted-foreground">Loading...</div>}>
+      <UnsubscribeContent />
+    </Suspense>
+  );
+}
+
+function UnsubscribeContent() {
   const searchParams = useSearchParams();
   const customerId = searchParams.get("id") || searchParams.get("token");
   const [choice, setChoice] = useState<"email" | "sms" | "all" | null>(null);
