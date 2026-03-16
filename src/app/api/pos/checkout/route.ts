@@ -17,6 +17,9 @@ export async function POST(request: Request) {
     delivery_address,
     customer_name,
     customer_phone,
+    customer_email,
+    delivery_date,
+    delivery_time_window,
     notes,
   } = body;
 
@@ -47,10 +50,17 @@ export async function POST(request: Request) {
   };
 
   if (customer_phone) orderData.customer_phone = customer_phone;
+  if (customer_email) orderData.customer_email = customer_email;
   if (delivery_address) orderData.delivery_address = delivery_address;
   if (delivery_fee_cents) orderData.delivery_fee_override = delivery_fee_cents;
   if (notes) orderData.notes = notes;
   if (customerId) orderData.customer_id = customerId;
+
+  // Store delivery scheduling info in metadata
+  const metadata: Record<string, unknown> = {};
+  if (delivery_date) metadata.deliveryDate = delivery_date;
+  if (delivery_time_window) metadata.deliveryTimeWindow = delivery_time_window;
+  if (Object.keys(metadata).length > 0) orderData.metadata = metadata;
 
   const { data: order, error } = await supabase
     .from("orders")

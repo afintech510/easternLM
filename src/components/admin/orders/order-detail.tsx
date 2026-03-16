@@ -45,6 +45,8 @@ type Order = {
   customer_email: string;
   customer_phone: string | null;
   status: string;
+  source: string | null;
+  payment_method: string | null;
   delivery_method: string;
   delivery_address: string | null;
   delivery_zip: string | null;
@@ -60,9 +62,31 @@ type Order = {
   total_delivery_days: number;
   access_constraints: Record<string, unknown>;
   delivery_schedule: unknown[];
+  metadata: Record<string, unknown> | null;
+  notes: string | null;
   placed_at: string;
   order_items: OrderItem[];
 };
+
+const CONSTRAINT_LABELS: Record<string, string> = {
+  lowWires: "Low wires",
+  narrowDriveway: "Narrow driveway",
+  softGround: "Soft ground",
+  gated: "Gated property",
+  steep: "Steep grade",
+};
+
+function formatConstraints(constraints: Record<string, unknown>): string[] {
+  const items: string[] = [];
+  for (const [key, value] of Object.entries(constraints)) {
+    if (key === "notes" && typeof value === "string" && value.trim()) {
+      items.push(value.trim());
+    } else if (value === true && CONSTRAINT_LABELS[key]) {
+      items.push(CONSTRAINT_LABELS[key]);
+    }
+  }
+  return items;
+}
 
 export function OrderDetail({ order }: { order: Order }) {
   const [status, setStatus] = useState(order.status);
@@ -115,6 +139,18 @@ export function OrderDetail({ order }: { order: Order }) {
                   <p>{order.delivery_address}</p>
                 </div>
               )}
+              {order.metadata && (order.metadata as Record<string, unknown>).deliveryDate ? (
+                <div className="pt-2">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Requested Delivery Date</p>
+                  <p>{String((order.metadata as Record<string, unknown>).deliveryDate)}</p>
+                </div>
+              ) : null}
+              {order.notes && (
+                <div className="pt-2">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Order Notes</p>
+                  <p>{order.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -153,18 +189,26 @@ export function OrderDetail({ order }: { order: Order }) {
           </Card>
 
           {/* Access constraints */}
-          {Object.keys(order.access_constraints).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Access Constraints</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="rounded bg-muted p-3 text-xs">
-                  {JSON.stringify(order.access_constraints, null, 2)}
-                </pre>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Access Constraints</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const items = formatConstraints(order.access_constraints ?? {});
+                if (items.length === 0) {
+                  return <p className="text-sm text-muted-foreground">None specified</p>;
+                }
+                return (
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    {items.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -257,9 +301,26 @@ export function OrderDetail({ order }: { order: Order }) {
             </CardContent>
           </Card>
 
-          <p className="text-xs text-muted-foreground">
-            Placed {new Date(order.placed_at).toLocaleString()}
-          </p>
+          {/* Order meta */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Order Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Source</span>
+                <span className="capitalize">{order.source ?? "web"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Payment</span>
+                <span className="capitalize">{(order.payment_method ?? "card_online").replace(/_/g, " ")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Placed</span>
+                <span>{new Date(order.placed_at).toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

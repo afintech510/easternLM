@@ -35,6 +35,7 @@ type Order = {
   delivery_method: string;
   grand_total_cents: number;
   placed_at: string;
+  metadata: Record<string, unknown> | null;
   order_items: Array<{ id: string }>;
 };
 
@@ -121,13 +122,14 @@ export function OrderList({
               <TableHead>Status</TableHead>
               <TableHead>Method</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Delivery Date</TableHead>
+              <TableHead>Placed</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {orders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   {loading ? "Loading…" : "No orders found"}
                 </TableCell>
               </TableRow>
@@ -156,6 +158,11 @@ export function OrderList({
                 </TableCell>
                 <TableCell className="font-medium">
                   {formatUsd(order.grand_total_cents)}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {order.metadata && typeof order.metadata === "object" && (order.metadata as Record<string, unknown>).deliveryDate
+                    ? String((order.metadata as Record<string, unknown>).deliveryDate)
+                    : "—"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(order.placed_at).toLocaleDateString()}
