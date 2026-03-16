@@ -33,34 +33,32 @@ export async function POST(request: Request) {
     }
   }
 
-  // Create order — use `as any` to bypass strict type checks for new columns
+  // Build order row using actual columns from orders table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orderData: any = {
     status: "paid",
     source: "pos",
     payment_method: payment_method || "cash",
     customer_name: customer_name || "Walk-in",
+    customer_email: customer_email || null,
+    customer_phone: customer_phone || null,
     delivery_method: delivery_method || "pickup",
-    delivery_fee_cents: delivery_fee_cents || 0,
-    subtotal_cents,
+    delivery_address: delivery_address || null,
+    materials_subtotal_cents: subtotal_cents,
+    delivery_total_cents: delivery_fee_cents || 0,
     tax_cents,
     cc_surcharge_cents: cc_fee_cents || 0,
     grand_total_cents,
-    items,
   };
 
-  if (customer_phone) orderData.customer_phone = customer_phone;
-  if (customer_email) orderData.customer_email = customer_email;
-  if (delivery_address) orderData.delivery_address = delivery_address;
-  if (delivery_fee_cents) orderData.delivery_fee_override = delivery_fee_cents;
-  if (notes) orderData.notes = notes;
   if (customerId) orderData.customer_id = customerId;
 
-  // Store delivery scheduling info in metadata
-  const metadata: Record<string, unknown> = {};
+  // Store delivery scheduling + notes in metadata
+  const metadata: Record<string, unknown> = { source: "pos" };
   if (delivery_date) metadata.deliveryDate = delivery_date;
   if (delivery_time_window) metadata.deliveryTimeWindow = delivery_time_window;
-  if (Object.keys(metadata).length > 0) orderData.metadata = metadata;
+  if (notes) metadata.notes = notes;
+  orderData.metadata = metadata;
 
   const { data: order, error } = await supabase
     .from("orders")
@@ -70,6 +68,22 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Save order items
+  if (items && Array.isArray(items)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orderItems = (items as any[]).map((item) => ({
+      order_id: order.id as string,
+      product_id: (item.product_id as string) || null,
+      product_name: (item.product_name as string) || "Unknown",
+      product_slug: (item.product_slug as string) || null,
+      quantity: (item.quantity as number) || 1,
+      unit: "unit" as const,
+      unit_price_cents: (item.unit_price_cents as number) || 0,
+      line_subtotal_cents: (item.line_total_cents as number) || 0,
+    }));
+    await supabase.from("order_items").insert(orderItems);
   }
 
   // Update customer order count if linked
