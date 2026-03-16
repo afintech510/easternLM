@@ -1009,14 +1009,14 @@ export default function PosRegisterPage() {
             <button
               key={key}
               onClick={() => setMiddleTab(key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors ${
+              className={`flex flex-1 items-center justify-center py-3 transition-colors ${
                 middleTab === key
                   ? "border-b-2 border-amber-500 bg-zinc-900 text-amber-400"
                   : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300"
               }`}
+              title={label}
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Icon className="h-8 w-8" />
             </button>
           ))}
         </div>
