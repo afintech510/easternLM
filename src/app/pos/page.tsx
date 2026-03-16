@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calculator,
   Calendar,
+  ClipboardList,
   CreditCard,
   Edit3,
   LogOut,
@@ -56,7 +57,7 @@ type LineItem = {
 
 type PosCategory = { slug: string; name: string; count: number };
 
-type MiddleTab = "calculator" | "delivery" | "customer";
+type MiddleTab = "calculator" | "delivery" | "customer" | "transactions";
 
 type RouteInfo = {
   roundTripMiles: number;
@@ -167,6 +168,43 @@ export default function PosRegisterPage() {
   // Customer edit modal
   const [showEditCustomer, setShowEditCustomer] = useState(false);
   const [editCust, setEditCust] = useState({ first_name: "", last_name: "", phone: "", email: "", address: "", city: "", company_name: "" });
+
+  // Transactions tab state
+  const [txnSearch, setTxnSearch] = useState("");
+  const [txnDateFilter, setTxnDateFilter] = useState<"today" | "yesterday" | "week" | "all">("today");
+  const [txnResults, setTxnResults] = useState<Array<{
+    id: string;
+    placed_at: string;
+    customer_name: string;
+    customer_phone: string | null;
+    grand_total_cents: number;
+    status: string;
+    payment_method: string;
+    delivery_method: string;
+    source: string;
+  }>>([]);
+  const [txnLoading, setTxnLoading] = useState(false);
+  const [selectedTxn, setSelectedTxn] = useState<string | null>(null);
+  const [txnDetail, setTxnDetail] = useState<{
+    id: string;
+    placed_at: string;
+    customer_name: string;
+    customer_phone: string | null;
+    customer_email: string | null;
+    delivery_address: string | null;
+    delivery_method: string;
+    grand_total_cents: number;
+    materials_subtotal_cents: number;
+    delivery_total_cents: number;
+    tax_cents: number;
+    cc_surcharge_cents: number;
+    status: string;
+    payment_method: string;
+    source: string;
+    metadata: Record<string, unknown>;
+    items: Array<{ product_name: string; quantity: number; unit_price_cents: number; line_subtotal_cents: number }>;
+  } | null>(null);
+  const txnFetchRef = useRef(0);
 
   // Theme
   const [theme, setTheme] = useState<"site" | "light" | "medium" | "dark">("dark");
@@ -376,6 +414,35 @@ export default function PosRegisterPage() {
       }
     } catch { setCustOrders([]); }
   }
+
+  async function fetchTransactions() {
+    setTxnLoading(true);
+    const ticket = ++txnFetchRef.current;
+    const params = new URLSearchParams();
+    if (txnSearch) params.set("q", txnSearch);
+    params.set("date", txnDateFilter);
+    const res = await fetch(`/api/pos/transactions?${params}`);
+    if (res.ok && ticket === txnFetchRef.current) {
+      const data = await res.json();
+      setTxnResults(data.orders || []);
+    }
+    if (ticket === txnFetchRef.current) setTxnLoading(false);
+  }
+
+  async function fetchTxnDetail(orderId: string) {
+    const res = await fetch(`/api/admin/operations/${orderId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setTxnDetail({ ...data.order, items: data.items || [] });
+      setSelectedTxn(orderId);
+    }
+  }
+
+  // Fetch transactions when tab or date filter changes
+  useEffect(() => {
+    if (middleTab === "transactions") fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [middleTab, txnDateFilter]);
 
   function selectCustomer(cust: typeof custResults[0]) {
     setSelectedCustomer(cust);
@@ -937,6 +1004,7 @@ export default function PosRegisterPage() {
             { key: "calculator" as MiddleTab, label: "Calculator", icon: Calculator },
             { key: "delivery" as MiddleTab, label: "Delivery", icon: Truck },
             { key: "customer" as MiddleTab, label: "Customer", icon: Users },
+            { key: "transactions" as MiddleTab, label: "Transactions", icon: ClipboardList },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1302,6 +1370,121 @@ export default function PosRegisterPage() {
                       {leadSaving ? "Saving..." : "Save Lead"}
                     </button>
                     <button onClick={() => setShowLeadForm(false)} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm text-zinc-400 hover:bg-zinc-700">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Transactions Tab */}
+          {middleTab === "transactions" && (
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  value={txnSearch}
+                  onChange={(e) => setTxnSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") fetchTransactions(); }}
+                  placeholder="Search order #, name, phone..."
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Date filter */}
+              <div className="flex gap-1">
+                {(["today", "yesterday", "week", "all"] as const).map((f) => (
+                  <button key={f} onClick={() => setTxnDateFilter(f)} className={`rounded px-3 py-1.5 text-xs font-medium ${txnDateFilter === f ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+                    {f === "today" ? "Today" : f === "yesterday" ? "Yesterday" : f === "week" ? "This Week" : "All"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Results */}
+              {txnLoading ? (
+                <p className="text-xs text-zinc-500 text-center py-4">Loading...</p>
+              ) : txnResults.length === 0 ? (
+                <p className="text-xs text-zinc-500 text-center py-4">No transactions found</p>
+              ) : (
+                <div className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+                  {txnResults.map((txn) => (
+                    <button
+                      key={txn.id}
+                      onClick={() => fetchTxnDetail(txn.id)}
+                      className={`w-full rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                        selectedTxn === txn.id ? "border-amber-600 bg-amber-900/20" : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{txn.customer_name}</span>
+                        <span className="font-semibold text-amber-400">{formatUsd(txn.grand_total_cents)}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-zinc-500">
+                        <span>{new Date(txn.placed_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                          txn.status === "paid" ? "bg-green-900/30 text-green-400" :
+                          txn.status === "confirmed" ? "bg-blue-900/30 text-blue-400" :
+                          txn.status === "held" ? "bg-yellow-900/30 text-yellow-400" :
+                          "bg-zinc-800 text-zinc-500"
+                        }`}>{txn.status}</span>
+                        <span className="text-zinc-600">{txn.payment_method}</span>
+                        <span className="text-zinc-600">{txn.delivery_method}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Transaction detail */}
+              {txnDetail && selectedTxn && (
+                <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-zinc-300">Order #{txnDetail.id.slice(0, 8).toUpperCase()}</p>
+                    <button onClick={() => { setSelectedTxn(null); setTxnDetail(null); }} className="text-xs text-zinc-500 hover:text-zinc-300">Close</button>
+                  </div>
+
+                  {/* Items */}
+                  <div className="space-y-1">
+                    {txnDetail.items.map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-zinc-400">{item.quantity} x {item.product_name}</span>
+                        <span>{formatUsd(item.line_subtotal_cents)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-zinc-800 pt-2 space-y-0.5 text-xs">
+                    <div className="flex justify-between"><span className="text-zinc-500">Subtotal</span><span>{formatUsd(txnDetail.materials_subtotal_cents)}</span></div>
+                    {txnDetail.delivery_total_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">Delivery</span><span>{formatUsd(txnDetail.delivery_total_cents)}</span></div>}
+                    <div className="flex justify-between"><span className="text-zinc-500">Tax</span><span>{formatUsd(txnDetail.tax_cents)}</span></div>
+                    {txnDetail.cc_surcharge_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">CC Fee</span><span>{formatUsd(txnDetail.cc_surcharge_cents)}</span></div>}
+                    <div className="flex justify-between font-semibold text-amber-400"><span>Total</span><span>{formatUsd(txnDetail.grand_total_cents)}</span></div>
+                  </div>
+
+                  <div className="border-t border-zinc-800 pt-2 text-xs text-zinc-500 space-y-0.5">
+                    <p>Customer: {txnDetail.customer_name} {txnDetail.customer_phone ? `\u00b7 ${txnDetail.customer_phone}` : ""}</p>
+                    <p>Payment: {txnDetail.payment_method} \u00b7 Status: {txnDetail.status}</p>
+                    {txnDetail.delivery_address && <p>Delivery: {txnDetail.delivery_address}</p>}
+                    <p>{new Date(txnDetail.placed_at).toLocaleString()}</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => {
+                      printReceipt({
+                        items: txnDetail.items.map(i => ({ product_name: i.product_name, quantity: i.quantity, unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents })),
+                        subtotal_cents: txnDetail.materials_subtotal_cents,
+                        tax_cents: txnDetail.tax_cents,
+                        delivery_fee_cents: txnDetail.delivery_total_cents,
+                        cc_fee_cents: txnDetail.cc_surcharge_cents,
+                        grand_total_cents: txnDetail.grand_total_cents,
+                        customer_name: txnDetail.customer_name,
+                        discount_amount_cents: 0,
+                      }, txnDetail.payment_method.includes("card") ? "card" : txnDetail.payment_method);
+                    }} className="rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700">
+                      Reprint Receipt
+                    </button>
                   </div>
                 </div>
               )}
