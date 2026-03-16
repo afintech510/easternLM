@@ -21,7 +21,7 @@ const checkoutItemSchema = z.object({
   deliveryType: z.enum(["bulk", "non-bulk"]),
   materialClass: z.enum(["mulch", "default"]),
   fulfillmentMethod: z.enum(["pickup", "delivery"]).optional(),
-});
+}).passthrough();
 
 const requestSchema = z.object({
   cartItems: z.array(checkoutItemSchema).min(1),
@@ -29,7 +29,7 @@ const requestSchema = z.object({
   deliveryAddress: z
     .object({
       fullAddress: z.string().min(8),
-      zip: z.string().min(3),
+      zip: z.string().default(""),
     })
     .nullable()
     .optional(),
@@ -42,6 +42,8 @@ const requestSchema = z.object({
     fullName: z.string().min(2),
     email: z.string().email(),
     phone: z.string().min(7),
+    optInSms: z.boolean().optional(),
+    optInEmail: z.boolean().optional(),
   }),
   createAccount: z.boolean().optional(),
 });
@@ -135,9 +137,14 @@ function serializeDeliveryScheduleMetadata(
 
 export async function POST(request: Request) {
   try {
-    const parsed = requestSchema.safeParse(await request.json());
+    const rawBody = await request.json();
+    const parsed = requestSchema.safeParse(rawBody);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid checkout payload." }, { status: 400 });
+      console.error("[checkout] Zod validation errors:", JSON.stringify(parsed.error.issues, null, 2));
+      console.error("[checkout] Raw body keys:", Object.keys(rawBody));
+      if (rawBody.cartItems?.[0]) console.error("[checkout] First cart item keys:", Object.keys(rawBody.cartItems[0]));
+      if (rawBody.customer) console.error("[checkout] Customer keys:", Object.keys(rawBody.customer));
+      return NextResponse.json({ error: "Invalid checkout payload.", details: parsed.error.issues }, { status: 400 });
     }
 
     const payload = parsed.data;

@@ -21,6 +21,12 @@ export type DeliveryAccessInfo = {
   notes: string;
 };
 
+export type CustomerInfo = {
+  fullName: string;
+  email: string;
+  phone: string;
+};
+
 export type CartStoreState = {
   items: CartItem[];
   deliveryAddress: DeliveryAddress | null;
@@ -28,6 +34,7 @@ export type CartStoreState = {
   promoCode: string;
   combineLoads: boolean;
   customerType: CustomerType;
+  customerInfo: CustomerInfo;
   deliveryCalculation: DeliveryCalculationResult | null;
   deliveryPricingConfig: DeliveryPricingConfig;
   truckTypes: TruckType[];

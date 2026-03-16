@@ -2,7 +2,7 @@
 
 ## Brand Identity
 
-**Who we are:** A 30-year family-owned landscape and masonry supply yard in Center Moriches, NY. We sell bulk materials (mulch, stone, gravel, sand) and provide full-service installation (landscaping, masonry, driveways).
+**Who we are:** A family-owned landscape and masonry supply yard in Center Moriches, NY. We sell bulk materials (mulch, stone, gravel, sand) and provide full-service installation (landscaping, masonry, driveways).
 
 **Who our customers are:** Suffolk County contractors checking prices on dusty phones at job sites. Homeowners planning weekend projects. Property managers ordering recurring mulch deliveries.
 

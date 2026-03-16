@@ -2,7 +2,7 @@
 
 ## Business Context
 
-Eastern LM is a 30+ year family-owned landscape and masonry supply yard in Center Moriches, NY (110 Frowein Road, 11934). We sell bulk materials (mulch, topsoil, gravel, stone, sand) and provide full-service installation (landscaping, masonry, driveways, maintenance). Customers are Suffolk County contractors checking prices on phones at job sites, and homeowners planning weekend projects.
+Eastern LM is a family-owned landscape and masonry supply yard in Center Moriches, NY (110 Frowein Road, 11934). We sell bulk materials (mulch, topsoil, gravel, stone, sand) and provide full-service installation (landscaping, masonry, driveways, maintenance). Customers are Suffolk County contractors checking prices on phones at job sites, and homeowners planning weekend projects.
 
 ## Tech Stack
 

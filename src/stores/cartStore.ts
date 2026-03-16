@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { calculateDeliveryFees, type CartItem } from "@/lib/delivery";
 import { defaultDeliveryPricingConfig, defaultTruckTypes } from "@/lib/delivery-defaults";
-import type { CartStoreState, DeliveryAccessInfo, DeliveryAddress } from "@/types/cart";
+import type { CartStoreState, CustomerInfo, DeliveryAccessInfo, DeliveryAddress } from "@/types/cart";
 
 type CartStoreActions = {
   loadDeliveryConfig: () => Promise<void>;
@@ -16,6 +16,7 @@ type CartStoreActions = {
   toggleCombineLoads: () => Promise<void>;
   applyPromoCode: (code: string) => Promise<void>;
   setAccessConstraints: (constraints: Partial<DeliveryAccessInfo>) => void;
+  setCustomerInfo: (info: Partial<CustomerInfo>) => void;
   recalculateDelivery: () => Promise<void>;
   clearError: () => void;
 };
@@ -83,6 +84,7 @@ export const useCartStore = create<CartStore>()(
       promoCode: "",
       combineLoads: false,
       customerType: "standard",
+      customerInfo: { fullName: "", email: "", phone: "" },
       deliveryCalculation: null,
       deliveryPricingConfig: defaultDeliveryPricingConfig,
       truckTypes: defaultTruckTypes,
@@ -202,6 +204,12 @@ export const useCartStore = create<CartStore>()(
         }));
       },
 
+      setCustomerInfo: (info) => {
+        set((state) => ({
+          customerInfo: { ...state.customerInfo, ...info },
+        }));
+      },
+
       recalculateDelivery: async () => {
         const {
           items,
@@ -269,6 +277,7 @@ export const useCartStore = create<CartStore>()(
         combineLoads: state.combineLoads,
         customerType: state.customerType,
         accessConstraints: state.accessConstraints,
+        customerInfo: state.customerInfo,
       }),
     },
   ),

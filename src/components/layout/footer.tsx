@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,12 @@ export function Footer() {
           {/* Column 1: Contact & Hours */}
           <section className="space-y-4">
             <div>
-              <h2 className="[font-family:var(--font-display)] text-2xl">Eastern</h2>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/50">Landscape &amp; Mason Supply</p>
+              <Image
+                src="/logo-white.png"
+                alt="Eastern Landscape & Mason Supply"
+                width={200}
+                height={53}
+              />
             </div>
             <div className="space-y-2.5 text-sm">
               <a
@@ -94,7 +99,7 @@ export function Footer() {
               <p className="mt-1 text-xs text-primary-foreground/60">
                 Volume discounts, priority scheduling, and dedicated account support.
               </p>
-              <Button asChild size="sm" variant="outline" className="mt-3 w-full border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+              <Button asChild size="sm" className="mt-3 w-full bg-accent text-primary hover:bg-accent/90">
                 <Link href="/contact">Apply for Pro Account</Link>
               </Button>
             </div>

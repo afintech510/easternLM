@@ -322,7 +322,7 @@ export function InstantQuoteFlow() {
 
                 <ul className="space-y-1 text-sm">
                   <li className="flex items-center gap-2"><Calculator className="size-4 text-primary" /> Materials from our own yard</li>
-                  <li className="flex items-center gap-2"><Calculator className="size-4 text-primary" /> 30+ years experience</li>
+                  <li className="flex items-center gap-2"><Calculator className="size-4 text-primary" /> Family-owned & operated</li>
                   <li className="flex items-center gap-2"><Calculator className="size-4 text-primary" /> Free on-site estimates</li>
                 </ul>
 

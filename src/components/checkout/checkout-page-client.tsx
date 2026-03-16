@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Lock, Phone, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,15 @@ function defaultDeliveryDate() {
   return target.toISOString().slice(0, 10);
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10;
+}
+
 export function CheckoutPageClient() {
   const items = useCartStore((s) => s.items);
   const calculation = useCartStore((s) => s.deliveryCalculation);
@@ -29,21 +38,51 @@ export function CheckoutPageClient() {
   const combineLoads = useCartStore((s) => s.combineLoads);
   const promoCode = useCartStore((s) => s.promoCode);
   const accessConstraints = useCartStore((s) => s.accessConstraints);
+  const customerInfo = useCartStore((s) => s.customerInfo);
+  const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
+  const isCalculating = useCartStore((s) => s.isCalculating);
+  const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
+  const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState(customerInfo?.fullName || "");
+  const [email, setEmail] = useState(customerInfo?.email || "");
+  const [phone, setPhone] = useState(customerInfo?.phone || "");
   const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [optInSms, setOptInSms] = useState(true);
   const [optInEmail, setOptInEmail] = useState(true);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Load delivery config on mount
+  useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
+
+  // Auto-recalculate when delivery address exists but calculation is missing
+  useEffect(() => {
+    if (deliveryMethod === "delivery" && deliveryAddress && !calculation && !isCalculating) {
+      setDeliveryAddress(deliveryAddress);
+    }
+  }, [deliveryMethod, deliveryAddress, calculation, isCalculating, setDeliveryAddress]);
+
+  // Persist customer info as they type
+  const persistName = useCallback((v: string) => { setFullName(v); setCustomerInfo({ fullName: v }); }, [setCustomerInfo]);
+  const persistEmail = useCallback((v: string) => { setEmail(v); setCustomerInfo({ email: v }); }, [setCustomerInfo]);
+  const persistPhone = useCallback((v: string) => { setPhone(v); setCustomerInfo({ phone: v }); }, [setCustomerInfo]);
+
+  // Validation
+  const nameError = touched.name && fullName.trim().length < 2 ? "Name is required" : null;
+  const emailError = touched.email && !isValidEmail(email) ? "Valid email required" : null;
+  const phoneError = touched.phone && !isValidPhone(phone) ? "Valid 10-digit phone required" : null;
+  const addressError = deliveryMethod === "delivery" && !deliveryAddress ? "Delivery address required" : null;
+
+  const formValid = fullName.trim().length >= 2 && isValidEmail(email) && isValidPhone(phone) &&
+    (deliveryMethod !== "delivery" || !!deliveryAddress);
 
   const canCheckout = useMemo(() => {
     if (!calculation || items.length === 0) return false;
-    if (deliveryMethod === "delivery" && !deliveryAddress) return false;
+    if (!formValid) return false;
     return !calculation.checkoutBlocked;
-  }, [calculation, deliveryAddress, deliveryMethod, items.length]);
+  }, [calculation, formValid, items.length]);
 
   if (!calculation || items.length === 0) {
     return (
@@ -56,6 +95,14 @@ export function CheckoutPageClient() {
   }
 
   async function handleCheckout() {
+    // Mark all fields as touched to show validation
+    setTouched({ name: true, email: true, phone: true });
+
+    if (!formValid) {
+      setError("Please fill in all required fields correctly.");
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
     try {
@@ -90,36 +137,42 @@ export function CheckoutPageClient() {
       <h1 className="mb-6 [font-family:var(--font-display)] text-3xl text-primary">Checkout</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
-        {/* ── Left: form ──────────────────────────────────── */}
+        {/* Left: form */}
         <div className="space-y-5">
           {/* Customer info */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold">Your Information</h2>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm font-medium" htmlFor="co-name">Full name</label>
-                <Input id="co-name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" />
+                <label className="mb-1 block text-sm font-medium" htmlFor="co-name">Full name <span className="text-destructive">*</span></label>
+                <Input id="co-name" value={fullName} onChange={(e) => persistName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Your name" className={nameError ? "border-destructive" : ""} />
+                {nameError && <p className="mt-1 text-xs text-destructive">{nameError}</p>}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium" htmlFor="co-email">Email</label>
-                  <Input id="co-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                  <label className="mb-1 block text-sm font-medium" htmlFor="co-email">Email <span className="text-destructive">*</span></label>
+                  <Input id="co-email" type="email" value={email} onChange={(e) => persistEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@example.com" className={emailError ? "border-destructive" : ""} />
+                  {emailError && <p className="mt-1 text-xs text-destructive">{emailError}</p>}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium" htmlFor="co-phone">Phone</label>
-                  <Input id="co-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(631) 555-1234" />
+                  <label className="mb-1 block text-sm font-medium" htmlFor="co-phone">Phone <span className="text-destructive">*</span></label>
+                  <Input id="co-phone" type="tel" value={phone} onChange={(e) => persistPhone(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, phone: true }))} placeholder="(631) 555-1234" className={phoneError ? "border-destructive" : ""} />
+                  {phoneError && <p className="mt-1 text-xs text-destructive">{phoneError}</p>}
                 </div>
               </div>
 
               {/* Marketing opt-in */}
               <div className="mt-3 space-y-2 border-t pt-3">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-                  Send me deals and seasonal updates via text
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                  <span className="text-muted-foreground leading-snug">
+                    Send me order updates and seasonal deals via text. Msg &amp; data rates apply. Reply STOP to opt out.{" "}
+                    <a href="/privacy-policy" className="underline">Privacy Policy</a> | <a href="/terms#sms-terms" className="underline">SMS Terms</a>
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-                  Send me deals and seasonal updates via email
+                  <span className="text-muted-foreground">Send me deals and seasonal updates via email</span>
                 </label>
               </div>
             </div>
@@ -132,10 +185,14 @@ export function CheckoutPageClient() {
             </h2>
             {deliveryMethod === "delivery" ? (
               <>
-                <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                  <p className="font-medium">{deliveryAddress?.fullAddress}</p>
-                  <p className="text-xs text-muted-foreground">ZIP: {deliveryAddress?.zip}</p>
-                </div>
+                {deliveryAddress ? (
+                  <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                    <p className="font-medium">{deliveryAddress.fullAddress}</p>
+                    {deliveryAddress.zip && <p className="text-xs text-muted-foreground">ZIP: {deliveryAddress.zip}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-destructive">{addressError || "Please set a delivery address in your cart."}</p>
+                )}
                 <div>
                   <label className="mb-1 block text-sm font-medium" htmlFor="co-date">Preferred delivery date</label>
                   <Input id="co-date" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
@@ -164,7 +221,7 @@ export function CheckoutPageClient() {
           {/* Pay button */}
           <Button
             onClick={handleCheckout}
-            disabled={!canCheckout || isSubmitting || !fullName.trim() || !email.trim()}
+            disabled={!canCheckout || isSubmitting}
             size="lg"
             className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
           >
@@ -178,7 +235,7 @@ export function CheckoutPageClient() {
           </div>
         </div>
 
-        {/* ── Right: order summary ────────────────────────── */}
+        {/* Right: order summary */}
         <div className="lg:sticky lg:top-28 lg:self-start">
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold">Order Summary</h2>

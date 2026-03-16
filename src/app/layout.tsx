@@ -40,6 +40,15 @@ export const metadata: Metadata = {
   description:
     "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
   metadataBase: resolveMetadataBase(),
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "Eastern Landscape & Mason Supply",
     description:

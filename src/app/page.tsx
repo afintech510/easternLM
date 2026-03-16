@@ -139,7 +139,7 @@ export default async function Home() {
       <section className="border-b bg-card">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-px md:grid-cols-4">
           {[
-            { icon: Shield, label: "Family-Owned Since 1993" },
+            { icon: Shield, label: "Family-Owned & Operated" },
             { icon: Truck, label: "Same-Day Delivery Available" },
             { icon: MapPin, label: "25+ Suffolk County Towns" },
             { icon: Users, label: "Pro Contractor Pricing" },
