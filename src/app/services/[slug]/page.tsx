@@ -239,7 +239,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
               </ul>
               <div className="mt-5 flex flex-wrap gap-3 border-t pt-5 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Free estimates</span>
-                <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> 30+ years experience</span>
+                <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Family-owned & operated</span>
                 <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Materials from our yard</span>
               </div>
             </div>

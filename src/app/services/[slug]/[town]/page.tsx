@@ -102,7 +102,7 @@ export default async function ServiceTownPage({ params }: PageProps) {
               )}
               <div className="mt-4 flex flex-wrap gap-3 border-t pt-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Free estimates</span>
-                <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> 30+ years</span>
+                <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Family-owned</span>
                 <span className="flex items-center gap-1"><CheckCircle2 className="size-3 text-accent" /> Materials from our yard</span>
               </div>
             </div>

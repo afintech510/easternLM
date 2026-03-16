@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Phone, Truck } from "lucide-react";
 import { siteConfig } from "@/config/site";
@@ -46,13 +47,14 @@ export function Header() {
       <div className="border-b bg-card/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
           {/* Logo */}
-          <Link href="/" className="group shrink-0">
-            <span className="[font-family:var(--font-display)] text-2xl text-primary">
-              Eastern
-            </span>
-            <span className="ml-2 hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:inline">
-              Landscape &amp; Mason Supply
-            </span>
+          <Link href="/" className="shrink-0">
+            <Image
+              src="/logo-blue.png"
+              alt="Eastern Landscape & Mason Supply"
+              width={180}
+              height={48}
+              priority
+            />
           </Link>
 
           {/* Desktop nav */}
