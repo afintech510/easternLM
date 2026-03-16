@@ -920,15 +920,21 @@ export default function PosRegisterPage() {
                 >
                   {/* Image area */}
                   {product.image_url ? (
-                    <div
-                      className="h-[60px] w-full rounded-t-lg bg-cover bg-center"
-                      style={{ backgroundImage: `url(${product.image_url})` }}
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="h-[60px] w-full rounded-t-lg object-cover"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = "none";
+                        const fallback = el.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
                     />
-                  ) : (
-                    <div className="flex h-[60px] w-full items-center justify-center rounded-t-lg bg-zinc-800/50">
-                      <Package className="h-6 w-6 text-zinc-700" />
-                    </div>
-                  )}
+                  ) : null}
+                  <div className={`${product.image_url ? "hidden" : "flex"} h-[60px] w-full items-center justify-center rounded-t-lg bg-zinc-800/50`}>
+                    <Package className="h-6 w-6 text-zinc-700" />
+                  </div>
 
                   {/* Cart badge */}
                   {cartQty > 0 && (
@@ -1261,7 +1267,7 @@ export default function PosRegisterPage() {
                       {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
                     </p>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setEditCust({ first_name: selectedCustomer.first_name || "", last_name: selectedCustomer.last_name || "", phone: selectedCustomer.phone || "", email: selectedCustomer.email || "", address: selectedCustomer.address || "", city: selectedCustomer.city || "", company_name: "" }); setShowEditCustomer(true); }} className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-0.5"><Edit3 className="h-3 w-3" /> Edit</button>
+                      <button onClick={() => { setEditCust({ first_name: selectedCustomer.first_name || "", last_name: selectedCustomer.last_name || "", phone: selectedCustomer.phone || "", email: selectedCustomer.email || "", address: selectedCustomer.address || "", city: selectedCustomer.city || "", company_name: (selectedCustomer as Record<string, unknown>).company_name as string || "" }); setShowEditCustomer(true); }} className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-0.5"><Edit3 className="h-3 w-3" /> Edit</button>
                       <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); setCustOrders([]); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
                     </div>
                   </div>

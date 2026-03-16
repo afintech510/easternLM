@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CheckCircle2, MapPin, Phone, Truck } from "lucide-react";
+import { CartClearer } from "@/components/checkout/cart-clearer";
 
 type CheckoutSuccessPageProps = {
   searchParams: Promise<{
@@ -63,13 +64,14 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
         .order("created_at");
 
       if (!itemsResult.error && itemsResult.data) {
-        items = itemsResult.data.filter((i) => i.delivery_type !== null);
+        items = itemsResult.data.filter((i) => !i.product_name.startsWith("Delivery Load"));
       }
     }
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-16">
+      <CartClearer />
       {/* Header */}
       <div className="text-center space-y-3">
         <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-100">
