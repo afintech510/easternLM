@@ -21,7 +21,7 @@ export function Header() {
   const pathname = usePathname();
 
   // Hide full header on admin pages
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/admin") || pathname.startsWith("/pos")) return null;
 
   return (
     <header className="sticky top-0 z-50">

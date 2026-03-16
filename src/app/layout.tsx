@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Bree_Serif, Public_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
+import { LayoutShell } from "@/components/layout/layout-shell";
 import { PromoPopup } from "@/components/marketing/promo-popup";
 import "./globals.css";
 
@@ -72,11 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${publicSans.variable} ${breeSerif.variable} antialiased`}>
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
+        <LayoutShell>{children}</LayoutShell>
         <Toaster position="top-right" richColors toastOptions={{ className: "text-sm" }} />
         <PromoPopup />
         <Analytics />
