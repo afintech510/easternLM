@@ -21,6 +21,13 @@ export async function POST(request: Request) {
     delivery_date,
     delivery_time_window,
     notes,
+    status_override,
+    tax_exempt,
+    tax_exempt_certificate,
+    discount_type,
+    discount_value,
+    discount_reason,
+    discount_amount_cents,
   } = body;
 
   // Find customer by phone if provided
@@ -36,7 +43,7 @@ export async function POST(request: Request) {
   // Build order row using actual columns from orders table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orderData: any = {
-    status: "paid",
+    status: status_override || "paid",
     source: "pos",
     payment_method: payment_method || "cash",
     customer_name: customer_name || "Walk-in",
@@ -53,11 +60,17 @@ export async function POST(request: Request) {
 
   if (customerId) orderData.customer_id = customerId;
 
-  // Store delivery scheduling + notes in metadata
+  // Store delivery scheduling + notes + discount/tax info in metadata
   const metadata: Record<string, unknown> = { source: "pos" };
   if (delivery_date) metadata.deliveryDate = delivery_date;
   if (delivery_time_window) metadata.deliveryTimeWindow = delivery_time_window;
   if (notes) metadata.notes = notes;
+  if (tax_exempt) metadata.tax_exempt = true;
+  if (tax_exempt_certificate) metadata.tax_exempt_certificate = tax_exempt_certificate;
+  if (discount_type) metadata.discount_type = discount_type;
+  if (discount_value) metadata.discount_value = discount_value;
+  if (discount_reason) metadata.discount_reason = discount_reason;
+  if (discount_amount_cents) metadata.discount_amount_cents = discount_amount_cents;
   orderData.metadata = metadata;
 
   const { data: order, error } = await supabase
