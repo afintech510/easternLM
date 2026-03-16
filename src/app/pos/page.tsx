@@ -90,7 +90,25 @@ export default function PosRegisterPage() {
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(0);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "cod" | null>(null);
+
+  // Tax exempt
+  const [taxExempt, setTaxExempt] = useState(false);
+  const [taxExemptCert, setTaxExemptCert] = useState("");
+
+  // Pro pickup discount
+  const [proDiscount, setProDiscount] = useState(false);
+
+  // Manual discount
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountType, setDiscountType] = useState<"percentage" | "amount">("percentage");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
+
+  // Held orders
+  const [heldOrders, setHeldOrders] = useState<Array<{ id: string; customer_name: string; total_cents: number; item_count: number; held_at: string; reason: string }>>([]);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdReason, setHoldReason] = useState("");
 
   // Middle column state
   const [middleTab, setMiddleTab] = useState<MiddleTab>("calculator");
@@ -181,6 +199,16 @@ export default function PosRegisterPage() {
     // Auto-connect simulated reader in test mode
     terminalRef.current.useSimulated();
     setTerminalStatus("simulated");
+
+    // Load held orders
+    fetch("/api/pos/held").then(r => r.json()).then(d => setHeldOrders((d.orders || []).map((o: Record<string, unknown>) => ({
+      id: o.id as string,
+      customer_name: (o.customer_name as string) || "Walk-in",
+      total_cents: 0,
+      item_count: ((o.items as unknown[]) || []).length,
+      held_at: (o.created_at as string) || new Date().toISOString(),
+      reason: (o.notes as string) || "",
+    })))).catch(() => {});
   }, []);
 
   // When delivery method switches to "delivery", auto-switch middle tab
@@ -253,9 +281,18 @@ export default function PosRegisterPage() {
 
   // Totals
   const subtotalCents = items.reduce((sum, item) => sum + item.price_cents * item.quantity, 0);
-  const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const ccFeeCents = paymentMethod === "card" ? Math.round((subtotalCents + taxCents + deliveryFeeCents) * CC_SURCHARGE) : 0;
-  const grandTotalCents = subtotalCents + taxCents + deliveryFeeCents + ccFeeCents;
+  const proDiscountCents = proDiscount ? Math.round(subtotalCents * 0.05) : 0;
+  const manualDiscountCents = discountType === "percentage"
+    ? Math.round(subtotalCents * (parseFloat(discountValue) || 0) / 100)
+    : Math.round((parseFloat(discountValue) || 0) * 100);
+  const subtotalAfterDiscounts = subtotalCents - proDiscountCents - manualDiscountCents;
+  const taxCents = taxExempt ? 0 : Math.round(subtotalAfterDiscounts * TAX_RATE);
+  const baseTotalCents = subtotalAfterDiscounts + taxCents + deliveryFeeCents;
+  const cashTotalCents = baseTotalCents;
+  const ccFeeCents = Math.round(baseTotalCents * CC_SURCHARGE);
+  const cardTotalCents = baseTotalCents + ccFeeCents;
+  // Legacy alias for existing code that uses grandTotalCents
+  const grandTotalCents = paymentMethod === "card" ? cardTotalCents : cashTotalCents;
 
   // ── Actions ──────────────────────────────────────────────────────
 
@@ -352,6 +389,11 @@ export default function PosRegisterPage() {
       setDelAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
       setDeliveryAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
     }
+    // Auto-enable tax exempt if customer has it
+    setTaxExempt((cust as Record<string, unknown>).tax_exempt as boolean || false);
+    // Auto-apply pro discount for contractors on pickup
+    const isPro = cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
+    setProDiscount(!!isPro && deliveryMethod === 'pickup');
     fetchCustomerOrders(cust.id);
   }
 
@@ -499,13 +541,26 @@ export default function PosRegisterPage() {
     setDelDate("");
     setDelTimeWindow("flexible");
     setDelNotes("");
+    setSelectedCustomer(null);
+    setCustOrders([]);
+    setTaxExempt(false);
+    setTaxExemptCert("");
+    setProDiscount(false);
+    setDiscountValue("");
+    setDiscountReason("");
+    setShowDiscountModal(false);
   }
 
-  async function completeSale(method: "card" | "cash") {
+  async function completeSale(method: "card" | "cash" | "cod") {
     setProcessing(true);
     try {
+      // Determine totals based on method
+      const isCard = method === "card";
+      const effectiveCcFee = isCard ? ccFeeCents : 0;
+      const effectiveTotal = isCard ? cardTotalCents : cashTotalCents;
+
       // Create order first
-      const orderPayload = {
+      const orderPayload: Record<string, unknown> = {
         items: items.map((i) => ({
           product_id: i.product.id,
           product_name: i.product.name,
@@ -516,10 +571,10 @@ export default function PosRegisterPage() {
         })),
         subtotal_cents: subtotalCents,
         tax_cents: taxCents,
-        cc_fee_cents: method === "card" ? ccFeeCents : 0,
+        cc_fee_cents: effectiveCcFee,
         delivery_fee_cents: deliveryFeeCents,
-        grand_total_cents: method === "card" ? grandTotalCents : subtotalCents + taxCents + deliveryFeeCents,
-        payment_method: method === "card" ? "card_terminal" : "cash",
+        grand_total_cents: effectiveTotal,
+        payment_method: isCard ? "card_terminal" : method === "cod" ? "cod" : "cash",
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
         customer_name: delName || customerName,
@@ -529,7 +584,19 @@ export default function PosRegisterPage() {
         delivery_time_window: deliveryMethod === "delivery" ? delTimeWindow : null,
         notes: delNotes || orderNotes || null,
         cash_tendered_cents: method === "cash" ? Math.round(parseFloat(cashTendered) * 100) : null,
+        // Discount and tax exempt fields
+        tax_exempt: taxExempt,
+        tax_exempt_certificate: taxExemptCert || null,
+        discount_type: manualDiscountCents > 0 ? discountType : (proDiscountCents > 0 ? "pro_pickup" : null),
+        discount_value: manualDiscountCents > 0 ? parseFloat(discountValue) : (proDiscountCents > 0 ? 5 : null),
+        discount_reason: discountReason || (proDiscountCents > 0 ? "Pro pickup discount" : null),
+        discount_amount_cents: proDiscountCents + manualDiscountCents,
       };
+
+      // COD — save order as confirmed (not paid)
+      if (method === "cod") {
+        orderPayload.status_override = "confirmed";
+      }
 
       const orderRes = await fetch("/api/pos/checkout", {
         method: "POST",
@@ -548,7 +615,7 @@ export default function PosRegisterPage() {
       if (method === "card") {
         // Process card payment via Stripe Terminal
         setCardPaymentStatus("Waiting for card...");
-        const totalForCard = grandTotalCents;
+        const totalForCard = cardTotalCents;
         const result = await terminalRef.current.collectPayment({
           amountCents: totalForCard,
           orderId,
@@ -556,20 +623,155 @@ export default function PosRegisterPage() {
 
         if (result.success) {
           setCardPaymentStatus("Payment approved!");
+          printReceipt(orderPayload, method);
           await afterSale(method, orderPayload);
           setTimeout(resetRegister, 1500);
         } else {
           setCardPaymentStatus("Payment failed: " + (result.error || "Unknown"));
           setTimeout(() => setCardPaymentStatus(null), 3000);
         }
+      } else if (method === "cod") {
+        // COD — just print receipt and reset
+        printReceipt(orderPayload, method);
+        await afterSale("cash", orderPayload);
+        resetRegister();
       } else {
         // Cash — sale already recorded
+        printReceipt(orderPayload, method);
         await afterSale(method, orderPayload);
         resetRegister();
       }
     } finally {
       setProcessing(false);
     }
+  }
+
+  // ── Receipt printing ────────────────────────────────────────────
+
+  function printReceipt(orderData: Record<string, unknown>, method: string) {
+    const w = window.open("", "_blank", "width=300,height=600");
+    if (!w) return;
+    const receiptItems = orderData.items as Array<{ product_name: string; quantity: number; unit_price_cents: number; line_total_cents: number }>;
+    w.document.write(`
+      <html><head><title>Receipt</title>
+      <style>
+        body { font-family: monospace; width: 280px; margin: 0 auto; padding: 10px; font-size: 12px; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .line { border-top: 1px dashed #000; margin: 6px 0; }
+        .row { display: flex; justify-content: space-between; }
+        @media print { body { width: 80mm; } }
+      </style></head><body>
+      <div class="center bold">EASTERN LANDSCAPE & MASON SUPPLY</div>
+      <div class="center">110 Frowein Road</div>
+      <div class="center">Center Moriches, NY 11934</div>
+      <div class="center">(631) 874-6244</div>
+      <div class="line"></div>
+      <div>Date: ${new Date().toLocaleString()}</div>
+      <div>Customer: ${orderData.customer_name || "Walk-in"}</div>
+      <div class="line"></div>
+      ${receiptItems.map(i => `<div class="row"><span>${i.quantity} x ${i.product_name}</span><span>$${(i.line_total_cents / 100).toFixed(2)}</span></div>`).join("")}
+      <div class="line"></div>
+      <div class="row"><span>Subtotal</span><span>$${((orderData.subtotal_cents as number) / 100).toFixed(2)}</span></div>
+      ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-$${((orderData.discount_amount_cents as number) / 100).toFixed(2)}</span></div>` : ""}
+      <div class="row"><span>Tax</span><span>$${((orderData.tax_cents as number) / 100).toFixed(2)}</span></div>
+      ${(orderData.delivery_fee_cents as number) > 0 ? `<div class="row"><span>Delivery</span><span>$${((orderData.delivery_fee_cents as number) / 100).toFixed(2)}</span></div>` : ""}
+      ${method === "card" ? `<div class="row"><span>CC Fee (3%)</span><span>$${((orderData.cc_fee_cents as number) / 100).toFixed(2)}</span></div>` : ""}
+      <div class="line"></div>
+      <div class="row bold"><span>TOTAL</span><span>$${((orderData.grand_total_cents as number) / 100).toFixed(2)}</span></div>
+      <div>Payment: ${method === "card" ? "Card" : method === "cod" ? "CASH ON DELIVERY" : "Cash"}</div>
+      ${method === "cod" ? '<div class="bold">AMOUNT DUE ON DELIVERY: $' + ((orderData.grand_total_cents as number) / 100).toFixed(2) + '</div>' : ""}
+      <div class="line"></div>
+      <div class="center">Thank you for your business!</div>
+      <div class="center">easternlm.com</div>
+      </body></html>
+    `);
+    w.document.close();
+    setTimeout(() => { w.print(); w.close(); }, 500);
+  }
+
+  // ── Hold / Resume orders ───────────────────────────────────────
+
+  function refreshHeldOrders() {
+    fetch("/api/pos/held").then(r => r.json()).then(d => setHeldOrders((d.orders || []).map((o: Record<string, unknown>) => ({
+      id: o.id as string,
+      customer_name: (o.customer_name as string) || "Walk-in",
+      total_cents: 0,
+      item_count: ((o.items as unknown[]) || []).length,
+      held_at: (o.created_at as string) || new Date().toISOString(),
+      reason: (o.notes as string) || "",
+    })))).catch(() => {});
+  }
+
+  async function holdOrder() {
+    if (items.length === 0) return;
+    const res = await fetch("/api/pos/held", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.price_cents * i.quantity })),
+        customer_name: customerName,
+        customer_phone: customerPhone || null,
+        delivery_method: deliveryMethod,
+        delivery_address: deliveryAddress || null,
+        delivery_fee_cents: deliveryFeeCents,
+        notes: holdReason || "Held order",
+      }),
+    });
+    if (res.ok) {
+      resetRegister();
+      setShowHoldModal(false);
+      setHoldReason("");
+      refreshHeldOrders();
+    }
+  }
+
+  async function resumeHeldOrder(orderId: string) {
+    try {
+      // First fetch the held order details
+      const fetchRes = await fetch("/api/pos/held").then(r => r.json());
+      const heldOrder = (fetchRes.orders || []).find((o: Record<string, unknown>) => o.id === orderId);
+      if (!heldOrder) return;
+
+      // Delete the held order
+      const res = await fetch("/api/pos/held", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId }),
+      });
+      if (res.ok) {
+        // Load items back into register
+        const orderItems = (heldOrder.items || []) as Array<Record<string, unknown>>;
+        const loadedItems: LineItem[] = orderItems.map((item: Record<string, unknown>) => ({
+          id: crypto.randomUUID(),
+          product: {
+            id: (item.product_id as string) || "custom-" + Date.now(),
+            name: (item.product_name as string) || "Unknown",
+            slug: (item.product_slug as string) || "custom",
+            price_per_unit_cents: item.unit_price_cents as number,
+            unit_label: "ea",
+            category_slug: "custom",
+            category_name: "Custom",
+            delivery_type: "non-bulk",
+            min_qty: 1,
+            qty_step: 1,
+          },
+          quantity: item.quantity as number,
+          price_cents: item.unit_price_cents as number,
+        }));
+        setItems(loadedItems);
+        setCustomerName(heldOrder.customer_name || "Walk-in");
+        setCustomerPhone(heldOrder.customer_phone || "");
+        if (heldOrder.delivery_method === "delivery") {
+          setDeliveryMethod("delivery");
+          setDeliveryAddress(heldOrder.delivery_address || "");
+          setDelAddress(heldOrder.delivery_address || "");
+          setDeliveryFeeCents(heldOrder.delivery_fee_cents || 0);
+        }
+        setShowHoldModal(false);
+        refreshHeldOrders();
+      }
+    } catch { /* ignore */ }
   }
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
@@ -579,7 +781,8 @@ export default function PosRegisterPage() {
       if (e.key === "F1") { e.preventDefault(); document.getElementById("pos-search")?.focus(); }
       if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("card"); completeSale("card"); } }
       if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("cash"); setShowCashDialog(true); } }
-      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); }
+      if (e.key === "F4") { e.preventDefault(); if (items.length > 0) { completeSale("cod"); } }
+      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); setShowDiscountModal(false); setShowHoldModal(false); }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -1128,6 +1331,18 @@ export default function PosRegisterPage() {
                 placeholder="Phone (optional)"
               />
             </div>
+            {selectedCustomer && (
+              <button onClick={() => {
+                setSelectedCustomer(null);
+                setCustomerName("Walk-in");
+                setCustomerPhone("");
+                setCustOrders([]);
+                setTaxExempt(false);
+                setProDiscount(false);
+              }} className="ml-2 rounded bg-red-900/30 p-1.5 text-red-400 hover:bg-red-900/50" title="Remove customer">
+                <X className="h-4 w-4" />
+              </button>
+            )}
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 {(["site", "light", "medium", "dark"] as const).map((th) => (
@@ -1210,13 +1425,22 @@ export default function PosRegisterPage() {
         <div className="border-t border-zinc-800 p-3">
           <div className="flex gap-2">
             <button
-              onClick={() => { setDeliveryMethod("pickup"); setDeliveryFeeCents(0); }}
+              onClick={() => {
+                setDeliveryMethod("pickup");
+                setDeliveryFeeCents(0);
+                if (selectedCustomer?.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer')) {
+                  setProDiscount(true);
+                }
+              }}
               className={`flex-1 rounded-lg py-2.5 text-sm font-semibold ${deliveryMethod === "pickup" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}
             >
               Pickup
             </button>
             <button
-              onClick={() => setDeliveryMethod("delivery")}
+              onClick={() => {
+                setDeliveryMethod("delivery");
+                setProDiscount(false);
+              }}
               className={`flex-1 rounded-lg py-2.5 text-sm font-semibold ${deliveryMethod === "delivery" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}
             >
               Delivery
@@ -1230,11 +1454,42 @@ export default function PosRegisterPage() {
         {/* Totals */}
         <div className="border-t border-zinc-800 px-3 py-2.5 text-sm">
           <div className="flex justify-between"><span className="text-zinc-400">Subtotal</span><span>{formatUsd(subtotalCents)}</span></div>
-          <div className="flex justify-between"><span className="text-zinc-400">Tax (8.75%)</span><span>{formatUsd(taxCents)}</span></div>
+          {proDiscount && (
+            <div className="flex justify-between text-green-400">
+              <span>Pro Pickup (-5%)</span>
+              <span>-{formatUsd(proDiscountCents)}</span>
+            </div>
+          )}
+          {manualDiscountCents > 0 && (
+            <div className="flex justify-between text-green-400">
+              <span>Discount{discountType === "percentage" ? ` (${discountValue}%)` : ""}</span>
+              <span>-{formatUsd(manualDiscountCents)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">Tax (8.75%)</span>
+            <span>{taxExempt ? "$0.00" : formatUsd(taxCents)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setTaxExempt(!taxExempt)} className={`rounded px-2 py-0.5 text-[10px] ${taxExempt ? "bg-green-700 text-white" : "bg-zinc-800 text-zinc-500"}`}>
+              {taxExempt ? "TAX EXEMPT \u2713" : "Tax Exempt"}
+            </button>
+            {taxExempt && (
+              <input type="text" value={taxExemptCert} onChange={(e) => setTaxExemptCert(e.target.value)} placeholder="Cert #" className="w-24 rounded border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-[10px] focus:outline-none" />
+            )}
+            <button onClick={() => setShowDiscountModal(true)} className="ml-auto text-[10px] text-amber-400 hover:underline">+ Discount</button>
+          </div>
           {deliveryFeeCents > 0 && <div className="flex justify-between"><span className="text-zinc-400">Delivery</span><span>{formatUsd(deliveryFeeCents)}</span></div>}
-          {paymentMethod === "card" && <div className="flex justify-between"><span className="text-zinc-400">CC Fee (3%)</span><span>{formatUsd(ccFeeCents)}</span></div>}
-          <div className="mt-1 flex justify-between border-t border-zinc-700 pt-1 text-lg font-bold">
-            <span>TOTAL</span><span className="text-amber-400">{formatUsd(grandTotalCents)}</span>
+          <div className="mt-1 border-t border-zinc-700 pt-1">
+            <div className="flex justify-between font-semibold">
+              <span className="text-zinc-300">Cash/COD Total</span><span>{formatUsd(cashTotalCents)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-zinc-500">
+              <span>CC Fee (3%)</span><span>+{formatUsd(ccFeeCents)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold">
+              <span>Card Total</span><span className="text-amber-400">{formatUsd(cardTotalCents)}</span>
+            </div>
           </div>
         </div>
 
@@ -1255,28 +1510,38 @@ export default function PosRegisterPage() {
             <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
             {terminalStatus === "simulated" ? "Simulated Reader" : terminalStatus === "connected" ? "Reader Connected" : "No Reader"}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => { setPaymentMethod("card"); completeSale("card"); }}
               disabled={items.length === 0 || processing || terminalStatus === "disconnected"}
               className="rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-30"
             >
-              PAY — CARD (F2)
+              CARD {formatUsd(cardTotalCents)} <span className="block text-[10px] font-normal opacity-70">F2</span>
             </button>
             <button
               onClick={() => { setPaymentMethod("cash"); setShowCashDialog(true); }}
               disabled={items.length === 0 || processing}
               className="rounded-lg bg-blue-700 py-3 text-sm font-bold text-white hover:bg-blue-600 disabled:opacity-30"
             >
-              PAY — CASH (F3)
+              CASH {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F3</span>
+            </button>
+            <button
+              onClick={() => completeSale("cod")}
+              disabled={items.length === 0 || processing}
+              className="rounded-lg bg-orange-700 py-3 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-30"
+            >
+              COD {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F4</span>
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={clearSale} className="rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700">
               Cancel
             </button>
-            <button onClick={() => alert("Hold order — coming soon")} disabled={items.length === 0} className="rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700 disabled:opacity-30">
+            <button onClick={() => setShowHoldModal(true)} disabled={items.length === 0} className="relative rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700 disabled:opacity-30">
               Hold Order
+              {heldOrders.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">{heldOrders.length}</span>
+              )}
             </button>
           </div>
         </div>
@@ -1328,7 +1593,7 @@ export default function PosRegisterPage() {
           <div className="w-80 rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
             <p className="text-lg font-bold">Cash Payment</p>
             <p className="mt-2 text-2xl font-bold text-amber-400">
-              Total: {formatUsd(subtotalCents + taxCents + deliveryFeeCents)}
+              Total: {formatUsd(cashTotalCents)}
             </p>
             <p className="text-xs text-zinc-500">(No CC surcharge for cash)</p>
             <div className="mt-4">
@@ -1342,14 +1607,14 @@ export default function PosRegisterPage() {
                 step="0.01"
               />
             </div>
-            {cashTendered && parseFloat(cashTendered) * 100 >= subtotalCents + taxCents + deliveryFeeCents && (
+            {cashTendered && parseFloat(cashTendered) * 100 >= cashTotalCents && (
               <p className="mt-2 text-lg font-semibold text-green-400">
-                Change: {formatUsd(Math.round(parseFloat(cashTendered) * 100) - (subtotalCents + taxCents + deliveryFeeCents))}
+                Change: {formatUsd(Math.round(parseFloat(cashTendered) * 100) - cashTotalCents)}
               </p>
             )}
             <button
               onClick={() => completeSale("cash")}
-              disabled={!cashTendered || parseFloat(cashTendered) * 100 < subtotalCents + taxCents + deliveryFeeCents || processing}
+              disabled={!cashTendered || parseFloat(cashTendered) * 100 < cashTotalCents || processing}
               className="mt-4 w-full rounded-lg bg-green-700 py-3 font-bold text-white hover:bg-green-600 disabled:opacity-30"
             >
               {processing ? "Processing..." : "Complete Sale"}
@@ -1388,6 +1653,55 @@ export default function PosRegisterPage() {
             >
               Add to Sale
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Discount modal */}
+      {showDiscountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowDiscountModal(false)}>
+          <div className="w-80 rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="text-lg font-bold">Apply Discount</p>
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setDiscountType("percentage")} className={`flex-1 rounded py-2 text-sm ${discountType === "percentage" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}>Percentage</button>
+              <button onClick={() => setDiscountType("amount")} className={`flex-1 rounded py-2 text-sm ${discountType === "amount" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}>Amount ($)</button>
+            </div>
+            <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder={discountType === "percentage" ? "e.g. 10" : "e.g. 25.00"} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-xl focus:outline-none focus:ring-2 focus:ring-amber-500" autoFocus />
+            <input type="text" value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} placeholder="Reason (required)" className="mt-2 w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none" />
+            {manualDiscountCents > 0 && <p className="mt-2 text-sm text-amber-400">Discount: {formatUsd(manualDiscountCents)}</p>}
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setShowDiscountModal(false)} disabled={!discountValue || !discountReason} className="flex-1 rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-500 disabled:opacity-30">Apply</button>
+              <button onClick={() => { setDiscountValue(""); setDiscountReason(""); setShowDiscountModal(false); }} className="rounded-lg bg-zinc-800 px-4 py-3 text-zinc-400">Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hold order modal */}
+      {showHoldModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowHoldModal(false)}>
+          <div className="w-96 rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="text-lg font-bold">Hold Order</p>
+            <p className="text-sm text-zinc-400 mt-1">{items.length} items &middot; {formatUsd(subtotalCents)}</p>
+            <textarea value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="Note (optional): e.g. 'Quote for Smith'" rows={2} className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" autoFocus />
+            <button onClick={holdOrder} disabled={items.length === 0} className="mt-3 w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-500 disabled:opacity-30">Hold Order</button>
+
+            {heldOrders.length > 0 && (
+              <>
+                <p className="mt-4 text-xs font-semibold text-zinc-400">Held Orders ({heldOrders.length})</p>
+                <div className="mt-2 max-h-40 space-y-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+                  {heldOrders.map((h) => (
+                    <div key={h.id} className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-900/50 p-2 text-xs">
+                      <div>
+                        <p className="font-medium">{h.customer_name} &middot; {formatUsd(h.total_cents)}</p>
+                        <p className="text-zinc-500">{h.reason} &middot; {new Date(h.held_at).toLocaleTimeString()}</p>
+                      </div>
+                      <button onClick={() => resumeHeldOrder(h.id)} className="rounded bg-amber-600/20 px-2 py-1 text-amber-400 hover:bg-amber-600/30">Resume</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
