@@ -19,11 +19,11 @@ type ShopPageProps = {
 export const metadata: Metadata = {
   title: "Landscape & Mason Supply | Mulch, Stone, Gravel Delivery Suffolk County",
   description:
-    "Shop 280+ bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, sand, and masonry supplies delivered across Suffolk County from Center Moriches. Order online.",
+    "Shop bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, sand, and masonry supplies delivered across Suffolk County from Center Moriches. Order online.",
   openGraph: {
     title: "Shop Landscape & Mason Supply | Eastern LM",
     description:
-      "280+ bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, and masonry supplies delivered across Suffolk County. Order online today.",
+      "Bulk materials with transparent pricing. Mulch, topsoil, gravel, stone, and masonry supplies delivered across Suffolk County. Order online today.",
     type: "website",
   },
 };

@@ -19,6 +19,7 @@ type CartStoreActions = {
   setCustomerInfo: (info: Partial<CustomerInfo>) => void;
   recalculateDelivery: () => Promise<void>;
   clearError: () => void;
+  clearCart: () => void;
 };
 
 type CartStore = CartStoreState & CartStoreActions;
@@ -265,6 +266,16 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearError: () => set({ error: null }),
+
+      clearCart: () => set({
+        items: [],
+        deliveryAddress: null,
+        deliveryCalculation: null,
+        distanceResult: null,
+        promoCode: "",
+        customerInfo: { fullName: "", email: "", phone: "" },
+        error: null,
+      }),
     }),
     {
       name: "easternlm-cart",

@@ -64,7 +64,7 @@ export function CartPageClient() {
       <div className="mx-auto max-w-lg space-y-6 px-4 py-20 text-center">
         <ShoppingCart className="mx-auto size-16 text-muted-foreground/30" />
         <h1 className="[font-family:var(--font-display)] text-3xl text-primary">Your Cart is Empty</h1>
-        <p className="text-muted-foreground">Browse our 280+ materials and add items to get started.</p>
+        <p className="text-muted-foreground">Browse our landscaping &amp; masonry materials and add items to get started.</p>
         <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
           <Link href="/shop">Shop Materials</Link>
         </Button>
@@ -132,7 +132,12 @@ export function CartPageClient() {
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-sm font-medium">Delivery address</label>
-                  <AddressAutocomplete value={addressInput} onChange={setAddressInput} placeholder="Start typing an address..." />
+                  <AddressAutocomplete
+                    value={addressInput}
+                    onChange={setAddressInput}
+                    onSelect={(addr) => { const zip = addr.match(/\b(\d{5})\b/)?.[1] ?? ""; setDeliveryAddress({ fullAddress: addr, zip }); }}
+                    placeholder="Start typing an address..."
+                  />
                 </div>
                 <Button size="sm" onClick={() => { const zip = addressInput.match(/\b(\d{5})\b/)?.[1] ?? ""; setDeliveryAddress({ fullAddress: addressInput, zip }); }}>
                   Calculate Delivery Fee
@@ -186,6 +191,16 @@ export function CartPageClient() {
             {error && (
               <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {error}
+              </p>
+            )}
+            {calculation?.belowMinimum && (
+              <p className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> A $125 minimum order is required for delivery outside our local area. Add more items or choose pickup.
+              </p>
+            )}
+            {calculation?.outsideServiceArea && (
+              <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> This address is outside our 50-mile service area. Please call us at (631) 874-6244.
               </p>
             )}
 

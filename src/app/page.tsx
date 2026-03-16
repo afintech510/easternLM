@@ -98,7 +98,7 @@ export default async function Home() {
           </h1>
 
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-primary-foreground/70">
-            280+ bulk materials. Upfront pricing. Order online or call — we deliver across Suffolk County.
+            Mulch, stone, gravel, topsoil & more. Upfront pricing. Order online or call — we deliver across Suffolk County.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -166,7 +166,7 @@ export default async function Home() {
             </div>
             <Button asChild variant="ghost" className="hidden md:flex">
               <Link href="/shop">
-                View all 280+ products
+                View all products
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
