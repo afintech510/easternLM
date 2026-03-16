@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,7 +9,7 @@ import {
   ShoppingCart,
   Settings,
   Truck,
-  Image,
+  Image as ImageIcon,
   Database,
   ArrowLeft,
   ClipboardList,
@@ -31,7 +32,7 @@ const navItems = [
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/admin/follow-ups", label: "Follow-Ups", icon: MessageSquare },
-  { href: "/admin/gallery", label: "Gallery", icon: Image },
+  { href: "/admin/gallery", label: "Gallery", icon: ImageIcon },
   { href: "/admin/cache", label: "Fee Cache", icon: Database },
 ];
 
@@ -40,11 +41,9 @@ export function AdminSidebar() {
 
   return (
     <aside className="hidden w-56 shrink-0 border-r bg-card md:block">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/admin" className="[font-family:var(--font-display)] text-lg text-primary">
-          Eastern LM
-        </Link>
-      </div>
+      <Link href="/admin" className="block px-4 py-3 border-b border-border">
+        <Image src="/logo-blue.png" alt="Eastern LM" width={140} height={37} />
+      </Link>
       <ScrollArea className="h-[calc(100vh-3.5rem)]">
         <nav className="space-y-1 p-3">
           {navItems.map((item) => {

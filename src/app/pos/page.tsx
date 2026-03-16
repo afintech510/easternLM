@@ -13,9 +13,17 @@ import {
   Search,
   Trash2,
   Truck,
+  UserPlus,
+  Users,
   Wifi,
   X,
 } from "lucide-react";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
@@ -47,7 +55,12 @@ type LineItem = {
 
 type PosCategory = { slug: string; name: string; count: number };
 
-type MiddleTab = "calculator" | "map" | "delivery";
+type MiddleTab = "calculator" | "delivery" | "customer";
+
+type RouteInfo = {
+  roundTripMiles: number;
+  roundTripMinutes: number;
+};
 
 const TAX_RATE = 0.0875;
 const CC_SURCHARGE = 0.03;
@@ -83,7 +96,6 @@ export default function PosRegisterPage() {
   const [calcLength, setCalcLength] = useState("");
   const [calcWidth, setCalcWidth] = useState("");
   const [calcDepth, setCalcDepth] = useState("");
-  const [mapAddress, setMapAddress] = useState("");
 
   // Delivery form state
   const [delName, setDelName] = useState("");
@@ -93,6 +105,25 @@ export default function PosRegisterPage() {
   const [delDate, setDelDate] = useState("");
   const [delTimeWindow, setDelTimeWindow] = useState("flexible");
   const [delNotes, setDelNotes] = useState("");
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  // Customer tab state
+  const [custSearch, setCustSearch] = useState("");
+  const [custResults, setCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; total_orders: number; total_spent_cents: number; tags: string[] }>>([]);
+  const [custSearching, setCustSearching] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<typeof custResults[0] | null>(null);
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustName, setNewCustName] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [newCustEmail, setNewCustEmail] = useState("");
+  const [newCustAddress, setNewCustAddress] = useState("");
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [leadServiceType, setLeadServiceType] = useState("");
+  const [leadDescription, setLeadDescription] = useState("");
+  const [leadTimeline, setLeadTimeline] = useState("within-2-weeks");
+  const [leadSaving, setLeadSaving] = useState(false);
 
   // UI state
   const [showNumpad, setShowNumpad] = useState<{ product: PosProduct; qty: string } | null>(null);
@@ -131,12 +162,35 @@ export default function PosRegisterPage() {
     }
   }, [deliveryMethod]);
 
-  // Sync map address to delivery address
+  // Load Google Maps script
   useEffect(() => {
-    if (mapAddress && !delAddress) {
-      setDelAddress(mapAddress);
+    if (typeof window !== "undefined" && (window as any).google) {
+      setGoogleLoaded(true);
+      return;
     }
-  }, [mapAddress, delAddress]);
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyA6v-5laBnpfwoNiqPT4Lw9QBTstP_LdPY&libraries=places`;
+    script.async = true;
+    script.onload = () => setGoogleLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Attach Google Places autocomplete to address input
+  useEffect(() => {
+    if (!googleLoaded || !addressInputRef.current || !(window as any).google) return;
+    const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
+      componentRestrictions: { country: "us" },
+      types: ["address"],
+    });
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (place.formatted_address) {
+        setDelAddress(place.formatted_address);
+        setDeliveryAddress(place.formatted_address);
+        calculateDeliveryFee(place.formatted_address);
+      }
+    });
+  }, [googleLoaded, middleTab]); // re-run when switching to delivery tab
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -206,6 +260,108 @@ export default function PosRegisterPage() {
     setDeliveryAddress("");
     setOrderNotes("");
     setPaymentMethod(null);
+  }
+
+  async function calculateDeliveryFee(address: string) {
+    try {
+      const res = await fetch("/api/delivery/distance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const oneWayMiles = data.distanceMeters / 1609.344;
+        const roundTripMiles = Math.round(oneWayMiles * 2 * 10) / 10;
+        const roundTripMinutes = Math.round((data.durationSeconds * 2 + 5 * 60) / 60);
+        setRouteInfo({ roundTripMiles, roundTripMinutes });
+
+        // Calculate fee using the delivery formula
+        const fuelCost = (roundTripMiles / 6) * 5;
+        const laborCost = (roundTripMinutes / 60) * 32;
+        const raw = fuelCost + laborCost;
+        const withProfit = raw * 2;
+        const fee = Math.max(Math.ceil(withProfit / 5) * 5, 25);
+        setDeliveryFeeCents(fee * 100);
+      }
+    } catch {
+      // silently fail — staff can manually set fee
+    }
+  }
+
+  async function searchCustomers(q: string) {
+    if (q.length < 2) { setCustResults([]); return; }
+    setCustSearching(true);
+    try {
+      const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustResults(data.customers || []);
+      }
+    } catch { /* ignore */ }
+    setCustSearching(false);
+  }
+
+  function selectCustomer(cust: typeof custResults[0]) {
+    setSelectedCustomer(cust);
+    const fullName = [cust.first_name, cust.last_name].filter(Boolean).join(" ");
+    setCustomerName(fullName || "Walk-in");
+    setCustomerPhone(cust.phone || "");
+    setDelName(fullName);
+    setDelEmail(cust.email || "");
+    setDelPhone(cust.phone || "");
+    if (cust.address) {
+      setDelAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
+      setDeliveryAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
+    }
+  }
+
+  async function createNewCustomer() {
+    if (!newCustName || !newCustPhone) return;
+    try {
+      const names = newCustName.trim().split(/\s+/);
+      const firstName = names[0] || "";
+      const lastName = names.slice(1).join(" ") || "";
+      const phone = newCustPhone.replace(/\D/g, "");
+      const res = await fetch("/api/admin/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ first_name: firstName, last_name: lastName, phone, email: newCustEmail || null, address: newCustAddress || null }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newCust = { id: data.id, first_name: firstName, last_name: lastName, phone, email: newCustEmail || null, address: newCustAddress || null, city: null, total_orders: 0, total_spent_cents: 0, tags: [] };
+        selectCustomer(newCust);
+        setShowNewCustomer(false);
+        setNewCustName(""); setNewCustPhone(""); setNewCustEmail(""); setNewCustAddress("");
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function saveServiceLead() {
+    if (!leadServiceType) return;
+    setLeadSaving(true);
+    try {
+      const name = selectedCustomer ? [selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ") : customerName;
+      const phone = selectedCustomer?.phone || customerPhone || delPhone;
+      await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name || "Walk-in",
+          phone: phone || "",
+          email: selectedCustomer?.email || delEmail || "",
+          town: "",
+          service_type: leadServiceType,
+          description: leadDescription,
+          timeline: leadTimeline,
+        }),
+      });
+      setShowLeadForm(false);
+      setLeadServiceType(""); setLeadDescription("");
+      alert("Service lead saved!");
+    } catch { alert("Failed to save lead"); }
+    setLeadSaving(false);
   }
 
   function addCustomItem() {
@@ -278,6 +434,14 @@ export default function PosRegisterPage() {
     setShowCashDialog(false);
     setCashTendered("");
     setCardPaymentStatus(null);
+    setRouteInfo(null);
+    setDelAddress("");
+    setDelName("");
+    setDelEmail("");
+    setDelPhone("");
+    setDelDate("");
+    setDelTimeWindow("flexible");
+    setDelNotes("");
   }
 
   async function completeSale(method: "card" | "cash") {
@@ -415,7 +579,7 @@ export default function PosRegisterPage() {
         </div>
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3 scrollbar-none" style={{ scrollbarWidth: "none" }}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {filteredProducts.map((product) => {
               const cartQty = getCartQty(product.id);
@@ -505,14 +669,14 @@ export default function PosRegisterPage() {
         </div>
       </div>
 
-      {/* ── MIDDLE: Calculator / Map / Delivery ── */}
+      {/* ── MIDDLE: Calculator / Delivery ── */}
       <div className="flex w-[380px] shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
         {/* Tabs */}
         <div className="flex border-b border-zinc-800">
           {([
             { key: "calculator" as MiddleTab, label: "Calculator", icon: Calculator },
-            { key: "map" as MiddleTab, label: "Map", icon: MapPin },
             { key: "delivery" as MiddleTab, label: "Delivery", icon: Truck },
+            { key: "customer" as MiddleTab, label: "Customer", icon: Users },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -599,47 +763,48 @@ export default function PosRegisterPage() {
             </div>
           )}
 
-          {/* Map Tab */}
-          {middleTab === "map" && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-zinc-300">Delivery Address</h3>
-              <p className="text-xs text-zinc-500">
-                Enter a delivery address. This will auto-fill the Delivery form.
-              </p>
+          {/* Delivery Tab */}
+          {middleTab === "delivery" && (
+            <div className="space-y-3">
+              {/* Google Maps embed */}
+              <div className="overflow-hidden rounded-lg border border-zinc-800">
+                <iframe
+                  width="100%"
+                  height="250"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={
+                    delAddress
+                      ? `https://www.google.com/maps/embed/v1/place?key=AIzaSyA6v-5laBnpfwoNiqPT4Lw9QBTstP_LdPY&q=${encodeURIComponent(delAddress)}&maptype=satellite&zoom=17`
+                      : `https://www.google.com/maps/embed/v1/place?key=AIzaSyA6v-5laBnpfwoNiqPT4Lw9QBTstP_LdPY&q=110+Frowein+Road+Center+Moriches+NY+11934&maptype=satellite&zoom=14`
+                  }
+                />
+              </div>
+
+              {/* Delivery address with autocomplete */}
               <div>
-                <label className="mb-1 block text-xs text-zinc-400">Address</label>
+                <label className="mb-1 block text-xs text-zinc-400">Delivery Address</label>
                 <input
+                  ref={addressInputRef}
                   type="text"
-                  value={mapAddress}
-                  onChange={(e) => {
-                    setMapAddress(e.target.value);
-                    setDelAddress(e.target.value);
-                  }}
+                  value={delAddress}
+                  onChange={(e) => { setDelAddress(e.target.value); setDeliveryAddress(e.target.value); }}
                   placeholder="123 Main St, Center Moriches, NY"
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
               </div>
-              <div className="flex h-48 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900">
-                <div className="text-center text-zinc-600">
-                  <MapPin className="mx-auto h-8 w-8" />
-                  <p className="mt-2 text-sm">Google Maps integration coming soon</p>
-                </div>
-              </div>
-              {mapAddress && (
-                <button
-                  onClick={() => setMiddleTab("delivery")}
-                  className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white hover:bg-amber-500"
-                >
-                  Continue to Delivery Form
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Delivery Tab */}
-          {middleTab === "delivery" && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-zinc-300">Delivery Details</h3>
+              {/* Auto-calculated route info */}
+              {routeInfo && (
+                <div className="rounded-lg border border-amber-600/30 bg-amber-900/20 px-3 py-2.5">
+                  <p className="text-sm font-medium text-amber-300">
+                    {routeInfo.roundTripMiles} mi round trip &middot; ~{routeInfo.roundTripMinutes} min &middot; Fee: {formatUsd(deliveryFeeCents)}
+                  </p>
+                </div>
+              )}
+
+              {/* Customer info */}
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Customer Name</label>
                 <input
@@ -670,16 +835,8 @@ export default function PosRegisterPage() {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">Delivery Address</label>
-                <input
-                  type="text"
-                  value={delAddress}
-                  onChange={(e) => { setDelAddress(e.target.value); setDeliveryAddress(e.target.value); }}
-                  placeholder="123 Main St, Center Moriches, NY"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
+
+              {/* Delivery scheduling */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Delivery Date</label>
@@ -703,16 +860,20 @@ export default function PosRegisterPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Notes */}
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Delivery Notes</label>
                 <textarea
                   value={delNotes}
                   onChange={(e) => { setDelNotes(e.target.value); setOrderNotes(e.target.value); }}
                   placeholder="Gate code, driveway instructions, etc."
-                  rows={3}
+                  rows={2}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
               </div>
+
+              {/* Fee override */}
               <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                 <span className="text-xs text-zinc-500">Delivery Fee: $</span>
                 <input
@@ -725,6 +886,140 @@ export default function PosRegisterPage() {
                 />
                 <button onClick={() => setDeliveryFeeCents(0)} className="text-xs text-amber-400 hover:underline">FREE</button>
               </div>
+            </div>
+          )}
+
+          {/* Customer Tab */}
+          {middleTab === "customer" && (
+            <div className="space-y-3">
+              {/* Search existing customer */}
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Search Customer</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={custSearch}
+                    onChange={(e) => { setCustSearch(e.target.value); searchCustomers(e.target.value); }}
+                    placeholder="Phone, name, or address..."
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Search results */}
+              {custSearching && <p className="text-xs text-zinc-500">Searching...</p>}
+              {custResults.length > 0 && (
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-800">
+                  {custResults.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => { selectCustomer(c); setCustSearch(""); setCustResults([]); }}
+                      className={`w-full border-b border-zinc-800 px-3 py-2.5 text-left text-sm transition-colors last:border-0 hover:bg-zinc-800 ${selectedCustomer?.id === c.id ? "bg-amber-900/30" : ""}`}
+                    >
+                      <p className="font-medium">{[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}</p>
+                      <p className="text-xs text-zinc-500">{c.phone || "No phone"} · {c.total_orders} orders · {formatUsd(c.total_spent_cents)}</p>
+                      {c.address && <p className="text-xs text-zinc-600 truncate">{c.address}{c.city ? `, ${c.city}` : ""}</p>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected customer card */}
+              {selectedCustomer && (
+                <div className="rounded-lg border border-amber-600/30 bg-amber-900/20 p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-amber-300">
+                      {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
+                    </p>
+                    <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
+                  </div>
+                  {selectedCustomer.phone && <p className="text-xs text-zinc-400"><a href={`tel:+1${selectedCustomer.phone}`} className="hover:text-amber-400">{selectedCustomer.phone}</a></p>}
+                  {selectedCustomer.email && <p className="text-xs text-zinc-500">{selectedCustomer.email}</p>}
+                  {selectedCustomer.address && <p className="text-xs text-zinc-500">{selectedCustomer.address}{selectedCustomer.city ? `, ${selectedCustomer.city}` : ""}</p>}
+                  <div className="flex gap-2 pt-1">
+                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{selectedCustomer.total_orders} orders</span>
+                    <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{formatUsd(selectedCustomer.total_spent_cents)} lifetime</span>
+                  </div>
+                  {selectedCustomer.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {selectedCustomer.tags.map((tag) => (
+                        <span key={tag} className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* New customer form */}
+              <button
+                onClick={() => setShowNewCustomer(!showNewCustomer)}
+                className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                <UserPlus className="h-4 w-4 text-amber-400" />
+                {showNewCustomer ? "Cancel" : "Add New Customer"}
+              </button>
+
+              {showNewCustomer && (
+                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                  <input type="text" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} placeholder="Full name *" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <input type="tel" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} placeholder="Phone * (631-555-1234)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <input type="email" value={newCustEmail} onChange={(e) => setNewCustEmail(e.target.value)} placeholder="Email (optional)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <input type="text" value={newCustAddress} onChange={(e) => setNewCustAddress(e.target.value)} placeholder="Address (optional)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <button onClick={createNewCustomer} disabled={!newCustName || !newCustPhone} className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-30">
+                    Save Customer
+                  </button>
+                </div>
+              )}
+
+              {/* Divider */}
+              <div className="border-t border-zinc-800 pt-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Service Lead</p>
+              </div>
+
+              {/* Service lead */}
+              {!showLeadForm ? (
+                <button
+                  onClick={() => setShowLeadForm(true)}
+                  className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  <Package className="h-4 w-4 text-amber-400" />
+                  Create Service Lead
+                </button>
+              ) : (
+                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                  <select value={leadServiceType} onChange={(e) => setLeadServiceType(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    <option value="">Select service type *</option>
+                    <option value="gravel-driveway-new">Gravel driveway — new</option>
+                    <option value="gravel-driveway-resurface">Gravel driveway — resurface</option>
+                    <option value="paver-driveway">Paver driveway</option>
+                    <option value="driveway-edging">Driveway edging</option>
+                    <option value="landscaping-design">Landscaping — design &amp; install</option>
+                    <option value="landscaping-grading">Landscaping — grading &amp; drainage</option>
+                    <option value="landscaping-sod">Landscaping — sod / lawn</option>
+                    <option value="landscaping-retaining-wall">Landscaping — retaining wall</option>
+                    <option value="masonry-patio">Masonry — patio</option>
+                    <option value="masonry-walkway">Masonry — walkway</option>
+                    <option value="masonry-fireplace">Masonry — fireplace / outdoor kitchen</option>
+                    <option value="masonry-veneer">Masonry — stone veneer / steps</option>
+                    <option value="property-maintenance">Property maintenance</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <select value={leadTimeline} onChange={(e) => setLeadTimeline(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none">
+                    <option value="asap">ASAP / this week</option>
+                    <option value="within-2-weeks">Within 2 weeks</option>
+                    <option value="within-a-month">Within a month</option>
+                    <option value="just-planning">Just getting quotes</option>
+                  </select>
+                  <textarea value={leadDescription} onChange={(e) => setLeadDescription(e.target.value)} placeholder="Project details..." rows={2} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <div className="flex gap-2">
+                    <button onClick={saveServiceLead} disabled={!leadServiceType || leadSaving} className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-30">
+                      {leadSaving ? "Saving..." : "Save Lead"}
+                    </button>
+                    <button onClick={() => setShowLeadForm(false)} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm text-zinc-400 hover:bg-zinc-700">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -769,34 +1064,38 @@ export default function PosRegisterPage() {
           ) : (
             <div className="divide-y divide-zinc-800">
               {items.map((item) => (
-                <div key={item.id} className="flex min-h-[56px] items-center gap-2 px-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{item.product.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {formatUsd(item.price_cents)} x {item.quantity}
-                    </p>
+                <div key={item.id} className="px-3 py-2.5">
+                  {/* Line 1: Full product name + unit price */}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold leading-tight">{item.product.name}</p>
+                    <span className="shrink-0 text-xs text-zinc-500">
+                      {formatUsd(item.price_cents)}/{item.product.unit_label}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity - (item.product.qty_step || 1))}
-                      className="rounded bg-zinc-800 p-2 hover:bg-zinc-700"
-                    >
-                      <Minus className="h-5 w-5" />
-                    </button>
-                    <span className="w-10 text-center font-mono text-sm font-semibold">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity + (item.product.qty_step || 1))}
-                      className="rounded bg-zinc-800 p-2 hover:bg-zinc-700"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </button>
+                  {/* Line 2: Qty selector left, line total + delete right */}
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity - (item.product.qty_step || 1))}
+                        className="rounded bg-zinc-800 p-1.5 hover:bg-zinc-700"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="w-9 text-center font-mono text-sm font-semibold">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity + (item.product.qty_step || 1))}
+                        className="rounded bg-zinc-800 p-1.5 hover:bg-zinc-700"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">{formatUsd(item.price_cents * item.quantity)}</span>
+                      <button onClick={() => removeItem(item.id)} className="p-1 text-zinc-600 hover:text-red-400">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                  <span className="w-20 text-right text-sm font-bold">
-                    {formatUsd(item.price_cents * item.quantity)}
-                  </span>
-                  <button onClick={() => removeItem(item.id)} className="p-1 text-zinc-600 hover:text-red-400">
-                    <Trash2 className="h-5 w-5" />
-                  </button>
                 </div>
               ))}
             </div>

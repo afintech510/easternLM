@@ -6,22 +6,27 @@ export async function GET() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, category_id, categories(slug, name)")
+    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, categories(slug, name)")
     .eq("visible_pos", true)
     .order("name");
 
-  const mapped = (products || []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    price_per_unit_cents: p.price_per_unit_cents,
-    unit_label: p.delivery_type === "bulk" ? "yd" : "ea",
-    delivery_type: p.delivery_type,
-    min_qty: p.min_qty || 1,
-    qty_step: p.delivery_type === "bulk" ? 0.5 : 1,
-    category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
-    category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
-  }));
+  const mapped = (products || []).map((p) => {
+    const images = (p.images as string[] | null) || [];
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price_per_unit_cents: p.price_per_unit_cents,
+      unit_label: p.unit_display || (p.delivery_type === "bulk" ? "yd" : "ea"),
+      delivery_type: p.delivery_type,
+      material_class: p.material_class || "default",
+      min_qty: p.min_qty || 1,
+      qty_step: p.delivery_type === "bulk" ? 0.5 : 1,
+      category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
+      category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
+      image_url: images[0] || null,
+    };
+  });
 
   // Build category list with counts
   const catMap = new Map<string, { slug: string; name: string; count: number }>();
