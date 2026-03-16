@@ -5,6 +5,7 @@ import {
   Calculator,
   Calendar,
   CreditCard,
+  Edit3,
   LogOut,
   MapPin,
   Minus,
@@ -141,6 +142,33 @@ export default function PosRegisterPage() {
   const [printerConnected, setPrinterConnected] = useState(false);
   const terminalRef = useRef(new PosTerminal());
   const printerRef = useRef(new ReceiptPrinter());
+
+  // Customer order history
+  const [custOrders, setCustOrders] = useState<Array<{ id: string; placed_at: string; grand_total_cents: number; materials_subtotal_cents: number; delivery_method: string; status: string; items?: Array<{ product_name: string; quantity: number; unit_price_cents: number }> }>>([]);
+
+  // Customer edit modal
+  const [showEditCustomer, setShowEditCustomer] = useState(false);
+  const [editCust, setEditCust] = useState({ first_name: "", last_name: "", phone: "", email: "", address: "", city: "", company_name: "" });
+
+  // Theme
+  const [theme, setTheme] = useState<"site" | "light" | "medium" | "dark">("dark");
+
+  // Theme persistence
+  useEffect(() => {
+    const saved = localStorage.getItem("pos-theme");
+    if (saved) setTheme(saved as "site" | "light" | "medium" | "dark");
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("pos-theme", theme);
+  }, [theme]);
+
+  const themes = {
+    site: { bg: "bg-[#1a3a5c]", card: "bg-[#0f2a42]", border: "border-[#2a5a8c]", text: "text-white", muted: "text-blue-200/60", accent: "text-amber-400", accentBg: "bg-amber-500", input: "bg-[#0f2a42] border-[#2a5a8c]", hover: "hover:bg-[#1a4a6c]" },
+    light: { bg: "bg-gray-100", card: "bg-white", border: "border-gray-200", text: "text-gray-900", muted: "text-gray-500", accent: "text-amber-600", accentBg: "bg-amber-500", input: "bg-white border-gray-300", hover: "hover:bg-gray-50" },
+    medium: { bg: "bg-zinc-700", card: "bg-zinc-600", border: "border-zinc-500", text: "text-zinc-100", muted: "text-zinc-300", accent: "text-amber-400", accentBg: "bg-amber-500", input: "bg-zinc-600 border-zinc-500", hover: "hover:bg-zinc-500" },
+    dark: { bg: "bg-zinc-950", card: "bg-zinc-900", border: "border-zinc-800", text: "text-zinc-100", muted: "text-zinc-500", accent: "text-amber-400", accentBg: "bg-amber-600", input: "bg-zinc-800 border-zinc-700", hover: "hover:bg-zinc-800" },
+  };
+  const t = themes[theme];
 
   // Load products
   useEffect(() => {
@@ -302,6 +330,16 @@ export default function PosRegisterPage() {
     setCustSearching(false);
   }
 
+  async function fetchCustomerOrders(customerId: string) {
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/orders`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustOrders((data.orders || []).map((o: Record<string, unknown>) => ({ ...o, items: o.order_items })));
+      }
+    } catch { setCustOrders([]); }
+  }
+
   function selectCustomer(cust: typeof custResults[0]) {
     setSelectedCustomer(cust);
     const fullName = [cust.first_name, cust.last_name].filter(Boolean).join(" ");
@@ -314,6 +352,25 @@ export default function PosRegisterPage() {
       setDelAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
       setDeliveryAddress(cust.address + (cust.city ? `, ${cust.city}, NY` : ""));
     }
+    fetchCustomerOrders(cust.id);
+  }
+
+  async function saveEditCustomer() {
+    if (!selectedCustomer) return;
+    try {
+      const res = await fetch(`/api/admin/customers/${selectedCustomer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editCust),
+      });
+      if (res.ok) {
+        setSelectedCustomer({ ...selectedCustomer, ...editCust });
+        const fullName = [editCust.first_name, editCust.last_name].filter(Boolean).join(" ");
+        setCustomerName(fullName || "Walk-in");
+        setCustomerPhone(editCust.phone || "");
+        setShowEditCustomer(false);
+      }
+    } catch { /* ignore */ }
   }
 
   async function createNewCustomer() {
@@ -522,7 +579,7 @@ export default function PosRegisterPage() {
       if (e.key === "F1") { e.preventDefault(); document.getElementById("pos-search")?.focus(); }
       if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("card"); completeSale("card"); } }
       if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("cash"); setShowCashDialog(true); } }
-      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); }
+      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -532,9 +589,9 @@ export default function PosRegisterPage() {
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* ── LEFT: Product Catalog ── */}
-      <div className="flex min-w-0 flex-1 flex-col border-r border-zinc-800">
+      <div className={`flex min-w-0 flex-1 flex-col border-r ${t.border}`}>
         {/* Search */}
         <div className="border-b border-zinc-800 p-3">
           <div className="relative">
@@ -670,7 +727,7 @@ export default function PosRegisterPage() {
       </div>
 
       {/* ── MIDDLE: Calculator / Delivery ── */}
-      <div className="flex w-[380px] shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
+      <div className={`flex w-[380px] shrink-0 flex-col border-r ${t.border} ${t.bg}`}>
         {/* Tabs */}
         <div className="flex border-b border-zinc-800">
           {([
@@ -932,7 +989,10 @@ export default function PosRegisterPage() {
                     <p className="text-sm font-semibold text-amber-300">
                       {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
                     </p>
-                    <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setEditCust({ first_name: selectedCustomer.first_name || "", last_name: selectedCustomer.last_name || "", phone: selectedCustomer.phone || "", email: selectedCustomer.email || "", address: selectedCustomer.address || "", city: selectedCustomer.city || "", company_name: "" }); setShowEditCustomer(true); }} className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-0.5"><Edit3 className="h-3 w-3" /> Edit</button>
+                      <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); setCustOrders([]); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
+                    </div>
                   </div>
                   {selectedCustomer.phone && <p className="text-xs text-zinc-400"><a href={`tel:+1${selectedCustomer.phone}`} className="hover:text-amber-400">{selectedCustomer.phone}</a></p>}
                   {selectedCustomer.email && <p className="text-xs text-zinc-500">{selectedCustomer.email}</p>}
@@ -948,6 +1008,28 @@ export default function PosRegisterPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Customer order history */}
+              {selectedCustomer && custOrders.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-zinc-400">Order History</p>
+                  <div className="max-h-48 overflow-y-auto space-y-1" style={{ scrollbarWidth: "none" }}>
+                    {custOrders.map((o) => (
+                      <div key={o.id} className="rounded border border-zinc-800 bg-zinc-900 p-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">{new Date(o.placed_at).toLocaleDateString()}</span>
+                          <span className="font-semibold text-amber-400">{formatUsd(o.grand_total_cents)}</span>
+                        </div>
+                        <div className="mt-1 text-zinc-500">
+                          {o.items?.map((item, i) => (
+                            <span key={i}>{i > 0 ? " \u00b7 " : ""}{item.quantity} {item.product_name}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1026,7 +1108,7 @@ export default function PosRegisterPage() {
       </div>
 
       {/* ── RIGHT: Current Sale ── */}
-      <div className="flex w-[340px] shrink-0 flex-col bg-zinc-900">
+      <div className={`flex w-[340px] shrink-0 flex-col ${t.card}`}>
         {/* Customer */}
         <div className="border-b border-zinc-800 p-3">
           <div className="flex items-center justify-between">
@@ -1046,9 +1128,18 @@ export default function PosRegisterPage() {
                 placeholder="Phone (optional)"
               />
             </div>
-            <button onClick={() => window.location.href = "/pos/login"} className="text-zinc-500 hover:text-zinc-300" title="Sign out">
-              <LogOut className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                {(["site", "light", "medium", "dark"] as const).map((th) => (
+                  <button key={th} onClick={() => setTheme(th)} className={`rounded px-2 py-1 text-[10px] ${theme === th ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-500"}`}>
+                    {th}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => window.location.href = "/pos/login"} className="text-zinc-500 hover:text-zinc-300" title="Sign out">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1296,6 +1387,65 @@ export default function PosRegisterPage() {
               className="mt-4 w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-500 disabled:opacity-30"
             >
               Add to Sale
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit customer modal */}
+      {showEditCustomer && selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowEditCustomer(false)}>
+          <div className="w-96 rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-lg font-bold">Edit Customer</p>
+              <button onClick={() => setShowEditCustomer(false)} className="text-zinc-500 hover:text-zinc-300"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">First Name</label>
+                  <input type="text" value={editCust.first_name} onChange={(e) => setEditCust({ ...editCust, first_name: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Last Name</label>
+                  <input type="text" value={editCust.last_name} onChange={(e) => setEditCust({ ...editCust, last_name: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Phone</label>
+                <input type="tel" value={editCust.phone} onChange={(e) => setEditCust({ ...editCust, phone: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Email</label>
+                <input type="email" value={editCust.email} onChange={(e) => setEditCust({ ...editCust, email: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Address</label>
+                <input type="text" value={editCust.address} onChange={(e) => setEditCust({ ...editCust, address: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">City</label>
+                  <input type="text" value={editCust.city} onChange={(e) => setEditCust({ ...editCust, city: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Company</label>
+                  <input type="text" value={editCust.company_name} onChange={(e) => setEditCust({ ...editCust, company_name: e.target.value })} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                </div>
+              </div>
+              {selectedCustomer.tags.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Tags</label>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedCustomer.tags.map((tag) => (
+                      <span key={tag} className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button onClick={saveEditCustomer} className="mt-4 w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-500">
+              Save Changes
             </button>
           </div>
         </div>
