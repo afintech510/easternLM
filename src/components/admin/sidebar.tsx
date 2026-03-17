@@ -20,6 +20,8 @@ import {
   Building2,
   FileText,
   FileCheck,
+  FileSpreadsheet,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,6 +40,8 @@ const navItems = [
   { href: "/admin/suppliers", label: "Suppliers", icon: Building2 },
   { href: "/admin/quotes", label: "Quotes", icon: FileCheck },
   { href: "/admin/invoices", label: "Invoices", icon: FileText },
+  { href: "/admin/accounts", label: "Charge Accounts", icon: CreditCard },
+  { href: "/admin/statements", label: "Statements", icon: FileSpreadsheet },
   { href: "/admin/gallery", label: "Gallery", icon: ImageIcon },
   { href: "/admin/cache", label: "Fee Cache", icon: Database },
 ];

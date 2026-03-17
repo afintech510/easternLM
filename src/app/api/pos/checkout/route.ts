@@ -99,15 +99,33 @@ export async function POST(request: Request) {
     await supabase.from("order_items").insert(orderItems);
   }
 
-  // Update customer order count if linked
-  if (customerId) {
-    const { data: cust } = await supabase.from("customers").select("total_orders, total_spent_cents").eq("id", customerId).single();
+  // Update customer stats + charge account balance
+  const { customer_id: explicitCustomerId } = body;
+  const resolvedCustomerId = explicitCustomerId || customerId;
+  if (resolvedCustomerId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: cust } = await (supabase as any)
+      .from("customers")
+      .select("total_orders, total_spent_cents, current_balance_cents, is_charge_account")
+      .eq("id", resolvedCustomerId)
+      .single();
     if (cust) {
-      await supabase.from("customers").update({
+      const updates: Record<string, unknown> = {
         total_orders: (cust.total_orders || 0) + 1,
         total_spent_cents: (cust.total_spent_cents || 0) + grand_total_cents,
         last_order_at: new Date().toISOString(),
-      }).eq("id", customerId);
+      };
+      // For account charges, increment balance
+      if (payment_method === "account" && cust.is_charge_account) {
+        updates.current_balance_cents = (cust.current_balance_cents || 0) + grand_total_cents;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("customers").update(updates).eq("id", resolvedCustomerId);
+    }
+    // Link order to customer
+    if (!customerId && resolvedCustomerId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("orders").update({ customer_id: resolvedCustomerId }).eq("id", order.id);
     }
   }
 

@@ -91,7 +91,8 @@ export default function PosRegisterPage() {
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(0);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "cod" | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "cod" | "account" | null>(null);
+  const [showAccountConfirm, setShowAccountConfirm] = useState(false);
 
   // Tax exempt
   const [taxExempt, setTaxExempt] = useState(false);
@@ -131,7 +132,7 @@ export default function PosRegisterPage() {
 
   // Customer tab state
   const [custSearch, setCustSearch] = useState("");
-  const [custResults, setCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; total_orders: number; total_spent_cents: number; tags: string[] }>>([]);
+  const [custResults, setCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; total_orders: number; total_spent_cents: number; tags: string[]; is_charge_account?: boolean; charge_account_name?: string | null; credit_limit_cents?: number | null; current_balance_cents?: number; payment_terms?: string | null }>>([]);
   const [custSearching, setCustSearching] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<typeof custResults[0] | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -553,7 +554,7 @@ export default function PosRegisterPage() {
     setShowCustomItem(false);
   }
 
-  async function afterSale(method: "card" | "cash", orderPayload: Record<string, unknown>) {
+  async function afterSale(method: "card" | "cash" | "account", orderPayload: Record<string, unknown>) {
     // Print receipt
     if (autoPrint) {
       const receiptItems = (orderPayload.items as Array<Record<string, unknown>>).map((i) => ({
@@ -571,7 +572,7 @@ export default function PosRegisterPage() {
         deliveryFeeCents: (orderPayload.delivery_fee_cents as number) || 0,
         ccSurchargeCents: method === "card" ? (orderPayload.cc_fee_cents as number) || 0 : 0,
         totalCents: orderPayload.grand_total_cents as number,
-        paymentMethod: method === "card" ? "card_terminal" : "cash",
+        paymentMethod: method === "card" ? "card_terminal" : method === "account" ? "account" : "cash",
         cashTenderedCents: orderPayload.cash_tendered_cents as number | undefined,
         changeDueCents: orderPayload.cash_tendered_cents
           ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
@@ -616,13 +617,15 @@ export default function PosRegisterPage() {
     setDiscountValue("");
     setDiscountReason("");
     setShowDiscountModal(false);
+    setShowAccountConfirm(false);
   }
 
-  async function completeSale(method: "card" | "cash" | "cod") {
+  async function completeSale(method: "card" | "cash" | "cod" | "account") {
     setProcessing(true);
     try {
       // Determine totals based on method
       const isCard = method === "card";
+      const isAccount = method === "account";
       const effectiveCcFee = isCard ? ccFeeCents : 0;
       const effectiveTotal = isCard ? cardTotalCents : cashTotalCents;
 
@@ -641,7 +644,8 @@ export default function PosRegisterPage() {
         cc_fee_cents: effectiveCcFee,
         delivery_fee_cents: deliveryFeeCents,
         grand_total_cents: effectiveTotal,
-        payment_method: isCard ? "card_terminal" : method === "cod" ? "cod" : "cash",
+        payment_method: isCard ? "card_terminal" : isAccount ? "account" : method === "cod" ? "cod" : "cash",
+        customer_id: isAccount && selectedCustomer ? selectedCustomer.id : undefined,
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
         customer_name: delName || customerName,
@@ -660,9 +664,12 @@ export default function PosRegisterPage() {
         discount_amount_cents: proDiscountCents + manualDiscountCents,
       };
 
-      // COD — save order as confirmed (not paid)
+      // COD and account charges — save order as paid (will be collected later)
       if (method === "cod") {
         orderPayload.status_override = "confirmed";
+      }
+      if (isAccount) {
+        orderPayload.status_override = "paid"; // Account charges count as paid (will invoice)
       }
 
       const orderRes = await fetch("/api/pos/checkout", {
@@ -1274,6 +1281,17 @@ export default function PosRegisterPage() {
                   {selectedCustomer.phone && <p className="text-xs text-zinc-400"><a href={`tel:+1${selectedCustomer.phone}`} className="hover:text-amber-400">{selectedCustomer.phone}</a></p>}
                   {selectedCustomer.email && <p className="text-xs text-zinc-500">{selectedCustomer.email}</p>}
                   {selectedCustomer.address && <p className="text-xs text-zinc-500">{selectedCustomer.address}{selectedCustomer.city ? `, ${selectedCustomer.city}` : ""}</p>}
+                  {/* Charge account info */}
+                  {selectedCustomer.is_charge_account && (
+                    <div className="rounded bg-indigo-900/40 border border-indigo-600/30 px-2 py-1.5 text-xs space-y-0.5">
+                      <p className="font-semibold text-indigo-300">⚡ Charge Account</p>
+                      <div className="flex gap-3 text-zinc-400">
+                        <span>Balance: <span className={selectedCustomer.current_balance_cents ? "text-amber-400 font-medium" : "text-zinc-300"}>{formatUsd(selectedCustomer.current_balance_cents ?? 0)}</span></span>
+                        {selectedCustomer.credit_limit_cents && <span>Limit: {formatUsd(selectedCustomer.credit_limit_cents)}</span>}
+                        {selectedCustomer.payment_terms && <span>{selectedCustomer.payment_terms}</span>}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2 pt-1">
                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{selectedCustomer.total_orders} orders</span>
                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{formatUsd(selectedCustomer.total_spent_cents)} lifetime</span>
@@ -1699,7 +1717,7 @@ export default function PosRegisterPage() {
             <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
             {terminalStatus === "simulated" ? "Simulated Reader" : terminalStatus === "connected" ? "Reader Connected" : "No Reader"}
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${selectedCustomer?.is_charge_account ? "grid-cols-2" : "grid-cols-3"}`}>
             <button
               onClick={() => { setPaymentMethod("card"); completeSale("card"); }}
               disabled={items.length === 0 || processing || terminalStatus === "disconnected"}
@@ -1714,14 +1732,32 @@ export default function PosRegisterPage() {
             >
               CASH {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F3</span>
             </button>
-            <button
-              onClick={() => completeSale("cod")}
-              disabled={items.length === 0 || processing}
-              className="rounded-lg bg-orange-700 py-3 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-30"
-            >
-              COD {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F4</span>
-            </button>
+            {!selectedCustomer?.is_charge_account && (
+              <button
+                onClick={() => completeSale("cod")}
+                disabled={items.length === 0 || processing}
+                className="rounded-lg bg-orange-700 py-3 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-30"
+              >
+                COD {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F4</span>
+              </button>
+            )}
           </div>
+          {selectedCustomer?.is_charge_account && (
+            <button
+              onClick={() => {
+                const newBalance = (selectedCustomer.current_balance_cents ?? 0) + cashTotalCents;
+                const overLimit = selectedCustomer.credit_limit_cents && newBalance > selectedCustomer.credit_limit_cents;
+                if (overLimit) {
+                  if (!confirm(`⚠️ This charge will exceed ${selectedCustomer.charge_account_name ?? selectedCustomer.first_name}'s credit limit (${formatUsd(selectedCustomer.credit_limit_cents!)}). Current balance: ${formatUsd(selectedCustomer.current_balance_cents ?? 0)}. Proceed anyway?`)) return;
+                }
+                setShowAccountConfirm(true);
+              }}
+              disabled={items.length === 0 || processing}
+              className="w-full rounded-lg bg-indigo-700 py-3 text-sm font-bold text-white hover:bg-indigo-600 disabled:opacity-30"
+            >
+              PAY — ACCOUNT <span className="block text-[10px] font-normal opacity-70">{formatUsd(cashTotalCents)}</span>
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button onClick={clearSale} className="rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700">
               Cancel
@@ -1737,6 +1773,30 @@ export default function PosRegisterPage() {
       </div>
 
       {/* ── OVERLAYS ── */}
+
+      {/* Account charge confirm */}
+      {showAccountConfirm && selectedCustomer?.is_charge_account && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowAccountConfirm(false)}>
+          <div className="w-80 rounded-2xl bg-zinc-900 border border-indigo-600/40 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-semibold text-indigo-300">Charge to Account</p>
+            <div className="rounded-lg bg-zinc-800 p-3 space-y-1 text-sm">
+              <p className="font-bold text-white">{selectedCustomer.charge_account_name ?? [selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}</p>
+              <p className="text-zinc-400">Charge amount: <span className="text-white font-semibold">{formatUsd(cashTotalCents)}</span></p>
+              <p className="text-zinc-400">New balance: <span className="text-amber-400 font-semibold">{formatUsd((selectedCustomer.current_balance_cents ?? 0) + cashTotalCents)}</span></p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAccountConfirm(false)} className="flex-1 rounded-lg bg-zinc-800 py-2.5 text-sm text-zinc-400 hover:bg-zinc-700">Cancel</button>
+              <button
+                onClick={() => { setShowAccountConfirm(false); setPaymentMethod("account"); completeSale("account"); }}
+                disabled={processing}
+                className="flex-1 rounded-lg bg-indigo-700 py-2.5 text-sm font-bold text-white hover:bg-indigo-600"
+              >
+                Confirm Charge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Numpad */}
       {showNumpad && (

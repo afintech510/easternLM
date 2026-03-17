@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { MapPin, Phone, Search, ShoppingCart, Tag, User } from "lucide-react";
+import { MapPin, Phone, Search, ShoppingCart, Tag, User, CreditCard, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,14 @@ type Customer = {
   first_order_at: string | null;
   last_order_at: string | null;
   recent_orders: OrderHistoryItem[];
+  // Charge account fields
+  is_charge_account: boolean | null;
+  charge_account_name: string | null;
+  credit_limit_cents: number | null;
+  payment_terms: string | null;
+  billing_email: string | null;
+  billing_address: string | null;
+  current_balance_cents: number | null;
 };
 
 function formatUsd(cents: number) {
@@ -59,6 +67,16 @@ export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showChargeEdit, setShowChargeEdit] = useState(false);
+  const [chargeForm, setChargeForm] = useState({
+    is_charge_account: false,
+    charge_account_name: "",
+    credit_limit_cents: "",
+    payment_terms: "Net 30",
+    billing_email: "",
+    billing_address: "",
+  });
+  const [savingCharge, setSavingCharge] = useState(false);
 
   const search = useCallback(async () => {
     if (query.trim().length < 2) return;
@@ -75,6 +93,43 @@ export default function AdminCustomersPage() {
   }, [query]);
 
   const selected = customers.find((c) => c.id === selectedId);
+
+  function openChargeEdit(c: Customer) {
+    setChargeForm({
+      is_charge_account: c.is_charge_account ?? false,
+      charge_account_name: c.charge_account_name ?? c.company_name ?? "",
+      credit_limit_cents: c.credit_limit_cents ? (c.credit_limit_cents / 100).toFixed(0) : "",
+      payment_terms: c.payment_terms ?? "Net 30",
+      billing_email: c.billing_email ?? c.email ?? "",
+      billing_address: c.billing_address ?? [c.address, c.city, c.state, c.zip].filter(Boolean).join(", ") ?? "",
+    });
+    setShowChargeEdit(true);
+  }
+
+  async function saveChargeAccount() {
+    if (!selectedId) return;
+    setSavingCharge(true);
+    await fetch(`/api/admin/customers/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        is_charge_account: chargeForm.is_charge_account,
+        charge_account_name: chargeForm.charge_account_name || null,
+        credit_limit_cents: chargeForm.credit_limit_cents ? Math.round(parseFloat(chargeForm.credit_limit_cents) * 100) : null,
+        payment_terms: chargeForm.payment_terms || "Net 30",
+        billing_email: chargeForm.billing_email || null,
+        billing_address: chargeForm.billing_address || null,
+      }),
+    });
+    // Refresh search results to pick up new values
+    const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query.trim())}`);
+    if (res.ok) {
+      const data = await res.json();
+      setCustomers(data.customers ?? []);
+    }
+    setSavingCharge(false);
+    setShowChargeEdit(false);
+  }
 
   return (
     <div className="space-y-4">
@@ -214,6 +269,89 @@ export default function AdminCustomersPage() {
                   ))}
                 </div>
               ) : <p className="text-sm text-muted-foreground">No order history available</p>}
+            </div>
+
+            {/* Charge Account */}
+            <div className="border-t pt-4">
+              <button
+                className="flex w-full items-center justify-between text-sm font-semibold"
+                onClick={() => showChargeEdit ? setShowChargeEdit(false) : openChargeEdit(selected)}
+              >
+                <span className="flex items-center gap-2">
+                  <CreditCard className="size-4" />
+                  Charge Account
+                  {selected.is_charge_account && (
+                    <span className="ml-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Active</span>
+                  )}
+                </span>
+                {showChargeEdit ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+              </button>
+
+              {!showChargeEdit && selected.is_charge_account && (
+                <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                  {selected.charge_account_name && <p className="font-medium text-foreground">{selected.charge_account_name}</p>}
+                  <p>Balance: <span className="font-medium text-foreground">{formatUsd(selected.current_balance_cents ?? 0)}</span>
+                    {selected.credit_limit_cents ? ` / ${formatUsd(selected.credit_limit_cents)} limit` : ""}
+                  </p>
+                  <p>Terms: {selected.payment_terms ?? "Net 30"}</p>
+                </div>
+              )}
+
+              {showChargeEdit && (
+                <div className="mt-3 space-y-3 rounded-lg border bg-muted/30 p-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={chargeForm.is_charge_account}
+                      onChange={(e) => setChargeForm((f) => ({ ...f, is_charge_account: e.target.checked }))}
+                      className="rounded"
+                    />
+                    Enable charge account
+                  </label>
+                  {chargeForm.is_charge_account && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Account Name</label>
+                        <Input value={chargeForm.charge_account_name} onChange={(e) => setChargeForm((f) => ({ ...f, charge_account_name: e.target.value }))} placeholder="GP Landscape Design" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Credit Limit ($)</label>
+                          <Input value={chargeForm.credit_limit_cents} onChange={(e) => setChargeForm((f) => ({ ...f, credit_limit_cents: e.target.value }))} placeholder="5000" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Terms</label>
+                          <select
+                            value={chargeForm.payment_terms}
+                            onChange={(e) => setChargeForm((f) => ({ ...f, payment_terms: e.target.value }))}
+                            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                          >
+                            <option>Net 15</option>
+                            <option>Net 30</option>
+                            <option>Net 45</option>
+                            <option>Net 60</option>
+                            <option>Due on Receipt</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Billing Email</label>
+                        <Input type="email" value={chargeForm.billing_email} onChange={(e) => setChargeForm((f) => ({ ...f, billing_email: e.target.value }))} placeholder="billing@company.com" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Billing Address</label>
+                        <Input value={chargeForm.billing_address} onChange={(e) => setChargeForm((f) => ({ ...f, billing_address: e.target.value }))} placeholder="123 Main St, City, NY 11934" />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowChargeEdit(false)}>Cancel</Button>
+                    <Button size="sm" className="flex-1" onClick={saveChargeAccount} disabled={savingCharge}>
+                      {savingCharge ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button asChild className="w-full">
