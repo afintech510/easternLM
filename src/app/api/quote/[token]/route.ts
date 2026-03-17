@@ -1,0 +1,31 @@
+import { NextResponse } from "next/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+type RouteContext = { params: Promise<{ token: string }> };
+
+export async function GET(_req: Request, context: RouteContext) {
+  const { token } = await context.params;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
+
+  const { data, error } = await supabase
+    .from("quotes")
+    .select(
+      "id, quote_number, public_token, customer_name, customer_address, title, description, line_items, subtotal_cents, tax_cents, total_cents, deposit_required_cents, deposit_paid_cents, valid_until, estimated_timeline, terms, status, accepted_at, declined_at, customer_signature_url, deposit_paid_at",
+    )
+    .eq("public_token", token)
+    .single();
+
+  if (error || !data) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+
+  // Mark as viewed if first time
+  if (data.status === "sent") {
+    await supabase
+      .from("quotes")
+      .update({ status: "viewed", viewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("public_token", token);
+    data.status = "viewed";
+  }
+
+  return NextResponse.json({ quote: data });
+}

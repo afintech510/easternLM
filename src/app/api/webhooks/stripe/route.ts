@@ -330,7 +330,54 @@ async function ensureOrderFromSession(input: {
   return insertedOrder.data;
 }
 
+async function handleQuoteDepositCompleted(session: Stripe.Checkout.Session) {
+  const { quoteId, quoteToken } = session.metadata ?? {};
+  if (!quoteId) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent as { id?: string } | null)?.id ?? null;
+
+  await supabase.from("quotes").update({
+    deposit_paid_cents: session.amount_total ?? 0,
+    deposit_stripe_payment_id: paymentIntentId,
+    deposit_paid_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", quoteId);
+
+  // Notify staff
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_PHONE_NUMBER;
+  const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
+
+  if (sid && authToken && from && staffPhone && session.amount_total) {
+    const fmt = (c: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+    const msg = `💰 Deposit received! ${fmt(session.amount_total)} deposit paid for quote ${session.metadata?.quoteNumber ?? quoteId}. Check /admin/quotes.`;
+    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
+    }).catch(() => {});
+  }
+
+  void quoteToken; // used in URL, not needed here
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe: Stripe) {
+  // Route quote deposit payments separately
+  if (session.metadata?.type === "quote_deposit") {
+    await handleQuoteDepositCompleted(session);
+    return;
+  }
+
   const supabaseAdmin = getSupabaseAdminClient();
   const lineItemsResult = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
   const lineItems = lineItemsResult.data;
