@@ -371,10 +371,77 @@ async function handleQuoteDepositCompleted(session: Stripe.Checkout.Session) {
   void quoteToken; // used in URL, not needed here
 }
 
+async function handleStatementPaymentCompleted(session: Stripe.Checkout.Session) {
+  const { statementId, amountCents } = session.metadata ?? {};
+  if (!statementId) return;
+
+  const paid = parseInt(amountCents ?? "0", 10);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
+
+  const { data: stmt } = await supabase
+    .from("statements")
+    .select("customer_id, balance_due_cents, amount_paid_cents")
+    .eq("id", statementId)
+    .single();
+
+  if (!stmt) return;
+
+  const newPaid = (stmt.amount_paid_cents ?? 0) + paid;
+  const newBalance = Math.max(0, stmt.balance_due_cents - paid);
+
+  await supabase.from("statements").update({
+    amount_paid_cents: newPaid,
+    balance_due_cents: newBalance,
+    status: newBalance === 0 ? "paid" : "partial_paid",
+    paid_at: newBalance === 0 ? new Date().toISOString() : null,
+    payment_method: "stripe",
+    payment_stripe_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", statementId);
+
+  // Reduce customer balance
+  const { data: cust } = await supabase
+    .from("customers")
+    .select("current_balance_cents")
+    .eq("id", stmt.customer_id)
+    .single();
+
+  if (cust) {
+    await supabase.from("customers").update({
+      current_balance_cents: Math.max(0, (cust.current_balance_cents ?? 0) - paid),
+    }).eq("id", stmt.customer_id);
+  }
+
+  // Notify staff
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_PHONE_NUMBER;
+  const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
+  if (sid && authToken && from && staffPhone && paid) {
+    const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+    const msg = `💰 Statement payment received! ${fmt(paid)} for ${session.metadata?.statementNumber ?? statementId}. Check /admin/statements.`;
+    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
+    }).catch(() => {});
+  }
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe: Stripe) {
   // Route quote deposit payments separately
   if (session.metadata?.type === "quote_deposit") {
     await handleQuoteDepositCompleted(session);
+    return;
+  }
+
+  // Route statement payments
+  if (session.metadata?.type === "statement_payment") {
+    await handleStatementPaymentCompleted(session);
     return;
   }
 
