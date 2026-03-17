@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { SettingsForm } from "@/components/admin/settings/settings-form";
-import { FeeTest } from "@/components/admin/settings/fee-test";
+import { SettingsTabs } from "@/components/admin/settings/settings-tabs";
 
 function tryGetAdmin() {
   try {
@@ -12,29 +11,37 @@ function tryGetAdmin() {
   }
 }
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const supabase = tryGetAdmin();
-  let settings = null;
 
-  if (supabase) {
-    const { data } = await supabase.from("site_settings").select("*").eq("id", 1).single();
-    settings = data;
-  }
+  const [settingsRes, trucksRes, cacheRes, staffRes] = await Promise.all([
+    supabase?.from("site_settings").select("*").eq("id", 1).single(),
+    supabase?.from("truck_types").select("*").order("sort_order"),
+    supabase
+      ?.from("delivery_fee_cache")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    (supabase as any)
+      ?.from("accounts")
+      .select("id, full_name, role, is_active, created_at")
+      .in("role", ["admin", "staff", "pos"])
+      .order("role")
+      .order("full_name"),
+  ]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="[font-family:var(--font-display)] text-3xl text-primary">Settings</h1>
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div>
-          {settings ? (
-            /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-            <SettingsForm initialSettings={settings as any} />
-          ) : (
-            <p className="text-muted-foreground">Could not load settings.</p>
-          )}
-        </div>
-        <FeeTest />
-      </div>
-    </div>
+    <SettingsTabs
+      initialTab={tab ?? "general"}
+      initialSettings={(settingsRes?.data as any) ?? null}
+      initialTrucks={(trucksRes?.data as any[]) ?? []}
+      initialCacheEntries={(cacheRes?.data as any[]) ?? []}
+      initialStaff={(staffRes?.data as any[]) ?? []}
+    />
   );
 }
