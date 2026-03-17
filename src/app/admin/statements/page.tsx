@@ -1,7 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -36,7 +35,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
   disputed: { label: "Disputed", color: "text-red-700", icon: <XCircle className="size-3" /> },
 };
 
-export default function StatementsPage() {
+function StatementsInner() {
   const searchParams = useSearchParams();
   const customerIdFilter = searchParams.get("customer_id");
 
@@ -142,5 +141,13 @@ export default function StatementsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function StatementsPage() {
+  return (
+    <Suspense fallback={<div className="flex h-40 items-center justify-center text-muted-foreground">Loading…</div>}>
+      <StatementsInner />
+    </Suspense>
   );
 }

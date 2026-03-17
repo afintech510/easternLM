@@ -1,7 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle, Phone, DollarSign } from "lucide-react";
@@ -26,7 +25,7 @@ interface Statement {
 const fmt = (c: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
 
-export default function StatementPayPage() {
+function StatementPayInner() {
   const { token } = useParams<{ token: string }>();
   const searchParams = useSearchParams();
   const paidSuccess = searchParams.get("paid") === "success";
@@ -220,5 +219,13 @@ export default function StatementPayPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StatementPayPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>}>
+      <StatementPayInner />
+    </Suspense>
   );
 }
