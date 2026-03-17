@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
+import { verifyYardSession, YARD_COOKIE_NAME } from "@/lib/yard-session";
 
 // ─── Legacy URL redirects (old GoDaddy site + WooCommerce) ────────
 const LEGACY_REDIRECTS: Record<string, string> = {
@@ -13,6 +14,8 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   "/cart/": "/cart",
   "/checkout/": "/checkout",
   "/contact/": "/contact",
+  // Old POS URL → new obscured URL
+  "/pos": "/yard/register",
 };
 
 // WooCommerce product URL pattern: /product/{slug}
@@ -32,10 +35,14 @@ function getLegacyRedirect(pathname: string): string | null {
   return null;
 }
 
+// Routes that don't require auth even within protected prefixes
+const YARD_PUBLIC = ["/yard/login", "/yard/unauthorized"];
+const ADMIN_PUBLIC = ["/admin/login", "/admin/unauthorized", "/api/admin/login"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ─── Check legacy redirects first (301 permanent) ─────────────
+  // ─── Check legacy redirects first (307 redirect) ────────────────
   const redirect = getLegacyRedirect(pathname);
   if (redirect) {
     const url = request.nextUrl.clone();
@@ -46,40 +53,69 @@ export async function middleware(request: NextRequest) {
     } else {
       url.pathname = redirect;
     }
-    return NextResponse.redirect(url, 301);
+    return NextResponse.redirect(url, 307);
   }
 
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
-  // Refresh the session on every request
+  // Refresh Supabase session on every request
   const {
     data: { user },
-    error: userError,
   } = await supabase.auth.getUser();
 
-  // Only protect /admin routes (except login page and login API)
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login" && pathname !== "/api/admin/login") {
+  // ─── Admin routes ──────────────────────────────────────────────────
+  if (pathname.startsWith("/admin") && !ADMIN_PUBLIC.some((p) => pathname.startsWith(p))) {
     if (!user) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/admin/login";
-      return NextResponse.redirect(loginUrl);
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      return NextResponse.redirect(url);
     }
 
-    // Check admin role
-    const { data: account, error: accountError } = await supabase
-      .from("accounts")
-      .select("role")
+    const { data: account } = await supabase
+      .from("accounts" as any)
+      .select("role, is_active")
       .eq("id", user.id)
       .single();
 
-    if (!account || account.role !== "admin") {
-      const unauthorizedUrl = request.nextUrl.clone();
-      unauthorizedUrl.pathname = "/admin/unauthorized";
-      // Allow the unauthorized page itself to render
-      if (pathname !== "/admin/unauthorized") {
-        return NextResponse.redirect(unauthorizedUrl);
+    if (!account || (account as any).role !== "admin" || (account as any).is_active === false) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/unauthorized";
+      if (pathname !== "/admin/unauthorized") return NextResponse.redirect(url);
+    }
+  }
+
+  // ─── Yard routes ───────────────────────────────────────────────────
+  if (pathname.startsWith("/yard") && !YARD_PUBLIC.some((p) => pathname.startsWith(p))) {
+    // Check Supabase session (admin / staff)
+    if (user) {
+      const { data: account } = await supabase
+        .from("accounts" as any)
+        .select("role, is_active")
+        .eq("id", user.id)
+        .single();
+
+      if (
+        account &&
+        ["admin", "staff", "pos"].includes((account as any).role) &&
+        (account as any).is_active !== false
+      ) {
+        return response; // ✅ authorized via Supabase session
       }
     }
+
+    // Check yard_session cookie (PIN login)
+    const yardCookie = request.cookies.get(YARD_COOKIE_NAME)?.value;
+    if (yardCookie) {
+      const session = await verifyYardSession(yardCookie);
+      if (session && ["admin", "staff", "pos"].includes(session.role)) {
+        return response; // ✅ authorized via PIN session
+      }
+    }
+
+    // Not authorized — redirect to yard login
+    const url = request.nextUrl.clone();
+    url.pathname = "/yard/login";
+    return NextResponse.redirect(url);
   }
 
   return response;
