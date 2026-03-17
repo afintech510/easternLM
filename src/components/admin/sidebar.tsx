@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Megaphone,
   Activity,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/admin/follow-ups", label: "Follow-Ups", icon: MessageSquare },
+  { href: "/admin/suppliers", label: "Suppliers", icon: Building2 },
   { href: "/admin/gallery", label: "Gallery", icon: ImageIcon },
   { href: "/admin/cache", label: "Fee Cache", icon: Database },
 ];
