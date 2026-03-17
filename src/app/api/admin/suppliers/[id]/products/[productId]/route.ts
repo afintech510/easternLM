@@ -10,7 +10,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { productId } = await context.params;
   const body = await request.json();
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   // If cost changed, log to price history first
   if (body.cost_per_unit_cents !== undefined) {
@@ -41,7 +42,8 @@ export async function DELETE(_req: Request, context: RouteContext) {
   if (auth instanceof NextResponse) return auth;
 
   const { productId } = await context.params;
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const { error } = await supabase.from("supplier_products").delete().eq("id", productId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

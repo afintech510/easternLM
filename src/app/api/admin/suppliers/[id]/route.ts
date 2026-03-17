@@ -9,7 +9,8 @@ export async function GET(_req: Request, context: RouteContext) {
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const { data: supplier, error } = await supabase
     .from("suppliers")
@@ -34,7 +35,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   const body = await request.json();
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const { error } = await supabase.from("suppliers").update(body).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,7 +48,8 @@ export async function DELETE(_req: Request, context: RouteContext) {
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const { error } = await supabase.from("suppliers").update({ is_active: false }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

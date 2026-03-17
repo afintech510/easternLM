@@ -10,7 +10,8 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   const body = await request.json();
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const { data, error } = await supabase
     .from("supplier_products")
