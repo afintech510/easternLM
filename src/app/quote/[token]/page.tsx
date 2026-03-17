@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import SignaturePad from "signature_pad";
@@ -40,7 +41,7 @@ interface Quote {
 const fmt = (c: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
 
-export default function PublicQuotePage() {
+function PublicQuoteInner() {
   const { token } = useParams<{ token: string }>();
   const searchParams = useSearchParams();
   const depositSuccess = searchParams.get("deposit") === "success";
@@ -402,5 +403,13 @@ export default function PublicQuotePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PublicQuotePage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>}>
+      <PublicQuoteInner />
+    </Suspense>
   );
 }
