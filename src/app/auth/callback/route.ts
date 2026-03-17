@@ -7,8 +7,21 @@ const ADMIN_EMAILS = [
   "ronnie@easternbuilding.supply",
 ];
 
+function getOrigin(request: Request): string {
+  // Behind nginx/Docker, request.url has the container-internal host.
+  // Build the real origin from forwarded headers.
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (host && !host.includes("localhost")) {
+    return `${proto}://${host}`;
+  }
+  // Fallback to env or request URL
+  return process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
+}
+
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = getOrigin(request);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/admin";
 
