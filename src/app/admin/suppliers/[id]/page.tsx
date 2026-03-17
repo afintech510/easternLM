@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Phone, Mail, Globe, MapPin, Truck, Package,
-  Edit3, Check, X, Plus, Trash2, ExternalLink, TrendingUp
+  Edit3, Check, X, Plus, Trash2, ExternalLink, TrendingUp, FileText
 } from "lucide-react";
 
 type Supplier = {
@@ -68,7 +69,7 @@ export default function SupplierDetailPage() {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"products" | "notes">("products");
+  const [tab, setTab] = useState<"products" | "notes" | "invoices">("products");
 
   // Edit supplier state
   const [editingSupplier, setEditingSupplier] = useState(false);
@@ -362,10 +363,10 @@ export default function SupplierDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {(["products", "notes"] as const).map((t) => (
+        {(["products", "notes", "invoices"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${tab === t ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-            {t === "products" ? `Products (${products.length})` : "Notes"}
+            {t === "products" ? `Products (${products.length})` : t === "notes" ? "Notes" : "Invoices"}
           </button>
         ))}
       </div>
@@ -608,6 +609,17 @@ export default function SupplierDetailPage() {
             placeholder="Internal notes about this supplier — pricing history, reliability, contacts, terms negotiated..."
           />
           <p className="text-xs text-muted-foreground">Notes auto-save when you click away.</p>
+        </div>
+      )}
+
+      {/* Invoices Tab */}
+      {tab === "invoices" && (
+        <div className="flex flex-col items-center gap-4 py-8">
+          <FileText className="size-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">Manage and scan invoices from this supplier</p>
+          <Link href={`/admin/suppliers/${id}/invoices`}>
+            <Button><FileText className="mr-2 size-4" />Open Invoices</Button>
+          </Link>
         </div>
       )}
     </div>
