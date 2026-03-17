@@ -20,22 +20,22 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Get product counts per supplier
-  const supplierIds = (data ?? []).map((s) => s.id);
-  let counts: Record<string, number> = {};
+  const supplierIds = (data ?? []).map((s: Record<string, unknown>) => s.id as string);
+  const counts: Record<string, number> = {};
   if (supplierIds.length > 0) {
     const { data: countData } = await supabase
       .from("supplier_products")
       .select("supplier_id")
       .in("supplier_id", supplierIds);
     if (countData) {
-      for (const row of countData) {
+      for (const row of countData as Array<{ supplier_id: string }>) {
         counts[row.supplier_id] = (counts[row.supplier_id] ?? 0) + 1;
       }
     }
   }
 
   return NextResponse.json({
-    suppliers: (data ?? []).map((s) => ({ ...s, product_count: counts[s.id] ?? 0 })),
+    suppliers: (data ?? []).map((s: Record<string, unknown>) => ({ ...s, product_count: counts[s.id as string] ?? 0 })),
   });
 }
 
