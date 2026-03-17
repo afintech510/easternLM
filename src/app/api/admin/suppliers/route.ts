@@ -10,7 +10,8 @@ export async function GET() {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
 
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
   const { data, error } = await supabase
     .from("suppliers")
     .select("id, name, slug, city, state, fulfillment_type, payment_terms, account_number, phone, email, is_active, created_at")
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json();
-  const supabase = getSupabaseAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getSupabaseAdminClient() as any;
 
   const slug = body.slug || slugify(body.name);
   const { data, error } = await supabase
