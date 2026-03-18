@@ -99,9 +99,10 @@ export default function ProjectsPage() {
           {projects.map((p) => {
             const cfg = STATUS_CFG[p.status] ?? STATUS_CFG.active;
             return (
-              <div key={p.id} className="rounded-xl border bg-card p-5 space-y-2 hover:border-accent/30 transition-colors">
+              <Link key={p.id} href={`/admin/projects/${p.id}`} className="block rounded-xl border bg-card p-5 space-y-2 hover:border-accent/30 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div>
+                    <p className="text-xs text-muted-foreground font-mono">{(p as any).project_number}</p>
                     <h3 className="font-semibold text-base">{p.title}</h3>
                     {p.customer_name && (
                       <p className="text-sm text-muted-foreground">{p.customer_name}</p>
@@ -135,7 +136,7 @@ export default function ProjectsPage() {
                     </span>
                   )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

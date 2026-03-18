@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder } from "@/lib/customers/lifecycle";
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
+import { createProjectFromQuote } from "@/lib/projects/auto-create";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 
@@ -371,7 +372,18 @@ async function handleQuoteDepositCompleted(session: Stripe.Checkout.Session) {
     }).catch(() => {});
   }
 
-  void quoteToken; // used in URL, not needed here
+  // Auto-create project from the accepted quote
+  try {
+    const { data: fullQuote } = await supabase.from("quotes").select("*").eq("id", quoteId).single();
+    if (fullQuote) {
+      await createProjectFromQuote({
+        ...fullQuote,
+        deposit_paid_cents: session.amount_total ?? 0,
+      });
+    }
+  } catch (err) { console.error("Auto project from quote failed:", err); }
+
+  void quoteToken;
 }
 
 async function handleStatementPaymentCompleted(session: Stripe.Checkout.Session) {
