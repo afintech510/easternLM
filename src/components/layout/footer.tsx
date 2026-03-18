@@ -43,7 +43,7 @@ export function Footer() {
                 </a>
               </div>
               <a
-                href="https://maps.google.com/?q=110+Frowein+Road+Center+Moriches+NY+11934"
+                href="https://maps.app.goo.gl/AiDyPCCs84ZSpsSx7"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-start gap-2.5 text-primary-foreground/70 transition-colors hover:text-accent"
@@ -120,7 +120,7 @@ export function Footer() {
             <p>&copy; {thisYear} Eastern Landscape &amp; Mason Supply. All rights reserved.</p>
             <div className="flex flex-wrap items-center gap-4">
               <a
-                href="https://www.google.com/maps/place/Eastern+Landscape+%26+Mason+Supply/"
+                href="https://maps.app.goo.gl/AiDyPCCs84ZSpsSx7"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-primary-foreground/60 hover:text-primary-foreground/80"
