@@ -81,5 +81,19 @@ export async function POST(_request: Request, context: RouteContext) {
     })
     .eq("id", id);
 
+  // Auto-create a project from the quote + order
+  await supabase.from("projects").insert({
+    title: quote.title,
+    description: quote.description ?? null,
+    status: "active",
+    customer_name: quote.customer_name,
+    customer_phone: quote.customer_phone ?? null,
+    customer_email: quote.customer_email ?? null,
+    address: quote.customer_address ?? null,
+    quote_id: quote.id,
+    order_id: order.id,
+    created_by: auth.userId,
+  });
+
   return NextResponse.json({ ok: true, orderId: order.id });
 }

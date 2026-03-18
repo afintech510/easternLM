@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
 
-  const supabase = getSupabaseAdminClient();
+  const supabase = getSupabaseAdminClient() as any;
   const sp = request.nextUrl.searchParams;
   const source = sp.get("source");
   const deliveryMethod = sp.get("type");
@@ -15,10 +15,9 @@ export async function GET(request: NextRequest) {
   const dateFrom = sp.get("from") || new Date().toISOString().split("T")[0];
   const dateTo = sp.get("to") || dateFrom;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = supabase
+  let query = supabase
     .from("orders")
-    .select("id, created_at, status, source, customer_name, customer_phone, customer_email, items, grand_total_cents, delivery_method, delivery_address, delivery_fee_cents, payment_method, notes, customer_id")
+    .select("id, created_at, status, source, customer_name, customer_phone, customer_email, grand_total_cents, delivery_method, delivery_address, delivery_total_cents, payment_method, metadata, customer_id, materials_subtotal_cents, tax_cents, order_items(id, product_name, quantity, unit_price_cents, line_subtotal_cents)")
     .gte("created_at", `${dateFrom}T00:00:00`)
     .lte("created_at", `${dateTo}T23:59:59`)
     .order("created_at", { ascending: false });
@@ -33,12 +32,16 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query.limit(200);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Compute stats
-  const orders = data || [];
-  const deliveries = orders.filter((o: { delivery_method: string }) => o.delivery_method === "delivery");
-  const pickups = orders.filter((o: { delivery_method: string }) => o.delivery_method === "pickup");
-  const revenue = orders.reduce((s: number, o: { grand_total_cents: number }) => s + (o.grand_total_cents || 0), 0);
-  const pending = orders.filter((o: { status: string }) => ["new", "pending", "pending_payment"].includes(o.status));
+  const orders = (data || []).map((o: any) => ({
+    ...o,
+    items: o.order_items ?? [],
+    order_items: undefined,
+  }));
+
+  const deliveries = orders.filter((o: any) => o.delivery_method === "delivery");
+  const pickups = orders.filter((o: any) => o.delivery_method === "pickup");
+  const revenue = orders.reduce((s: number, o: any) => s + (o.grand_total_cents || 0), 0);
+  const pending = orders.filter((o: any) => ["new", "pending", "pending_payment"].includes(o.status));
 
   return NextResponse.json({
     orders,
