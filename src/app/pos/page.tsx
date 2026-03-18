@@ -29,6 +29,7 @@ declare global {
 import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
+import { POSProductGrid } from "@/components/pos/product-grid";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ type PosProduct = {
   min_qty: number;
   qty_step: number;
   order_count?: number;
-  image_url?: string;
+  image_url?: string | null;
 };
 
 type LineItem = {
@@ -358,6 +359,25 @@ export default function PosRegisterPage() {
     if (qty <= 0) { removeItem(id); return; }
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: qty } : i));
   }, [removeItem]);
+
+  // For POSProductGrid: set/remove by product ID
+  const setQtyForProduct = useCallback((productId: string, qty: number) => {
+    if (qty <= 0) {
+      setItems((prev) => prev.filter((i) => i.product.id !== productId));
+    } else {
+      setItems((prev) => {
+        const existing = prev.find((i) => i.product.id === productId);
+        if (existing) return prev.map((i) => i.product.id === productId ? { ...i, quantity: qty } : i);
+        return prev;
+      });
+    }
+  }, []);
+
+  const cartQtys = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const item of items) map[item.product.id] = item.quantity;
+    return map;
+  }, [items]);
 
   function clearSale() {
     if (items.length > 0 && !confirm("Clear current sale?")) return;
@@ -874,144 +894,13 @@ export default function PosRegisterPage() {
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* ── LEFT: Product Catalog ── */}
       <div className={`flex min-w-0 flex-1 flex-col border-r ${t.border}`}>
-        {/* Search */}
-        <div className="border-b border-zinc-800 p-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-            <input
-              id="pos-search"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setSelectedCategory(null); }}
-              placeholder="Search products... (F1)"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-3 pl-10 pr-4 text-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
-                <X className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Categories */}
-        <div className="flex flex-wrap gap-2 border-b border-zinc-800 p-3">
-          {categories.map((cat) => (
-            <button
-              key={cat.slug}
-              onClick={() => { setSelectedCategory(cat.slug === selectedCategory ? null : cat.slug); setSearchQuery(""); }}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                selectedCategory === cat.slug
-                  ? "bg-amber-600 text-white"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-          <button
-            onClick={() => setShowCustomItem(true)}
-            className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-amber-400 hover:bg-zinc-700"
-          >
-            + Custom
-          </button>
-        </div>
-
-        {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-3 scrollbar-none" style={{ scrollbarWidth: "none" }}>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {filteredProducts.map((product) => {
-              const cartQty = getCartQty(product.id);
-              const isBulk = product.delivery_type === "bulk";
-              return (
-                <div
-                  key={product.id}
-                  className={`relative flex flex-col rounded-lg border bg-zinc-900 text-left transition-colors hover:border-amber-600/50 hover:bg-zinc-800 ${
-                    cartQty > 0 ? "border-amber-600/40" : "border-zinc-800"
-                  }`}
-                >
-                  {/* Image area */}
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="h-[60px] w-full rounded-t-lg object-cover"
-                      onError={(e) => {
-                        const el = e.currentTarget;
-                        el.style.display = "none";
-                        const fallback = el.nextElementSibling as HTMLElement | null;
-                        if (fallback) fallback.style.display = "flex";
-                      }}
-                    />
-                  ) : null}
-                  <div className={`${product.image_url ? "hidden" : "flex"} h-[60px] w-full items-center justify-center rounded-t-lg bg-zinc-800/50`}>
-                    <Package className="h-6 w-6 text-zinc-700" />
-                  </div>
-
-                  {/* Cart badge */}
-                  {cartQty > 0 && (
-                    <div className="absolute right-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-600 px-1.5 text-xs font-bold text-white">
-                      {cartQty}
-                    </div>
-                  )}
-
-                  {/* Product info - clickable for bulk */}
-                  <button
-                    onClick={() => {
-                      if (isBulk) {
-                        setShowNumpad({ product, qty: String(product.min_qty || 1) });
-                      } else {
-                        addItem(product);
-                      }
-                    }}
-                    className="flex flex-1 flex-col p-3 text-left"
-                  >
-                    <span className="text-xs text-zinc-500">{product.category_name}</span>
-                    <span className="mt-0.5 text-sm font-medium leading-tight">{product.name}</span>
-                    <span className="mt-auto pt-2 text-lg font-bold text-amber-400">
-                      {formatUsd(product.price_per_unit_cents)}
-                      <span className="text-xs font-normal text-zinc-500">/{product.unit_label}</span>
-                    </span>
-                  </button>
-
-                  {/* +/- buttons for non-bulk */}
-                  {!isBulk && (
-                    <div className="flex items-center justify-between border-t border-zinc-800 px-2 py-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const item = items.find((i) => i.product.id === product.id);
-                          if (item) updateQuantity(item.id, item.quantity - 1);
-                        }}
-                        disabled={cartQty === 0}
-                        className="flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:bg-zinc-700 disabled:opacity-30"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="font-mono text-sm text-zinc-400">
-                        {cartQty > 0 ? cartQty : ""}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addItem(product, 1);
-                        }}
-                        className="flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {filteredProducts.length === 0 && (
-            <div className="flex h-32 items-center justify-center text-zinc-500">
-              {searchQuery ? "No products found" : "Select a category"}
-            </div>
-          )}
-        </div>
+        <POSProductGrid
+          products={products}
+          categories={categories}
+          cartQtys={cartQtys}
+          onAddProduct={addItem}
+          onSetQty={setQtyForProduct}
+        />
       </div>
 
       {/* ── MIDDLE: Calculator / Delivery ── */}
