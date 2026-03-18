@@ -89,14 +89,19 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
   const isBulk = product.deliveryType === "bulk";
   const lineTotal = Math.round(quantity * product.pricePerUnitCents);
 
-  async function handleCheckDelivery() {
+  async function handleCheckDelivery(addr?: string) {
+    const checkAddr = addr ?? address;
+    if (checkAddr.trim().length < 8) return;
     setIsCheckingDelivery(true);
     setDeliveryError(null);
     try {
-      const res = await fetch("/api/delivery/distance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address }) });
+      const res = await fetch("/api/delivery/distance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: checkAddr }) });
       const payload = await res.json() as DistancePreview | { error: string };
       if (!res.ok || "error" in payload) throw new Error("error" in payload ? payload.error : "Failed.");
       setDistancePreview(payload);
+      // Also set in global cart store so fee persists across pages
+      const cartStore = useCartStore.getState();
+      cartStore.setDeliveryAddress({ fullAddress: checkAddr, zip: "" });
     } catch (err) {
       setDistancePreview(null);
       setDeliveryError(err instanceof Error ? err.message : "Unable to calculate delivery.");
@@ -104,6 +109,14 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
       setIsCheckingDelivery(false);
     }
   }
+
+  // Auto-check delivery fee when address changes
+  useEffect(() => {
+    if (address.trim().length < 8 || deliveryMethod !== "delivery") return;
+    const timer = setTimeout(() => handleCheckDelivery(address), 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, deliveryMethod]);
 
   const [justAdded, setJustAdded] = useState(false);
 
@@ -186,6 +199,19 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               <h2 className="text-sm font-semibold">Quantity</h2>
               <span className="text-sm font-semibold text-accent">= {formatUsd(lineTotal)}</span>
             </div>
+            {product.deliveryType === "bulk" && (
+              <div className="flex gap-1.5">
+                {[3, 5, 10, 15, 20].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setQuantity(clampQuantity(p, product.minQty, product.maxQty, product.stepQty))}
+                    className={`flex-1 rounded-lg border py-2 text-sm font-medium transition-colors ${quantity === p ? "border-accent bg-accent/10 text-accent" : "border-border text-muted-foreground hover:border-accent/30 hover:text-accent"}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="size-9" onClick={() => setQuantity((c) => clampQuantity(c - product.stepQty, product.minQty, product.maxQty, product.stepQty))}>-</Button>
               <Input
@@ -195,7 +221,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 className="w-20 text-center text-lg font-semibold"
               />
               <Button variant="outline" size="sm" className="size-9" onClick={() => setQuantity((c) => clampQuantity(c + product.stepQty, product.minQty, product.maxQty, product.stepQty))}>+</Button>
-              <span className="text-xs text-muted-foreground">min {product.minQty} / max {product.maxQty}</span>
+              <span className="text-xs text-muted-foreground">{product.unitDisplay}</span>
             </div>
           </div>
 
@@ -220,14 +246,11 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             {deliveryMethod === "delivery" ? (
               <div className="space-y-2">
                 <AddressAutocomplete placeholder="Enter delivery address" value={address} onChange={setAddress} />
-                <Button size="sm" disabled={isCheckingDelivery || address.trim().length < 8} onClick={handleCheckDelivery} className="w-full">
-                  {isCheckingDelivery ? "Checking..." : "Check Delivery Fee"}
-                </Button>
+                {isCheckingDelivery && <p className="text-xs text-muted-foreground animate-pulse">Calculating delivery fee…</p>}
                 {deliveryCalculation && (
                   <div className="rounded-lg border bg-background p-3 text-sm space-y-1">
-                    <p className="font-semibold">Delivery: {formatUsd(deliveryCalculation.firstLoadFeeCents)} per load</p>
-                    <p className="text-xs text-muted-foreground">{distancePreview?.oneWayMiles.toFixed(1)} mi / {formatDuration(distancePreview?.durationSeconds ?? 0)} one-way</p>
-                    <p className="text-xs text-muted-foreground">{deliveryCalculation.totalLoads} load{deliveryCalculation.totalLoads > 1 ? "s" : ""}, {deliveryCalculation.totalDeliveryDays} delivery day{deliveryCalculation.totalDeliveryDays > 1 ? "s" : ""}</p>
+                    <p className="font-semibold">Delivery: {formatUsd(deliveryCalculation.firstLoadFeeCents)} per dump truck delivery</p>
+                    <p className="text-xs text-muted-foreground">{deliveryCalculation.totalLoads} delivery trip{deliveryCalculation.totalLoads > 1 ? "s" : ""} needed</p>
                   </div>
                 )}
               </div>
@@ -243,9 +266,15 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           </Button>
 
           {/* Phone fallback */}
-          <a href="tel:+16318746244" className="flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-accent">
-            <Phone className="size-4" /> Or call (631) 874-6244 to order by phone
-          </a>
+          <div className="flex items-center justify-center gap-3 text-sm font-medium text-muted-foreground">
+            <a href="tel:+16318746244" className="flex items-center gap-1.5 hover:text-accent">
+              <Phone className="size-4" /> Call (631) 874-6244
+            </a>
+            <span className="text-border">|</span>
+            <a href="sms:+16318746244" className="hover:text-accent">
+              Text Us
+            </a>
+          </div>
         </div>
       </section>
 

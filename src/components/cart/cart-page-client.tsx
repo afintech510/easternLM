@@ -47,16 +47,26 @@ export function CartPageClient() {
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
 
+  // Minimum order fee: if delivery and materials < $125, add fee to reach $125
+  const minOrderFeeCents = useMemo(() => {
+    if (!calculation || deliveryMethod !== "delivery") return 0;
+    if (calculation.belowMinimum && calculation.subtotalCents < 12500) {
+      return 12500 - calculation.subtotalCents;
+    }
+    return 0;
+  }, [calculation, deliveryMethod]);
+
   const totals = useMemo(() => {
     if (!calculation) return null;
     return [
       { label: "Materials", value: calculation.subtotalCents },
+      ...(minOrderFeeCents > 0 ? [{ label: "Min. order fee", value: minOrderFeeCents }] : []),
       ...(calculation.proDiscountCents > 0 ? [{ label: "Pro discount", value: -calculation.proDiscountCents }] : []),
       { label: "Delivery", value: calculation.deliveryFeeCents },
       { label: "Tax (8.75%)", value: calculation.taxCents },
       { label: "CC processing fee (3%)", value: calculation.ccSurchargeCents },
     ];
-  }, [calculation]);
+  }, [calculation, minOrderFeeCents]);
 
   // ── Empty cart ─────────────────────────────────────────
   if (items.length === 0) {
@@ -193,14 +203,14 @@ export function CartPageClient() {
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {error}
               </p>
             )}
-            {calculation?.belowMinimum && (
+            {calculation?.belowMinimum && minOrderFeeCents > 0 && (
               <p className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> A $125 minimum order is required for delivery outside our local area. Add more items or choose pickup.
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> A $125 minimum applies for delivery. A {formatUsd(minOrderFeeCents)} min. order fee has been added. Add more items to reduce or eliminate this fee.
               </p>
             )}
             {calculation?.outsideServiceArea && (
               <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> This address is outside our 50-mile service area. Please call us at (631) 874-6244.
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> This address is outside our 50-mile service area. <a href={siteConfig.phoneHref} className="underline">Call</a> or <a href={siteConfig.smsHref} className="underline">text</a> us at (631) 874-6244.
               </p>
             )}
 
@@ -246,9 +256,15 @@ export function CartPageClient() {
               </Button>
             ) : null}
 
-            <a href={siteConfig.phoneHref} className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-accent">
-              <Phone className="size-4" /> Need help? Call {siteConfig.phoneDisplay}
-            </a>
+            <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
+              <a href={siteConfig.phoneHref} className="flex items-center gap-1.5 hover:text-accent">
+                <Phone className="size-4" /> Call {siteConfig.phoneDisplay}
+              </a>
+              <span className="text-border">|</span>
+              <a href={siteConfig.smsHref} className="flex items-center gap-1.5 hover:text-accent">
+                Text Us
+              </a>
+            </div>
           </div>
         </div>
       </div>

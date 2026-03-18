@@ -378,13 +378,8 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       })
       .filter((value): value is ShopProduct => value !== null);
 
-    // Support multi-select: comma-separated slugs (e.g. "mulch,sand")
-    const selectedSlugs = options.categorySlug
-      ? options.categorySlug.split(",").map((s) => s.trim()).filter(Boolean)
-      : [];
-
-    const filteredProducts = selectedSlugs.length > 0
-      ? mappedProducts.filter((product) => selectedSlugs.includes(product.categorySlug))
+    const filteredProducts = options.categorySlug
+      ? mappedProducts.filter((product) => product.categorySlug === options.categorySlug)
       : mappedProducts;
 
     // Only include categories that have at least one visible_web product
