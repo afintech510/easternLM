@@ -55,7 +55,7 @@ export default function PosCloseDayPage() {
     <div className="flex h-full items-center justify-center">
       <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5">
         <div className="flex items-center gap-3">
-          <a href="/pos" className="text-zinc-400 hover:text-zinc-200"><ArrowLeft className="h-5 w-5" /></a>
+          <a href="/yard/register" className="text-zinc-400 hover:text-zinc-200"><ArrowLeft className="h-5 w-5" /></a>
           <h1 className="text-xl font-bold">End of Day</h1>
           <span className="ml-auto text-sm text-zinc-400">{stats.date}</span>
         </div>
@@ -65,7 +65,7 @@ export default function PosCloseDayPage() {
             <Check className="mx-auto h-12 w-12 text-green-500" />
             <p className="mt-3 text-lg font-bold">Day Closed</p>
             <p className="text-sm text-zinc-400">Report saved. See you tomorrow!</p>
-            <a href="/pos" className="mt-4 inline-block rounded-lg bg-amber-600 px-6 py-2 font-semibold text-white hover:bg-amber-500">Back to Register</a>
+            <a href="/yard/register" className="mt-4 inline-block rounded-lg bg-amber-600 px-6 py-2 font-semibold text-white hover:bg-amber-500">Back to Register</a>
           </div>
         ) : (
           <>
