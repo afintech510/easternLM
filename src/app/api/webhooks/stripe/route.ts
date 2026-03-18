@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { sendOrderConfirmationEmail } from "@/lib/email/order-email";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ensureCustomerForOrder, linkCustomerToOrder } from "@/lib/customers/lifecycle";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 
@@ -475,6 +476,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
 
     if (!updated.error && updated.data) {
       order = updated.data;
+    }
+  }
+
+  // FIX 1: Ensure customer record exists and is linked to this order
+  if (!(order as any).customer_id) {
+    try {
+      const customerId = await ensureCustomerForOrder({
+        customer_name: order.customer_name,
+        customer_email: order.customer_email,
+        customer_phone: order.customer_phone ?? null,
+        delivery_address: order.delivery_address ?? null,
+        delivery_zip: order.delivery_zip ?? null,
+        sms_opt_in: order.sms_opt_in,
+        placed_at: order.placed_at,
+      });
+      if (customerId) {
+        await linkCustomerToOrder(order.id, customerId);
+      }
+    } catch (err) {
+      console.error("Customer linking failed:", err);
+      // Non-fatal — order is still valid
     }
   }
 
