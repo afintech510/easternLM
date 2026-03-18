@@ -88,12 +88,13 @@ function sortProducts(products: ShopProduct[], sort: ShopSortOption) {
 const fallbackCategories: ShopCategory[] = [
   { id: "fallback-mulch", name: "Mulch", slug: "mulch", description: "Dyed and natural bulk mulch for beds, trees, and erosion control.", image: null, sortOrder: 1 },
   { id: "fallback-topsoil-fill", name: "Topsoil & Fill", slug: "topsoil-fill", description: "Screened topsoil, compost, clean fill, and bank run for grading and planting.", image: null, sortOrder: 2 },
-  { id: "fallback-gravel-stone", name: "Gravel & Stone", slug: "gravel-stone", description: "Bulk crushed stone, gravel, and aggregate for driveways, drainage, and bases.", image: null, sortOrder: 3 },
+  { id: "fallback-base", name: "Base", slug: "base", description: "Crusher run, RCA, Item 4, and process for driveways, foundations, and base courses.", image: null, sortOrder: 3 },
+  { id: "fallback-gravel-stone", name: "Gravel & Stone", slug: "gravel-stone", description: "Bulk crushed stone, gravel, and aggregate for driveways, drainage, and bases.", image: null, sortOrder: 4 },
   { id: "fallback-sand", name: "Sand", slug: "sand", description: "Fine mason sand and concrete sand for patios, pavers, and concrete prep.", image: null, sortOrder: 4 },
   { id: "fallback-natural-stone", name: "Natural Stone", slug: "natural-stone", description: "Flagstone, cobblestone, boulders, steppers, treads, and veneer stone.", image: null, sortOrder: 5 },
   { id: "fallback-masonry-concrete", name: "Masonry & Concrete", slug: "masonry-concrete", description: "Cement blocks, brick, mortar, portland, concrete mix, rebar, and reinforcement.", image: null, sortOrder: 6 },
   { id: "fallback-pavers", name: "Pavers & Hardscape", slug: "pavers", description: "Cambridge, Nicolock pavers, polymeric sand, and paver accessories.", image: null, sortOrder: 7 },
-  { id: "fallback-bagged-material", name: "Bagged & Bucket", slug: "bagged-material", description: "Bagged mulch, soil, gravel, salt, and bucket-size materials for small projects.", image: null, sortOrder: 8 },
+  { id: "fallback-bagged-material", name: "Bagged Materials", slug: "bagged-material", description: "Bagged mulch, soil, gravel, salt, and bucket-size materials for small projects.", image: null, sortOrder: 8 },
   { id: "fallback-tools", name: "Tools & Supplies", slug: "tools", description: "Masonry tools, blades, levels, trowels, shovels, and job site essentials.", image: null, sortOrder: 9 },
   { id: "fallback-chemicals", name: "Chemicals & Sealers", slug: "chemicals", description: "Paver sealers, cleaners, stain removers, cement color, and muriatic acid.", image: null, sortOrder: 10 },
   { id: "fallback-landscape", name: "Landscape & Drainage", slug: "landscape", description: "Weed fabric, edging, drain covers, drainage rock, and landscape accessories.", image: null, sortOrder: 11 },
@@ -377,13 +378,24 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       })
       .filter((value): value is ShopProduct => value !== null);
 
-    const filteredProducts = options.categorySlug
-      ? mappedProducts.filter((product) => product.categorySlug === options.categorySlug)
+    // Support multi-select: comma-separated slugs (e.g. "mulch,sand")
+    const selectedSlugs = options.categorySlug
+      ? options.categorySlug.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    const filteredProducts = selectedSlugs.length > 0
+      ? mappedProducts.filter((product) => selectedSlugs.includes(product.categorySlug))
       : mappedProducts;
+
+    // Only include categories that have at least one visible_web product
+    const categorySlugsWithProducts = new Set(mappedProducts.map((p) => p.categorySlug));
+    const visibleCategories = categoriesResult.data
+      .map((category) => categoryById.get(category.id) as ShopCategory)
+      .filter((cat) => categorySlugsWithProducts.has(cat.slug));
 
     return {
       source: "supabase",
-      categories: categoriesResult.data.map((category) => categoryById.get(category.id) as ShopCategory),
+      categories: visibleCategories,
       products: sortProducts(filteredProducts, selectedSort),
     };
   } catch {

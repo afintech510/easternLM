@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Calculator, CheckCircle, Phone, Search, Truck } from "lucide-react";
+import {
+  ArrowRight, Calculator, CheckCircle, Phone, Search, Truck,
+  TreePine, Mountain, Gem, Waves, Landmark, Box, LayoutGrid,
+  Package, Layers, Wrench, FlaskConical, Fence, Flame, CircleDot,
+} from "lucide-react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
@@ -43,6 +47,23 @@ function resolveSortOption(value?: string): ShopSortOption {
   return "popular";
 }
 
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  "mulch": TreePine,
+  "topsoil-fill": Mountain,
+  "gravel-stone": Gem,
+  "sand": Waves,
+  "natural-stone": Landmark,
+  "masonry-concrete": Box,
+  "pavers": LayoutGrid,
+  "bagged-material": Package,
+  "base": Layers,
+  "tools": Wrench,
+  "chemicals": FlaskConical,
+  "landscape": Fence,
+  "outdoor-living": Flame,
+  "rentals-services": Truck,
+};
+
 function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption, q?: string) {
   const params = new URLSearchParams();
   if (categorySlug) params.set("category", categorySlug);
@@ -50,6 +71,16 @@ function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption, q
   if (q) params.set("q", q);
   const query = params.toString();
   return query ? `/shop?${query}` : "/shop";
+}
+
+/** Toggle a slug in/out of a comma-separated category string */
+function toggleCategory(current: string | undefined, slug: string): string | undefined {
+  const slugs = current ? current.split(",").filter(Boolean) : [];
+  if (slugs.includes(slug)) {
+    const remaining = slugs.filter((s) => s !== slug);
+    return remaining.length > 0 ? remaining.join(",") : undefined;
+  }
+  return [...slugs, slug].join(",");
 }
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
@@ -72,7 +103,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       )
     : catalog.products;
 
-  const selectedCategoryLabel = catalog.categories.find((c) => c.slug === selectedCategory)?.name;
+  const selectedSlugs = selectedCategory ? selectedCategory.split(",").filter(Boolean) : [];
+  const selectedCategoryLabel = selectedSlugs.length === 1
+    ? catalog.categories.find((c) => c.slug === selectedSlugs[0])?.name
+    : selectedSlugs.length > 1
+    ? `${selectedSlugs.length} categories`
+    : undefined;
 
   const sortOptions: Array<{ value: ShopSortOption; label: string }> = [
     { value: "popular", label: "Popular" },
@@ -109,24 +145,38 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         </div>
       </section>
 
-      {/* ── Mobile category tabs (horizontal scroll) ────── */}
-      <div className="overflow-x-auto border-b bg-card lg:hidden">
-        <div className="flex gap-1 px-4 py-2">
+      {/* ── Mobile category grid ────────────────────────── */}
+      <div className="border-b bg-card px-4 py-3 lg:hidden">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           <Link
             href={buildShopHref(undefined, selectedSort)}
-            className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium ${!selectedCategory ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`flex flex-col items-center gap-1.5 rounded-lg border p-2.5 text-center transition-colors ${
+              !selectedCategory
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted-foreground hover:border-muted-foreground/40"
+            }`}
           >
-            All
+            <CircleDot className="size-5" />
+            <span className="text-[11px] font-medium leading-tight">All</span>
           </Link>
-          {catalog.categories.map((cat) => (
-            <Link
-              key={cat.id}
-              href={buildShopHref(cat.slug, selectedSort)}
-              className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap ${selectedCategory === cat.slug ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {cat.name}
-            </Link>
-          ))}
+          {catalog.categories.map((cat) => {
+            const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
+            const isActive = selectedSlugs.includes(cat.slug);
+            return (
+              <Link
+                key={cat.id}
+                href={buildShopHref(toggleCategory(selectedCategory, cat.slug), selectedSort)}
+                className={`flex flex-col items-center gap-1.5 rounded-lg border p-2.5 text-center transition-colors ${
+                  isActive
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:border-muted-foreground/40"
+                }`}
+              >
+                <Icon className="size-5" />
+                <span className="text-[11px] font-medium leading-tight">{cat.name}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -155,19 +205,25 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               <nav className="space-y-0.5">
                 <Link
                   href={buildShopHref(undefined, selectedSort)}
-                  className={`block rounded-md px-3 py-2 text-sm font-medium ${!selectedCategory ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-muted"}`}
+                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${!selectedCategory ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-muted"}`}
                 >
+                  <CircleDot className="size-4" />
                   All Materials
                 </Link>
-                {catalog.categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    href={buildShopHref(cat.slug, selectedSort)}
-                    className={`block rounded-md px-3 py-2 text-sm font-medium ${selectedCategory === cat.slug ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-muted"}`}
-                  >
-                    {cat.name}
-                  </Link>
-                ))}
+                {catalog.categories.map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
+                  const isActive = selectedSlugs.includes(cat.slug);
+                  return (
+                    <Link
+                      key={cat.id}
+                      href={buildShopHref(toggleCategory(selectedCategory, cat.slug), selectedSort)}
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-accent/15 text-accent" : "text-foreground/70 hover:bg-muted"}`}
+                    >
+                      <Icon className="size-4" />
+                      {cat.name}
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
 
@@ -208,13 +264,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                     className="group flex flex-col overflow-hidden rounded-xl border bg-card transition-all hover:border-accent/30 hover:shadow-md"
                   >
                     {/* Image — big, clickable */}
-                    <Link href={`/shop/${product.slug}`} className="block overflow-hidden">
+                    <Link href={`/shop/${product.slug}`} className="block overflow-hidden bg-muted/30">
                       <Image
-                        src={product.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"}
+                        src={product.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=640&fit=crop"}
                         alt={product.name}
-                        className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="aspect-[5/4] w-full object-contain transition-transform duration-300 group-hover:scale-105"
                         width={800}
-                        height={500}
+                        height={640}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     </Link>

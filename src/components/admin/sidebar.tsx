@@ -88,6 +88,7 @@ const SECTIONS: NavSection[] = [
       { label: "Charge Accounts", href: "/admin/accounts", icon: CreditCard },
       { label: "Statements", href: "/admin/statements", icon: FileSpreadsheet },
       { label: "Upload (OCR)", href: "/admin/invoices/upload", icon: Upload },
+      { label: "Scan (Mobile)", href: "/yard/scan", icon: Camera },
       { label: "Suppliers", href: "/admin/suppliers", icon: Factory },
       { label: "Transactions", href: "/admin/transactions", icon: ArrowRightLeft },
     ],

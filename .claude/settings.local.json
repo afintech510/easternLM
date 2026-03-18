@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X GET \"https://api.supabase.com/v1/projects/qnwevkgrhdrjqvvabcit/config/auth\" -H \"Authorization: Bearer sbp_3a5b41344a8d9263963777193a75650930a52d17\" -H \"Content-Type: application/json\")"
+    ]
+  }
+}
