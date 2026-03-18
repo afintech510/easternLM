@@ -41,7 +41,8 @@ async function sendQuoteSms(phone: string, quoteNumber: string, totalCents: numb
 
 async function sendQuoteEmail(email: string, customerName: string, quoteNumber: string, totalCents: number, quoteUrl: string) {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com";
+  const fromEmail = process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@send.easternlm.com";
+  const replyTo = process.env.RESEND_QUOTES_REPLY_TO ?? "quotes@easternlm.com";
   if (!apiKey) return;
 
   const { Resend } = await import("resend");
@@ -49,7 +50,8 @@ async function sendQuoteEmail(email: string, customerName: string, quoteNumber: 
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
 
   await resend.emails.send({
-    from: fromEmail,
+    from: `Eastern LM Quotes <${fromEmail}>`,
+    replyTo,
     to: email,
     subject: `Your Quote from Eastern LM — ${quoteNumber}`,
     html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
