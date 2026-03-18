@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { ClipboardList, DollarSign, Package, Phone, Search, ShoppingCart, Truck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { QuickQuoteButton } from "@/components/admin/quick-quote";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function tryGetAdmin() {
@@ -57,7 +58,10 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
+        <div className="flex items-center gap-3">
+          <QuickQuoteButton />
+          <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
+        </div>
       </div>
 
       {/* Stats */}

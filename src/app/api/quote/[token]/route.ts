@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { cancelNotViewedFollowUps } from "@/lib/quotes/follow-ups";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -25,6 +26,8 @@ export async function GET(_req: Request, context: RouteContext) {
       .update({ status: "viewed", viewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("public_token", token);
     data.status = "viewed";
+    // Cancel "not viewed" follow-ups since they did view it
+    cancelNotViewedFollowUps(data.id).catch(() => {});
   }
 
   return NextResponse.json({ quote: data });
