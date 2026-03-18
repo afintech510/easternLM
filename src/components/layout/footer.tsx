@@ -27,13 +27,21 @@ export function Footer() {
               />
             </div>
             <div className="space-y-2.5 text-sm">
-              <a
-                href={siteConfig.phoneHref}
-                className="flex items-center gap-2.5 text-lg font-semibold transition-colors hover:text-accent"
-              >
-                <Phone className="size-4 text-accent" />
-                {siteConfig.phoneDisplay}
-              </a>
+              <div className="flex items-center gap-3">
+                <a
+                  href={siteConfig.phoneHref}
+                  className="flex items-center gap-2 text-lg font-semibold transition-colors hover:text-accent"
+                >
+                  <Phone className="size-4 text-accent" />
+                  {siteConfig.phoneDisplay}
+                </a>
+                <a
+                  href={siteConfig.smsHref}
+                  className="rounded-md border border-primary-foreground/20 px-2.5 py-1 text-xs font-medium text-primary-foreground/60 transition-colors hover:text-accent hover:border-accent/30"
+                >
+                  Text Us
+                </a>
+              </div>
               <a
                 href="https://maps.google.com/?q=110+Frowein+Road+Center+Moriches+NY+11934"
                 target="_blank"

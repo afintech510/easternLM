@@ -9,6 +9,7 @@ export const siteConfig = {
     "Suffolk County landscape and masonry supply yard with pickup and delivery.",
   phoneDisplay: "(631) 874-6244",
   phoneHref: "tel:+16318746244",
+  smsHref: "sms:+16318746244",
   email: "sales@easternlm.com",
   addressLine1: "110 Frowein Road",
   addressLine2: "Center Moriches, NY 11934",

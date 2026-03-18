@@ -6,7 +6,7 @@ import {
   TreePine, Mountain, Gem, Waves, Landmark, Box, LayoutGrid,
   Package, Layers, Wrench, FlaskConical, Fence, Flame, CircleDot,
 } from "lucide-react";
-import { AddToCartButton } from "@/components/cart/add-to-cart-button";
+import { ProductCardActions } from "@/components/cart/product-card-actions";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { getShopCatalog, type ShopSortOption } from "@/lib/data/catalog";
@@ -73,15 +73,6 @@ function buildShopHref(categorySlug: string | undefined, sort: ShopSortOption, q
   return query ? `/shop?${query}` : "/shop";
 }
 
-/** Toggle a slug in/out of a comma-separated category string */
-function toggleCategory(current: string | undefined, slug: string): string | undefined {
-  const slugs = current ? current.split(",").filter(Boolean) : [];
-  if (slugs.includes(slug)) {
-    const remaining = slugs.filter((s) => s !== slug);
-    return remaining.length > 0 ? remaining.join(",") : undefined;
-  }
-  return [...slugs, slug].join(",");
-}
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const query = await searchParams;
@@ -103,12 +94,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       )
     : catalog.products;
 
-  const selectedSlugs = selectedCategory ? selectedCategory.split(",").filter(Boolean) : [];
-  const selectedCategoryLabel = selectedSlugs.length === 1
-    ? catalog.categories.find((c) => c.slug === selectedSlugs[0])?.name
-    : selectedSlugs.length > 1
-    ? `${selectedSlugs.length} categories`
-    : undefined;
+  const selectedCategoryLabel = catalog.categories.find((c) => c.slug === selectedCategory)?.name;
 
   const sortOptions: Array<{ value: ShopSortOption; label: string }> = [
     { value: "popular", label: "Popular" },
@@ -161,11 +147,11 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           </Link>
           {catalog.categories.map((cat) => {
             const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
-            const isActive = selectedSlugs.includes(cat.slug);
+            const isActive = selectedCategory === cat.slug;
             return (
               <Link
                 key={cat.id}
-                href={buildShopHref(toggleCategory(selectedCategory, cat.slug), selectedSort)}
+                href={buildShopHref(isActive ? undefined : cat.slug, selectedSort)}
                 className={`flex flex-col items-center gap-1.5 rounded-lg border p-2.5 text-center transition-colors ${
                   isActive
                     ? "border-accent bg-accent/10 text-accent"
@@ -212,11 +198,11 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                 </Link>
                 {catalog.categories.map((cat) => {
                   const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
-                  const isActive = selectedSlugs.includes(cat.slug);
+                  const isActive = selectedCategory === cat.slug;
                   return (
                     <Link
                       key={cat.id}
-                      href={buildShopHref(toggleCategory(selectedCategory, cat.slug), selectedSort)}
+                      href={buildShopHref(isActive ? undefined : cat.slug, selectedSort)}
                       className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-accent/15 text-accent" : "text-foreground/70 hover:bg-muted"}`}
                     >
                       <Icon className="size-4" />
@@ -310,17 +296,18 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       </div>
 
                       {/* Button area — always pinned to bottom */}
-                      <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/shop/${product.slug}`}>Details</Link>
-                        </Button>
-                        <AddToCartButton
+                      <div className="mt-4 border-t pt-3 space-y-2">
+                        <ProductCardActions
                           productId={product.id}
                           name={product.name}
                           unitPriceCents={product.pricePerUnitCents}
                           deliveryType={product.deliveryType}
                           materialClass={product.materialClass}
+                          unit={product.unit}
                         />
+                        <Button asChild variant="outline" size="sm" className="w-full">
+                          <Link href={`/shop/${product.slug}`}>View Details</Link>
+                        </Button>
                       </div>
                     </div>
                   </article>
