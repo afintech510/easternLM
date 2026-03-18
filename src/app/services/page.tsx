@@ -162,8 +162,16 @@ export default function ServicesPage() {
             >
               <a href={siteConfig.phoneHref}>
                 <Phone className="size-4" />
-                {siteConfig.phoneDisplay}
+                Call {siteConfig.phoneDisplay}
               </a>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            >
+              <a href={siteConfig.smsHref}>Text Us</a>
             </Button>
           </div>
         </div>

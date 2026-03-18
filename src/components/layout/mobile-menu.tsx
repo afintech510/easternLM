@@ -120,13 +120,18 @@ export function MobileMenu() {
         </div>
 
         {/* Phone */}
-        <div className="mt-6 border-t pt-4">
-          <Button asChild variant="outline" className="w-full" size="lg">
-            <a href={siteConfig.phoneHref}>
-              <Phone className="size-4" /> {siteConfig.phoneDisplay}
-            </a>
-          </Button>
-          <p className="mt-2 text-center text-xs text-muted-foreground">Mon-Fri 7-5 &middot; Sat 7-3</p>
+        <div className="mt-6 border-t pt-4 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button asChild variant="outline" size="lg">
+              <a href={siteConfig.phoneHref}>
+                <Phone className="size-4" /> Call
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <a href={siteConfig.smsHref}>Text Us</a>
+            </Button>
+          </div>
+          <p className="text-center text-xs text-muted-foreground">Mon-Fri 7-5 &middot; Sat 7-3</p>
         </div>
       </SheetContent>
     </Sheet>
