@@ -136,7 +136,7 @@ export default function InvoicesDashboardPage() {
                 <span className="font-medium">
                   {inv.invoice_number ? `#${inv.invoice_number}` : <span className="text-muted-foreground">No #</span>}
                 </span>
-                <span className="text-sm text-muted-foreground">{inv.suppliers?.name ?? "—"}</span>
+                <span className="text-sm text-muted-foreground">{inv.suppliers?.name ?? <span className="italic text-muted-foreground/60">Unassigned</span>}</span>
                 {inv.invoice_date && (
                   <span className="text-sm text-muted-foreground">{inv.invoice_date}</span>
                 )}

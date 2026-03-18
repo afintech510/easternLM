@@ -288,7 +288,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             {relatedProducts.map((related) => (
               <article key={related.id} className="rounded-xl border bg-card p-4">
                 <Link href={`/shop/${related.slug}`} className="block">
-                  <ProductImage src={related.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop"} alt={related.name} className="h-32 w-full rounded-lg object-cover" width={800} height={500} />
+                  <ProductImage src={related.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=640&fit=crop"} alt={related.name} className="aspect-[5/4] w-full rounded-lg object-contain bg-muted/30" width={800} height={640} />
                 </Link>
                 <Link href={`/shop/${related.slug}`} className="mt-2 block text-sm font-semibold hover:text-accent">{related.name}</Link>
                 <p className="mt-0.5 text-sm font-bold text-accent">{formatUsd(related.pricePerUnitCents)} <span className="font-normal text-muted-foreground">{related.unitDisplay}</span></p>

@@ -47,7 +47,7 @@ export const featuredCategories: Category[] = [
     description: "Cambridge, Nicolock pavers, polymeric sand, and paver accessories.",
   },
   {
-    name: "Bagged & Bucket",
+    name: "Bagged Materials",
     slug: "bagged-material",
     description: "Bagged mulch, soil, gravel, salt, and bucket-size materials for small projects.",
   },
