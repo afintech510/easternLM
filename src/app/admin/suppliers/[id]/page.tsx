@@ -19,6 +19,8 @@ type Supplier = {
   delivery_fee_notes: string | null; minimum_order_notes: string | null;
   payment_terms: string | null; account_number: string | null;
   notes: string | null; is_active: boolean; created_at: string;
+  pricelist_effective_date: string | null;
+  pricelist_documents: any[];
 };
 
 type SupplierProduct = {
@@ -69,7 +71,7 @@ export default function SupplierDetailPage() {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"products" | "notes" | "invoices">("products");
+  const [tab, setTab] = useState<"products" | "pricelist" | "notes" | "invoices">("products");
 
   // Edit supplier state
   const [editingSupplier, setEditingSupplier] = useState(false);
@@ -344,6 +346,9 @@ export default function SupplierDetailPage() {
                 {supplier.delivery_fee_notes && (
                   <div><span className="text-xs text-muted-foreground">Delivery: </span><span className="font-medium">{supplier.delivery_fee_notes}</span></div>
                 )}
+                {supplier.pricelist_effective_date && (
+                  <div><span className="text-xs text-muted-foreground">Price List: </span><span className="font-medium">Effective {new Date(supplier.pricelist_effective_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></div>
+                )}
               </div>
             </div>
 
@@ -363,10 +368,10 @@ export default function SupplierDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {(["products", "notes", "invoices"] as const).map((t) => (
+        {(["products", "pricelist", "notes", "invoices"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${tab === t ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-            {t === "products" ? `Products (${products.length})` : t === "notes" ? "Notes" : "Invoices"}
+            {t === "products" ? `Products (${products.length})` : t === "pricelist" ? "Price List" : t === "notes" ? "Notes" : "Invoices"}
           </button>
         ))}
       </div>
@@ -589,6 +594,71 @@ export default function SupplierDetailPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Pricelist Tab — clean printable view */}
+      {tab === "pricelist" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">{supplier.name} — Price List</h2>
+              {supplier.pricelist_effective_date && (
+                <p className="text-sm text-muted-foreground">Effective {new Date(supplier.pricelist_effective_date + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+              )}
+              {supplier.minimum_order_notes && (
+                <p className="text-sm text-amber-600 mt-1">{supplier.minimum_order_notes}</p>
+              )}
+            </div>
+            <Button size="sm" variant="outline" onClick={() => window.print()}>Print</Button>
+          </div>
+
+          {/* Group by unit */}
+          {(() => {
+            const byUnit: Record<string, SupplierProduct[]> = {};
+            products.forEach((p) => { (byUnit[p.unit] ??= []).push(p); });
+            return Object.entries(byUnit).map(([unit, items]) => (
+              <div key={unit}>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Sold by the {unit}
+                </h3>
+                <div className="rounded-lg border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium">Material</th>
+                        <th className="px-4 py-2 text-right font-medium">Supplier Cost</th>
+                        <th className="px-4 py-2 text-right font-medium">Our Price</th>
+                        <th className="px-4 py-2 text-right font-medium">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {items.sort((a, b) => a.supplier_product_name.localeCompare(b.supplier_product_name)).map((p) => {
+                        const mgn = margin(p.cost_per_unit_cents, p.our_price_per_unit_cents ?? 0);
+                        return (
+                          <tr key={p.id} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium">{p.supplier_product_name}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums">{fmt(p.cost_per_unit_cents)}/{unit}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums">
+                              {p.our_price_per_unit_cents ? `${fmt(p.our_price_per_unit_cents)}/${unit}` : <span className="text-muted-foreground italic">Not set</span>}
+                            </td>
+                            <td className={`px-4 py-2.5 text-right tabular-nums ${marginColor(mgn)}`}>
+                              {mgn !== null ? `${mgn}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ));
+          })()}
+
+          <p className="text-xs text-muted-foreground">
+            Prices are for material picked up at supplier location.
+            {supplier.address && ` ${supplier.address}, ${supplier.city ?? ""} ${supplier.state ?? ""} ${supplier.zip ?? ""}`}
+          </p>
         </div>
       )}
 
