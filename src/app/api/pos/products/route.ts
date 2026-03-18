@@ -21,7 +21,7 @@ export async function GET() {
       delivery_type: p.delivery_type,
       material_class: p.material_class || "default",
       min_qty: p.min_qty || 1,
-      qty_step: p.delivery_type === "bulk" ? 0.5 : 1,
+      qty_step: 1,
       category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
       category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
       image_url: images[0] || null,
