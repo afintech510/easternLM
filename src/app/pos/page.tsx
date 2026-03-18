@@ -133,6 +133,8 @@ export default function PosRegisterPage() {
   const [delDate, setDelDate] = useState("");
   const [delTimeWindow, setDelTimeWindow] = useState("flexible");
   const [delNotes, setDelNotes] = useState("");
+  const [delCustomerId, setDelCustomerId] = useState<string | null>(null);
+  const [delCustomerStatus, setDelCustomerStatus] = useState<"" | "found" | "new" | "saving">("");
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -424,6 +426,56 @@ export default function PosRegisterPage() {
     setPaymentMethod(null);
   }
 
+  // Auto-lookup customer by phone in delivery tab
+  async function handleDeliveryPhoneLookup(phone: string) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return;
+    try {
+      const r = await fetch(`/api/pos/customers/lookup?phone=${encodeURIComponent(digits)}`);
+      const d = await r.json();
+      if (d.customer) {
+        setDelName(`${d.customer.first_name ?? ""} ${d.customer.last_name ?? ""}`.trim());
+        setDelEmail(d.customer.email ?? "");
+        if (d.customer.address && !delAddress) setDelAddress(d.customer.address);
+        setDelCustomerId(d.customer.id);
+        setDelCustomerStatus("found");
+        // Also set the main customer state
+        setCustomerName(`${d.customer.first_name ?? ""} ${d.customer.last_name ?? ""}`.trim());
+        setCustomerPhone(digits);
+        setSelectedCustomer(d.customer);
+      } else {
+        setDelCustomerId(null);
+        setDelCustomerStatus("new");
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function handleSaveDeliveryCustomer() {
+    if (!delPhone && !delName) return;
+    setDelCustomerStatus("saving");
+    try {
+      const nameParts = delName.trim().split(/\s+/);
+      const r = await fetch("/api/pos/customers/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: delPhone,
+          first_name: nameParts[0] ?? "",
+          last_name: nameParts.slice(1).join(" ") ?? "",
+          email: delEmail || undefined,
+          address: delAddress || undefined,
+          source: "pos",
+        }),
+      });
+      const d = await r.json();
+      if (d.customer) {
+        setDelCustomerId(d.customer.id);
+        setDelCustomerStatus("found");
+        setSelectedCustomer(d.customer);
+      }
+    } catch { setDelCustomerStatus(""); }
+  }
+
   async function calculateDeliveryFee(address: string) {
     try {
       const res = await fetch("/api/delivery/distance", {
@@ -703,7 +755,7 @@ export default function PosRegisterPage() {
         delivery_fee_cents: deliveryFeeCents,
         grand_total_cents: effectiveTotal,
         payment_method: isCard ? "card_terminal" : isAccount ? "account" : method === "cod" ? "cod" : "cash",
-        customer_id: isAccount && selectedCustomer ? selectedCustomer.id : undefined,
+        customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
         customer_name: delName || customerName,
@@ -1100,10 +1152,24 @@ export default function PosRegisterPage() {
                   type="tel"
                   value={delPhone}
                   onChange={(e) => { setDelPhone(e.target.value); setCustomerPhone(e.target.value); }}
+                  onBlur={() => handleDeliveryPhoneLookup(delPhone)}
                   placeholder="(631) 555-0123"
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
+                {delCustomerStatus === "found" && <p className="mt-1 text-[11px] text-green-400">Found existing customer</p>}
+                {delCustomerStatus === "new" && <p className="mt-1 text-[11px] text-amber-400">New customer — saved on checkout</p>}
               </div>
+
+              {/* Save Customer button */}
+              {(delPhone || delName) && (
+                <button
+                  onClick={handleSaveDeliveryCustomer}
+                  disabled={delCustomerStatus === "saving"}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-50"
+                >
+                  {delCustomerStatus === "saving" ? "Saving..." : delCustomerId ? "Update Customer" : "Save Customer"}
+                </button>
+              )}
 
               {/* Delivery scheduling */}
               <div className="grid grid-cols-2 gap-3">
@@ -1835,9 +1901,9 @@ export default function PosRegisterPage() {
                 {/* Send buttons */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "Send SMS", via: ["sms"], disabled: !selectedCustomer?.phone },
-                    { label: "Send Email", via: ["email"], disabled: !selectedCustomer?.email },
-                    { label: "Send Both", via: ["sms", "email"], disabled: !selectedCustomer?.phone && !selectedCustomer?.email },
+                    { label: "Send SMS", via: ["sms"], disabled: !(selectedCustomer?.phone || delPhone || customerPhone) },
+                    { label: "Send Email", via: ["email"], disabled: !(selectedCustomer?.email || delEmail) },
+                    { label: "Send Both", via: ["sms", "email"], disabled: !(selectedCustomer?.phone || delPhone || customerPhone) && !(selectedCustomer?.email || delEmail) },
                   ].map(({ label, via, disabled }) => (
                     <button
                       key={label}
@@ -1856,11 +1922,11 @@ export default function PosRegisterPage() {
                                 unitPriceCents: i.price_cents,
                               })),
                               customer: {
-                                name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || "Customer",
-                                phone: selectedCustomer?.phone,
-                                email: selectedCustomer?.email,
-                                address: selectedCustomer?.address,
-                                id: selectedCustomer?.id,
+                                name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || delName || customerName || "Customer",
+                                phone: selectedCustomer?.phone || delPhone || customerPhone || undefined,
+                                email: selectedCustomer?.email || delEmail || undefined,
+                                address: selectedCustomer?.address || delAddress || undefined,
+                                id: selectedCustomer?.id || delCustomerId || undefined,
                               },
                               deliveryFeeCents: 0,
                               depositCents: Math.round(parseFloat(quoteDeposit || "0") * 100),
