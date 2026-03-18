@@ -306,7 +306,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
   const selectedSort: ShopSortOption = options.sort ?? "popular";
 
   try {
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseServerClient() as any;
 
     const [categoriesResult, productsResult] = await Promise.all([
       supabase
@@ -317,7 +317,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       supabase
         .from("products")
         .select(
-          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
+          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, web_price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
         )
         .eq("visible_web", true)
         .order("sort_order", { ascending: true }),
@@ -332,8 +332,10 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
     }
 
     const categoryDescriptionMap = new Map(featuredCategories.map((category) => [category.slug, category.description]));
+    const cats: any[] = categoriesResult.data ?? [];
+    const prods: any[] = productsResult.data ?? [];
     const categoryById = new Map(
-      categoriesResult.data.map((category) => [
+      cats.map((category: any) => [
         category.id,
         {
           id: category.id,
@@ -347,8 +349,8 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
       ]),
     );
 
-    const mappedProducts: ShopProduct[] = productsResult.data
-      .map((product) => {
+    const mappedProducts: ShopProduct[] = prods
+      .map((product: any) => {
         const category = categoryById.get(product.category_id);
         if (!category) {
           return null;
@@ -363,7 +365,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
           categoryName: category.name,
           deliveryType: coerceDeliveryType(product.delivery_type),
           materialClass: coerceMaterialClass(product.material_class),
-          pricePerUnitCents: product.price_per_unit_cents,
+          pricePerUnitCents: product.web_price_per_unit_cents ?? product.price_per_unit_cents,
           unit: product.unit,
           unitDisplay: product.unit_display,
           description: product.description,
@@ -376,7 +378,7 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
           sortOrder: product.sort_order,
         } satisfies ShopProduct;
       })
-      .filter((value): value is ShopProduct => value !== null);
+      .filter((value: any): value is ShopProduct => value !== null);
 
     const filteredProducts = options.categorySlug
       ? mappedProducts.filter((product) => product.categorySlug === options.categorySlug)
@@ -384,9 +386,9 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
 
     // Only include categories that have at least one visible_web product
     const categorySlugsWithProducts = new Set(mappedProducts.map((p) => p.categorySlug));
-    const visibleCategories = categoriesResult.data
-      .map((category) => categoryById.get(category.id) as ShopCategory)
-      .filter((cat) => categorySlugsWithProducts.has(cat.slug));
+    const visibleCategories = cats
+      .map((category: any) => categoryById.get(category.id) as ShopCategory)
+      .filter((cat: any) => categorySlugsWithProducts.has(cat.slug));
 
     return {
       source: "supabase",
@@ -400,13 +402,13 @@ export async function getShopCatalog(options: GetShopCatalogOptions = {}): Promi
 
 export async function getShopProductBySlug(slug: string): Promise<ProductDetailBundle | null> {
   try {
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseServerClient() as any;
 
     const [productResult, categoriesResult] = await Promise.all([
       supabase
         .from("products")
         .select(
-          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
+          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, web_price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
         )
         .eq("is_active", true)
         .eq("slug", slug)
@@ -426,7 +428,8 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
       featuredCategories.map((category) => [category.slug, category.description]),
     );
 
-    const categories: ShopCategory[] = categoriesResult.data.map((category) => ({
+    const detailCats: any[] = categoriesResult.data ?? [];
+    const categories: ShopCategory[] = detailCats.map((category: any) => ({
       id: category.id,
       name: category.name,
       slug: category.slug,
@@ -435,32 +438,33 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
       description: categoryDescriptionMap.get(category.slug) ?? "Material options available in this category.",
     }));
     const categoryById = new Map(categories.map((category) => [category.id, category]));
-    const productCategory = categoryById.get(productResult.data.category_id);
+    const pd: any = productResult.data;
+    const productCategory = categoryById.get(pd.category_id);
 
     if (!productCategory) {
       return mapFallbackProductDetail(slug);
     }
 
     const product: ShopProduct = {
-      id: productResult.data.id,
-      name: productResult.data.name,
-      slug: productResult.data.slug,
-      categoryId: productResult.data.category_id,
+      id: pd.id,
+      name: pd.name,
+      slug: pd.slug,
+      categoryId: pd.category_id,
       categorySlug: productCategory.slug,
       categoryName: productCategory.name,
-      deliveryType: coerceDeliveryType(productResult.data.delivery_type),
-      materialClass: coerceMaterialClass(productResult.data.material_class),
-      pricePerUnitCents: productResult.data.price_per_unit_cents,
-      unit: productResult.data.unit,
-      unitDisplay: productResult.data.unit_display,
-      description: productResult.data.description,
-      images: productResult.data.images ?? [],
-      recommendedUses: productResult.data.recommended_uses ?? [],
-      pairsWellWith: productResult.data.pairs_well_with ?? [],
-      minQty: Number(productResult.data.min_qty),
-      maxQty: Number(productResult.data.max_qty),
-      stepQty: Number(productResult.data.step_qty),
-      sortOrder: productResult.data.sort_order,
+      deliveryType: coerceDeliveryType(pd.delivery_type),
+      materialClass: coerceMaterialClass(pd.material_class),
+      pricePerUnitCents: pd.web_price_per_unit_cents ?? pd.price_per_unit_cents,
+      unit: pd.unit,
+      unitDisplay: pd.unit_display,
+      description: pd.description,
+      images: pd.images ?? [],
+      recommendedUses: pd.recommended_uses ?? [],
+      pairsWellWith: pd.pairs_well_with ?? [],
+      minQty: Number(pd.min_qty),
+      maxQty: Number(pd.max_qty),
+      stepQty: Number(pd.step_qty),
+      sortOrder: pd.sort_order,
     };
 
     let relatedProducts: ShopProduct[] = [];
@@ -468,15 +472,16 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
       const relatedResult = await supabase
         .from("products")
         .select(
-          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
+          "id, name, slug, category_id, delivery_type, material_class, price_per_unit_cents, web_price_per_unit_cents, unit, unit_display, description, images, recommended_uses, pairs_well_with, min_qty, max_qty, step_qty, sort_order",
         )
         .eq("visible_web", true)
         .in("slug", product.pairsWellWith)
         .order("sort_order", { ascending: true });
 
       if (!relatedResult.error) {
-        relatedProducts = relatedResult.data
-          .map((related) => {
+        const relatedData: any[] = relatedResult.data ?? [];
+        relatedProducts = relatedData
+          .map((related: any) => {
             const category = categoryById.get(related.category_id);
             if (!category) {
               return null;
@@ -491,7 +496,7 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
               categoryName: category.name,
               deliveryType: coerceDeliveryType(related.delivery_type),
               materialClass: coerceMaterialClass(related.material_class),
-              pricePerUnitCents: related.price_per_unit_cents,
+              pricePerUnitCents: related.web_price_per_unit_cents ?? related.price_per_unit_cents,
               unit: related.unit,
               unitDisplay: related.unit_display,
               description: related.description,
@@ -504,7 +509,7 @@ export async function getShopProductBySlug(slug: string): Promise<ProductDetailB
               sortOrder: related.sort_order,
             } satisfies ShopProduct;
           })
-          .filter((value): value is ShopProduct => value !== null);
+          .filter((value: any): value is ShopProduct => value !== null);
       }
     }
 

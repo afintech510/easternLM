@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Minus, Phone, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bookmark, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
@@ -20,6 +21,78 @@ function getDefaultDeliveryDate() {
   candidate.setDate(candidate.getDate() + 1);
   while (candidate.getDay() === 0) candidate.setDate(candidate.getDate() + 1);
   return candidate.toISOString().slice(0, 10);
+}
+
+function SaveCartButton({ items, deliveryMethod, deliveryAddress, customerInfo }: {
+  items: any[];
+  deliveryMethod: string;
+  deliveryAddress: any;
+  customerInfo: any;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [email, setEmail] = useState(customerInfo?.email ?? "");
+  const [phone, setPhone] = useState(customerInfo?.phone ?? "");
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/cart/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          deliveryMethod,
+          deliveryAddress: deliveryAddress?.fullAddress,
+          customerName: customerInfo?.fullName,
+          customerEmail: email || undefined,
+          customerPhone: phone || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success("Cart saved!", {
+        description: email || phone ? "We sent you a link to come back." : "Bookmark this page to return.",
+        duration: 5000,
+      });
+      setOpen(false);
+    } catch (err) {
+      toast.error("Could not save cart");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Bookmark className="size-3.5" /> Save for Later
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="h-8 w-36 rounded-md border bg-background px-2 text-xs"
+      />
+      <input
+        type="tel"
+        placeholder="Phone"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        className="h-8 w-28 rounded-md border bg-background px-2 text-xs"
+      />
+      <Button size="sm" onClick={handleSave} disabled={saving}>
+        {saving ? <Spin className="size-3 animate-spin" /> : "Send Link"}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>✕</Button>
+    </div>
+  );
 }
 
 export function CartPageClient() {
@@ -40,12 +113,35 @@ export function CartPageClient() {
   const applyPromoCode = useCartStore((s) => s.applyPromoCode);
   const setAccessConstraints = useCartStore((s) => s.setAccessConstraints);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
+  const customerInfo = useCartStore((s) => s.customerInfo);
+  const addItem = useCartStore((s) => s.addItem);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
+  const [flatbedDelivery, setFlatbedDelivery] = useState(false);
+  const [hasForklift, setHasForklift] = useState(false);
+  const [yardBagging, setYardBagging] = useState(false);
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
+
+  // Restore saved cart from ?restore=TOKEN
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("restore");
+    if (!token) return;
+    fetch(`/api/cart/restore?token=${token}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.items?.length) {
+          data.items.forEach((item: any) => addItem(item));
+          toast.success("Cart restored!", { description: `${data.items.length} item${data.items.length > 1 ? "s" : ""} loaded.` });
+          window.history.replaceState({}, "", "/cart");
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Minimum order fee: if delivery and materials < $125, add fee to reach $125
   const minOrderFeeCents = useMemo(() => {
@@ -56,6 +152,12 @@ export function CartPageClient() {
     return 0;
   }, [calculation, deliveryMethod]);
 
+  // Flatbed/forklift delivery surcharges
+  const flatbedFeeCents = flatbedDelivery ? 5000 : 0;
+  const forkliftSavingsCents = flatbedDelivery && hasForklift ? -2500 : 0;
+  const bulkYards = items.filter((i) => i.deliveryType === "bulk").reduce((s, i) => s + i.quantity, 0);
+  const yardBaggingCents = yardBagging ? bulkYards * 3000 : 0;
+
   const totals = useMemo(() => {
     if (!calculation) return null;
     return [
@@ -63,10 +165,13 @@ export function CartPageClient() {
       ...(minOrderFeeCents > 0 ? [{ label: "Min. order fee", value: minOrderFeeCents }] : []),
       ...(calculation.proDiscountCents > 0 ? [{ label: "Pro discount", value: -calculation.proDiscountCents }] : []),
       { label: "Delivery", value: calculation.deliveryFeeCents },
+      ...(flatbedFeeCents > 0 ? [{ label: "Flatbed delivery", value: flatbedFeeCents }] : []),
+      ...(forkliftSavingsCents < 0 ? [{ label: "Forklift on-site savings", value: forkliftSavingsCents }] : []),
+      ...(yardBaggingCents > 0 ? [{ label: `Yard bagging (${bulkYards} yd × $30)`, value: yardBaggingCents }] : []),
       { label: "Tax (8.75%)", value: calculation.taxCents },
       { label: "CC processing fee (3%)", value: calculation.ccSurchargeCents },
     ];
-  }, [calculation, minOrderFeeCents]);
+  }, [calculation, minOrderFeeCents, flatbedFeeCents, forkliftSavingsCents, yardBaggingCents, bulkYards]);
 
   // ── Empty cart ─────────────────────────────────────────
   if (items.length === 0) {
@@ -86,9 +191,12 @@ export function CartPageClient() {
     <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="[font-family:var(--font-display)] text-3xl text-primary">Your Cart</h1>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/shop"><ArrowLeft className="size-4" /> Continue Shopping</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <SaveCartButton items={items} deliveryMethod={deliveryMethod} deliveryAddress={deliveryAddress} customerInfo={customerInfo} />
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/shop"><ArrowLeft className="size-4" /> Continue Shopping</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
@@ -155,6 +263,36 @@ export function CartPageClient() {
                 <div>
                   <label className="mb-1 block text-sm font-medium">Preferred delivery date</label>
                   <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
+                </div>
+
+                {/* Flatbed / Forklift options */}
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Delivery Options</p>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={flatbedDelivery} onChange={(e) => { setFlatbedDelivery(e.target.checked); if (!e.target.checked) { setHasForklift(false); setYardBagging(false); } }} className="mt-0.5 accent-accent" />
+                    <div>
+                      <span className="text-sm font-medium">Flatbed delivery (+$50)</span>
+                      <p className="text-xs text-muted-foreground">Material delivered on a flatbed truck instead of a dump truck.</p>
+                    </div>
+                  </label>
+                  {flatbedDelivery && (
+                    <>
+                      <label className="flex items-start gap-2 cursor-pointer pl-4">
+                        <input type="checkbox" checked={hasForklift} onChange={(e) => setHasForklift(e.target.checked)} className="mt-0.5 accent-accent" />
+                        <div>
+                          <span className="text-sm font-medium">I have a forklift on-site (−$25)</span>
+                          <p className="text-xs text-muted-foreground">Save $25 if you can unload with your own forklift.</p>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer pl-4">
+                        <input type="checkbox" checked={yardBagging} onChange={(e) => setYardBagging(e.target.checked)} className="mt-0.5 accent-accent" />
+                        <div>
+                          <span className="text-sm font-medium">Yard bagging (+$30/yd)</span>
+                          <p className="text-xs text-muted-foreground">Bulk material bagged in 1-yard bags for flatbed delivery.</p>
+                        </div>
+                      </label>
+                    </>
+                  )}
                 </div>
               </div>
             )}
