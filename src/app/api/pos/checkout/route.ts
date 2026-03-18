@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ensureCustomerForOrder, linkCustomerToOrder, normalizePhone } from "@/lib/customers/lifecycle";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -99,33 +100,35 @@ export async function POST(request: Request) {
     await supabase.from("order_items").insert(orderItems);
   }
 
-  // Update customer stats + charge account balance
+  // Link customer and update stats using shared lifecycle engine
   const { customer_id: explicitCustomerId } = body;
-  const resolvedCustomerId = explicitCustomerId || customerId;
+  let resolvedCustomerId = explicitCustomerId || customerId;
+
+  // If no customer found by phone and no explicit ID, try to create one
+  if (!resolvedCustomerId && (customer_phone || customer_email)) {
+    resolvedCustomerId = await ensureCustomerForOrder({
+      customer_name: customer_name || "Walk-in",
+      customer_email: customer_email || null,
+      customer_phone: customer_phone || null,
+      delivery_address: delivery_address || null,
+    });
+  }
+
   if (resolvedCustomerId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cust } = await (supabase as any)
-      .from("customers")
-      .select("total_orders, total_spent_cents, current_balance_cents, is_charge_account")
-      .eq("id", resolvedCustomerId)
-      .single();
-    if (cust) {
-      const updates: Record<string, unknown> = {
-        total_orders: (cust.total_orders || 0) + 1,
-        total_spent_cents: (cust.total_spent_cents || 0) + grand_total_cents,
-        last_order_at: new Date().toISOString(),
-      };
-      // For account charges, increment balance
-      if (payment_method === "account" && cust.is_charge_account) {
-        updates.current_balance_cents = (cust.current_balance_cents || 0) + grand_total_cents;
+    await linkCustomerToOrder(order.id as string, resolvedCustomerId);
+
+    // For charge account payments, also increment balance
+    if (payment_method === "account") {
+      const { data: cust } = await (supabase as any)
+        .from("customers")
+        .select("current_balance_cents, is_charge_account")
+        .eq("id", resolvedCustomerId)
+        .single();
+      if (cust?.is_charge_account) {
+        await (supabase as any).from("customers").update({
+          current_balance_cents: (cust.current_balance_cents || 0) + grand_total_cents,
+        }).eq("id", resolvedCustomerId);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("customers").update(updates).eq("id", resolvedCustomerId);
-    }
-    // Link order to customer
-    if (!customerId && resolvedCustomerId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("orders").update({ customer_id: resolvedCustomerId }).eq("id", order.id);
     }
   }
 
