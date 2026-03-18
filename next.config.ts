@@ -14,10 +14,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "qnwevkgrhdrjqvvabcit.supabase.co",
       },
-      {
-        protocol: "https",
-        hostname: "easternbuilding.supply",
-      },
     ],
   },
 };
