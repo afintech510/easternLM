@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -80,6 +81,25 @@ export async function POST(_request: Request, context: RouteContext) {
       converted_order_id: order.id,
     })
     .eq("id", id);
+
+  // Auto-create delivery assignments if order has delivery items
+  if (hasDelivery) {
+    try {
+      await createDeliveryAssignments({
+        id: order.id,
+        delivery_method: hasDelivery ? "delivery" : "pickup",
+        delivery_address: quote.customer_address ?? null,
+        delivery_zip: null,
+        delivery_schedule: [],
+        distance_meters: null,
+        duration_seconds: null,
+        access_constraints: {},
+        metadata: {},
+        total_loads: 1,
+        total_delivery_days: 1,
+      });
+    } catch (err) { console.error("Auto-dispatch for quote conversion failed:", err); }
+  }
 
   // Auto-create a project from the quote + order
   await supabase.from("projects").insert({
