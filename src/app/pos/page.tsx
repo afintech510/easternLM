@@ -1769,6 +1769,55 @@ export default function PosRegisterPage() {
               )}
             </button>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={async () => {
+                if (!selectedCustomer?.phone && !selectedCustomer?.email) {
+                  alert("Select a customer with email or phone first.");
+                  return;
+                }
+                const desc = items.map((i: any) => `${i.quantity}x ${i.product.name}`).join(", ");
+                const res = await fetch("/api/pos/paylink", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    amountCents: cashTotalCents,
+                    customerName: selectedCustomer?.first_name ?? "",
+                    customerEmail: selectedCustomer?.email,
+                    customerPhone: selectedCustomer?.phone,
+                    sendEmail: !!selectedCustomer?.email,
+                    sendSms: !!selectedCustomer?.phone,
+                    description: desc,
+                  }),
+                });
+                if (res.ok) alert("Payment link sent!");
+                else alert("Failed to send paylink.");
+              }}
+              disabled={items.length === 0 || processing}
+              className="rounded-lg bg-purple-800 py-2 text-xs font-medium text-purple-200 hover:bg-purple-700 disabled:opacity-30"
+            >
+              Send Paylink
+            </button>
+            <label className="flex cursor-pointer items-center justify-center rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700">
+              License Photo
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const fd = new FormData();
+                  fd.append("file", file);
+                  const res = await fetch("/api/pos/license-photo", { method: "POST", body: fd });
+                  if (res.ok) alert("License photo uploaded.");
+                  else alert("Upload failed.");
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
         </div>
       </div>
 
