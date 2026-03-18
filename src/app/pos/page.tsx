@@ -31,6 +31,8 @@ import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
+import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
+import { RefundModal } from "@/components/pos/refund/refund-modal";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -95,6 +97,8 @@ export default function PosRegisterPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "cod" | "account" | null>(null);
   const [showAccountConfirm, setShowAccountConfirm] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showRefund, setShowRefund] = useState<any>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [quoteDeposit, setQuoteDeposit] = useState("200");
   const [quoteNote, setQuoteNote] = useState("");
@@ -963,9 +967,9 @@ export default function PosRegisterPage() {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "F1") { e.preventDefault(); document.getElementById("pos-search")?.focus(); }
-      if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("card"); completeSale("card"); } }
-      if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setPaymentMethod("cash"); setShowCashDialog(true); } }
-      if (e.key === "F4") { e.preventDefault(); if (items.length > 0) { completeSale("cod"); } }
+      if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
+      if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
+      if (e.key === "F4") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
       if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); setShowDiscountModal(false); setShowHoldModal(false); }
     }
     window.addEventListener("keydown", handleKey);
@@ -1704,9 +1708,9 @@ export default function PosRegisterPage() {
           </div>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — HOLD / QUOTE / CHECKOUT */}
         <div className="space-y-2 border-t border-zinc-800 p-3">
-          {/* Terminal indicator */}
+          {/* Status indicators */}
           <div className="flex items-center justify-center gap-3 text-xs text-zinc-500">
             <span className="flex items-center gap-1">
               <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
@@ -1718,117 +1722,139 @@ export default function PosRegisterPage() {
               </span>
             )}
           </div>
-          <div className={`grid gap-2 ${selectedCustomer?.is_charge_account ? "grid-cols-2" : "grid-cols-3"}`}>
-            <button
-              onClick={() => { setPaymentMethod("card"); completeSale("card"); }}
-              disabled={items.length === 0 || processing || terminalStatus === "disconnected"}
-              className="rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-30"
-            >
-              CARD {formatUsd(cardTotalCents)} <span className="block text-[10px] font-normal opacity-70">F2</span>
-            </button>
-            <button
-              onClick={() => { setPaymentMethod("cash"); setShowCashDialog(true); }}
-              disabled={items.length === 0 || processing}
-              className="rounded-lg bg-blue-700 py-3 text-sm font-bold text-white hover:bg-blue-600 disabled:opacity-30"
-            >
-              CASH {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F3</span>
-            </button>
-            {!selectedCustomer?.is_charge_account && (
-              <button
-                onClick={() => completeSale("cod")}
-                disabled={items.length === 0 || processing}
-                className="rounded-lg bg-orange-700 py-3 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-30"
-              >
-                COD {formatUsd(cashTotalCents)} <span className="block text-[10px] font-normal opacity-70">F4</span>
-              </button>
-            )}
-          </div>
-          {selectedCustomer?.is_charge_account && (
-            <button
-              onClick={() => {
-                const newBalance = (selectedCustomer.current_balance_cents ?? 0) + cashTotalCents;
-                const overLimit = selectedCustomer.credit_limit_cents && newBalance > selectedCustomer.credit_limit_cents;
-                if (overLimit) {
-                  if (!confirm(`⚠️ This charge will exceed ${selectedCustomer.charge_account_name ?? selectedCustomer.first_name}'s credit limit (${formatUsd(selectedCustomer.credit_limit_cents!)}). Current balance: ${formatUsd(selectedCustomer.current_balance_cents ?? 0)}. Proceed anyway?`)) return;
-                }
-                setShowAccountConfirm(true);
-              }}
-              disabled={items.length === 0 || processing}
-              className="w-full rounded-lg bg-indigo-700 py-3 text-sm font-bold text-white hover:bg-indigo-600 disabled:opacity-30"
-            >
-              PAY — ACCOUNT <span className="block text-[10px] font-normal opacity-70">{formatUsd(cashTotalCents)}</span>
-            </button>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={clearSale} className="rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700">
-              Cancel
-            </button>
-            <button onClick={() => setShowHoldModal(true)} disabled={items.length === 0} className="relative rounded-lg bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700 disabled:opacity-30">
-              Hold Order
+
+          {/* Primary row: HOLD + QUOTE + CHECKOUT */}
+          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+            <button onClick={() => setShowHoldModal(true)} disabled={items.length === 0}
+              className="relative rounded-lg bg-zinc-800 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-700 disabled:opacity-30">
+              Hold
               {heldOrders.length > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">{heldOrders.length}</span>
               )}
             </button>
+            <button
+              onClick={() => { setShowQuoteModal(true); setQuoteResult(null); setQuoteNote(""); setQuoteDeposit("200"); }}
+              className="rounded-lg bg-teal-800 py-3 text-sm font-medium text-teal-100 hover:bg-teal-700"
+            >
+              Quote
+            </button>
+            <button
+              onClick={() => setShowCheckout(true)}
+              disabled={items.length === 0 || processing}
+              className="rounded-lg bg-green-600 py-3 text-base font-bold text-white hover:bg-green-500 disabled:opacity-30 active:bg-green-700 transition-colors"
+            >
+              CHECKOUT {formatUsd(cashTotalCents)}
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          {/* Secondary row: Cancel + Paylink + License */}
+          <div className="grid grid-cols-3 gap-1.5">
+            <button onClick={clearSale} className="rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800">
+              Cancel
+            </button>
             <button
               onClick={async () => {
-                if (!selectedCustomer?.phone && !selectedCustomer?.email) {
-                  alert("Select a customer with email or phone first.");
-                  return;
-                }
+                const phone = selectedCustomer?.phone || delPhone || customerPhone;
+                const email = selectedCustomer?.email || delEmail;
+                if (!phone && !email) { alert("Add customer phone or email first."); return; }
                 const desc = items.map((i: any) => `${i.quantity}x ${i.product.name}`).join(", ");
                 const res = await fetch("/api/pos/paylink", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    amountCents: cashTotalCents,
-                    customerName: selectedCustomer?.first_name ?? "",
-                    customerEmail: selectedCustomer?.email,
-                    customerPhone: selectedCustomer?.phone,
-                    sendEmail: !!selectedCustomer?.email,
-                    sendSms: !!selectedCustomer?.phone,
-                    description: desc,
-                  }),
+                  body: JSON.stringify({ amountCents: cashTotalCents, customerName: selectedCustomer?.first_name ?? delName ?? "", customerEmail: email, customerPhone: phone, sendEmail: !!email, sendSms: !!phone, description: desc }),
                 });
-                if (res.ok) alert("Payment link sent!");
-                else alert("Failed to send paylink.");
+                if (res.ok) alert("Payment link sent!"); else alert("Failed.");
               }}
               disabled={items.length === 0 || processing}
-              className="rounded-lg bg-purple-800 py-2 text-xs font-medium text-purple-200 hover:bg-purple-700 disabled:opacity-30"
+              className="rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800 disabled:opacity-30"
             >
-              Send Paylink
+              Paylink
             </button>
-            <label className="flex cursor-pointer items-center justify-center rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700">
-              License Photo
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
+            <label className="flex cursor-pointer items-center justify-center rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800">
+              License
+              <input type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const fd = new FormData();
-                  fd.append("file", file);
+                  const file = e.target.files?.[0]; if (!file) return;
+                  const fd = new FormData(); fd.append("file", file);
                   const res = await fetch("/api/pos/license-photo", { method: "POST", body: fd });
-                  if (res.ok) alert("License photo uploaded.");
-                  else alert("Upload failed.");
+                  if (res.ok) alert("Uploaded."); else alert("Failed.");
                   e.target.value = "";
-                }}
-              />
+                }} />
             </label>
           </div>
-          <button
-            onClick={() => { setShowQuoteModal(true); setQuoteResult(null); setQuoteNote(""); setQuoteDeposit("200"); }}
-            className="w-full rounded-lg bg-teal-800 py-2.5 text-sm font-bold text-teal-100 hover:bg-teal-700"
-          >
-            QUOTE
-          </button>
         </div>
       </div>
 
       {/* ── OVERLAYS ── */}
+
+      {/* Checkout overlay */}
+      {showCheckout && (
+        <CheckoutOverlay
+          cart={{
+            itemCount: items.length,
+            customerName: selectedCustomer ? `${selectedCustomer.first_name ?? ""} ${selectedCustomer.last_name ?? ""}`.trim() || delName || customerName : delName || customerName || "Walk-in",
+            subtotalCents: subtotalCents,
+            deliveryFeeCents: deliveryFeeCents,
+            taxCents: taxExempt ? 0 : Math.round((subtotalCents - (proDiscount ? Math.round(subtotalCents * 0.05) : 0) - manualDiscountCents + deliveryFeeCents) * TAX_RATE),
+            cashTotalCents: cashTotalCents,
+            ccFeeCents: ccFeeCents,
+            cardTotalCents: cardTotalCents,
+            deliveryAddress: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : undefined,
+            isChargeAccount: !!selectedCustomer?.is_charge_account,
+            accountName: (selectedCustomer as any)?.charge_account_name ?? selectedCustomer?.first_name ?? "",
+            accountBalance: selectedCustomer?.current_balance_cents ?? 0,
+            itemsSummary: items.map((i: any) => `${i.quantity} ${i.product.name}`).join(", "),
+          }}
+          onComplete={async (payments) => {
+            setShowCheckout(false);
+            // Map checkout overlay payments to completeSale
+            const first = payments[0];
+            if (!first) return;
+            if (payments.length === 1) {
+              // Single payment
+              if (first.method === "cash") {
+                setCashTendered(String((first.tenderedCents ?? 0) / 100));
+                await completeSale("cash");
+              } else if (first.method === "cod") {
+                await completeSale("cod");
+              } else if (first.method === "card_terminal") {
+                await completeSale("card");
+              } else if (first.method === "account") {
+                setShowAccountConfirm(true);
+              }
+            } else {
+              // Split payment — create order directly
+              const effectiveTotal = payments.reduce((s, p) => s + p.amountCents, 0);
+              const orderPayload: any = {
+                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents })),
+                subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
+                cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.03 / 1.03), 0),
+                delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
+                payment_method: "split", delivery_method: deliveryMethod,
+                delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
+                customer_name: delName || customerName, customer_phone: delPhone || customerPhone || null,
+                customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
+              };
+              setProcessing(true);
+              const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });
+              setProcessing(false);
+              if (res.ok) { clearSale(); alert("Split payment complete!"); }
+              else alert("Checkout failed");
+            }
+          }}
+          onCancel={() => setShowCheckout(false)}
+          onProcessCard={async (amountCents) => {
+            try {
+              const terminal = terminalRef.current;
+              const result = await terminal.collectPayment({ amountCents, orderId: "pending" });
+              return result;
+            } catch (err) {
+              return { success: false, error: err instanceof Error ? err.message : "Card failed" };
+            }
+          }}
+          processing={processing}
+        />
+      )}
 
       {/* Quick Quote modal */}
       {showQuoteModal && (
