@@ -62,7 +62,7 @@ const FULFILLMENT_CONFIG = {
 const BLANK_PRODUCT = {
   supplier_product_name: "", supplier_sku: "", cost_per_unit_cents: "",
   our_price_per_unit_cents: "", unit: "yard", is_available: true,
-  lead_time_days: "", minimum_order_qty: "", notes: "",
+  lead_time_days: "", minimum_order_qty: "", notes: "", product_id: "",
 };
 
 export default function SupplierDetailPage() {
@@ -87,14 +87,23 @@ export default function SupplierDetailPage() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({ ...BLANK_PRODUCT });
   const [savingNew, setSavingNew] = useState(false);
+  const [ourProducts, setOurProducts] = useState<Array<{ id: string; name: string; slug: string }>>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/suppliers/${id}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [supRes, prodRes] = await Promise.all([
+      fetch(`/api/admin/suppliers/${id}`),
+      fetch("/api/admin/products"),
+    ]);
+    if (supRes.ok) {
+      const data = await supRes.json();
       setSupplier(data.supplier);
       setProducts(data.products ?? []);
+    }
+    if (prodRes.ok) {
+      const data = await prodRes.json();
+      const list = Array.isArray(data) ? data : data.products ?? [];
+      setOurProducts(list.map((p: any) => ({ id: p.id, name: p.name, slug: p.slug })));
     }
     setLoading(false);
   }, [id]);
@@ -132,6 +141,7 @@ export default function SupplierDetailPage() {
       is_available: p.is_available,
       lead_time_days: p.lead_time_days ? String(p.lead_time_days) : "",
       notes: p.notes ?? "",
+      product_id: p.product_id ?? "",
     });
   }
 
@@ -148,6 +158,7 @@ export default function SupplierDetailPage() {
       is_available: rowForm.is_available,
       lead_time_days: rowForm.lead_time_days ? parseInt(rowForm.lead_time_days as string) : null,
       notes: rowForm.notes || null,
+      product_id: rowForm.product_id || null,
     };
     await fetch(`/api/admin/suppliers/${id}/products/${productId}`, {
       method: "PATCH",
@@ -181,6 +192,7 @@ export default function SupplierDetailPage() {
       lead_time_days: newProduct.lead_time_days ? parseInt(newProduct.lead_time_days) : null,
       minimum_order_qty: newProduct.minimum_order_qty ? parseFloat(newProduct.minimum_order_qty) : null,
       notes: newProduct.notes || null,
+      product_id: newProduct.product_id || null,
     };
     const res = await fetch(`/api/admin/suppliers/${id}/products`, {
       method: "POST",
@@ -419,8 +431,15 @@ export default function SupplierDetailPage() {
                         <td className="px-2 py-1.5">
                           <Input value={rowForm.supplier_product_name as string} onChange={(e) => setRowForm({ ...rowForm, supplier_product_name: e.target.value })} className="h-7 text-xs" />
                         </td>
-                        <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                          {p.products?.name ?? <span className="italic">Unlinked</span>}
+                        <td className="px-2 py-1.5">
+                          <select
+                            value={(rowForm.product_id as string) ?? ""}
+                            onChange={(e) => setRowForm({ ...rowForm, product_id: e.target.value || "" })}
+                            className="h-7 w-32 rounded border bg-background px-1 text-xs"
+                          >
+                            <option value="">— Unlinked —</option>
+                            {ourProducts.map((op) => <option key={op.id} value={op.id}>{op.name}</option>)}
+                          </select>
                         </td>
                         <td className="px-2 py-1.5">
                           <Input value={rowForm.cost_per_unit_cents as string} onChange={(e) => setRowForm({ ...rowForm, cost_per_unit_cents: e.target.value })}
