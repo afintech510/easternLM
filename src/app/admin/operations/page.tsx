@@ -83,7 +83,7 @@ export default function AdminOperationsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateRange, setDateRange] = useState<"today" | "tomorrow" | "week" | "custom">("today");
+  const [dateRange, setDateRange] = useState<"today" | "tomorrow" | "week" | "custom">("week");
 
   // Detail panel
   const [detail, setDetail] = useState<OrderDetail>(null);
@@ -172,7 +172,7 @@ export default function AdminOperationsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <FilterGroup label="Source" options={["all", "web", "pos", "phone"]} value={sourceFilter} onChange={setSourceFilter} />
         <FilterGroup label="Type" options={["all", "delivery", "pickup"]} value={typeFilter} onChange={setTypeFilter} />
-        <FilterGroup label="Status" options={["all", "new", "confirmed", "scheduled", "out_for_delivery", "delivered", "paid"]} value={statusFilter} onChange={setStatusFilter} />
+        <FilterGroup label="Status" options={["all", "pending", "paid", "processing", "scheduled", "delivered", "cancelled"]} value={statusFilter} onChange={setStatusFilter} />
         <FilterGroup label="Date" options={["today", "tomorrow", "week"]} value={dateRange} onChange={(v) => setDateRange(v as "today" | "tomorrow" | "week")} />
         <div className="relative ml-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
