@@ -15,47 +15,48 @@ const CORE_TOWNS = [
   "Montauk", "Amagansett", "Water Mill", "Sagaponack",
 ];
 
-// Extended Suffolk County towns
+// Extended Suffolk County towns (western + north fork + remaining)
 const EXTENDED_TOWNS = [
-  "Bay Shore", "Bayport", "Blue Point", "Bohemia", "Brentwood",
+  "Aquebogue", "Bay Shore", "Bayport", "Blue Point", "Bohemia", "Brentwood",
   "Brightwaters", "Centereach", "Central Islip", "Cold Spring Harbor",
-  "Commack", "Deer Park", "Dix Hills", "East Islip", "East Northport",
-  "East Setauket", "Farmingville", "Hauppauge", "Holbrook", "Holtsville",
+  "Commack", "Cutchogue", "Deer Park", "Dix Hills", "East Islip",
+  "East Northport", "East Quogue", "East Setauket",
+  "Farmingville", "Flanders", "Greenport",
+  "Hauppauge", "Holbrook", "Holtsville",
   "Huntington", "Huntington Station", "Islip", "Islip Terrace",
-  "Kings Park", "Lake Grove", "Lake Ronkonkoma", "Lindenhurst",
+  "Jamesport", "Kings Park", "Lake Grove", "Lake Ronkonkoma", "Lindenhurst",
   "Mattituck", "Nesconset", "North Babylon", "Northport",
   "Oakdale", "Ocean Beach", "Poquott", "Port Jefferson",
-  "Port Jefferson Station", "Ronkonkoma", "Saint James", "Sayville",
-  "Smithtown", "Sound Beach", "South Setauket", "Stony Brook",
+  "Port Jefferson Station", "Remsenburg", "Ronkonkoma",
+  "Saint James", "Sayville", "Smithtown", "Sound Beach",
+  "South Setauket", "Southold", "Speonk", "Stony Brook",
   "West Babylon", "West Islip", "West Sayville", "Wyandanch",
 ];
 
-const CORE_SLUGS: Record<string, string> = {
-  "Center Moriches": "center-moriches",
-  "East Moriches": "east-moriches",
-  "Moriches": "moriches",
-  "Eastport": "eastport",
-  "Shirley": "shirley",
-  "Mastic": "mastic",
-  "Mastic Beach": "mastic-beach",
-  "Manorville": "manorville",
-  "Brookhaven": "brookhaven",
-  "Bellport": "bellport",
-  "Patchogue": "patchogue",
-  "East Patchogue": "east-patchogue",
-  "Medford": "medford",
-  "Yaphank": "yaphank",
-  "Ridge": "ridge",
-  "Wading River": "wading-river",
-  "Riverhead": "riverhead",
-  "Calverton": "calverton",
-  "Coram": "coram",
-  "Selden": "selden",
-  "Hampton Bays": "hampton-bays",
-  "Westhampton": "westhampton",
-  "Quogue": "quogue",
-  "East Hampton": "east-hampton",
-  "Southampton": "southampton",
+// All towns with dedicated delivery pages (65 total)
+const TOWN_SLUGS: Record<string, string> = {
+  "Center Moriches": "center-moriches", "East Moriches": "east-moriches", "Moriches": "moriches",
+  "Eastport": "eastport", "Manorville": "manorville", "Shirley": "shirley",
+  "Mastic": "mastic", "Mastic Beach": "mastic-beach", "Brookhaven": "brookhaven",
+  "Patchogue": "patchogue", "Bellport": "bellport", "East Patchogue": "east-patchogue",
+  "Medford": "medford", "Yaphank": "yaphank", "Ridge": "ridge",
+  "Wading River": "wading-river", "Riverhead": "riverhead", "Hampton Bays": "hampton-bays",
+  "East Hampton": "east-hampton", "Southampton": "southampton", "Quogue": "quogue",
+  "Westhampton": "westhampton", "Calverton": "calverton", "Coram": "coram", "Selden": "selden",
+  "Remsenburg": "remsenburg", "Speonk": "speonk", "Westhampton Beach": "westhampton-beach",
+  "East Quogue": "east-quogue", "Middle Island": "middle-island", "Sound Beach": "sound-beach",
+  "Rocky Point": "rocky-point", "Flanders": "flanders", "Centereach": "centereach",
+  "Sayville": "sayville", "Oakdale": "oakdale", "Bohemia": "bohemia",
+  "Bay Shore": "bay-shore", "Holbrook": "holbrook", "Holtsville": "holtsville",
+  "Ronkonkoma": "ronkonkoma", "Farmingville": "farmingville", "Blue Point": "blue-point",
+  "Stony Brook": "stony-brook", "Mount Sinai": "mount-sinai", "Smithtown": "smithtown",
+  "Hauppauge": "hauppauge", "Sag Harbor": "sag-harbor", "Bridgehampton": "bridgehampton",
+  "Montauk": "montauk", "Amagansett": "amagansett", "East Setauket": "east-setauket",
+  "Port Jefferson": "port-jefferson", "Miller Place": "miller-place", "Shoreham": "shoreham",
+  "Mattituck": "mattituck", "Greenport": "greenport", "Southold": "southold",
+  "Cutchogue": "cutchogue", "Jamesport": "jamesport", "Aquebogue": "aquebogue",
+  "Water Mill": "water-mill", "North Babylon": "north-babylon", "West Babylon": "west-babylon",
+  "Deer Park": "deer-park",
 };
 
 const rules = [
@@ -180,7 +181,7 @@ export default function DeliveryPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {CORE_TOWNS.map((town) => {
-              const slug = CORE_SLUGS[town];
+              const slug = TOWN_SLUGS[town];
               return slug ? (
                 <Link
                   key={town}
@@ -212,14 +213,25 @@ export default function DeliveryPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {EXTENDED_TOWNS.map((town) => (
-              <span
-                key={town}
-                className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground"
-              >
-                {town}
-              </span>
-            ))}
+            {EXTENDED_TOWNS.map((town) => {
+              const slug = TOWN_SLUGS[town];
+              return slug ? (
+                <Link
+                  key={town}
+                  href={`/delivery/${slug}`}
+                  className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground hover:border-accent/40 hover:text-accent transition-colors"
+                >
+                  {town}
+                </Link>
+              ) : (
+                <span
+                  key={town}
+                  className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground"
+                >
+                  {town}
+                </span>
+              );
+            })}
           </div>
         </section>
 
