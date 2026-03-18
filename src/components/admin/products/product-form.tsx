@@ -55,10 +55,12 @@ export function ProductForm({
   categories,
   product,
   onSaved,
+  compact,
 }: {
   categories: Category[];
   product?: ProductData;
   onSaved: () => void;
+  compact?: boolean;
 }) {
   const isEdit = !!product;
 
