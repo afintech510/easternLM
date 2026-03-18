@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { cancelQuoteFollowUps } from "@/lib/quotes/follow-ups";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -26,6 +27,9 @@ export async function POST(request: Request, context: RouteContext) {
     decline_reason: reason ?? null,
     updated_at: new Date().toISOString(),
   }).eq("public_token", token);
+
+  // Cancel all pending follow-ups
+  if (quote.id) cancelQuoteFollowUps(quote.id).catch(() => {});
 
   // Notify staff
   const sid = process.env.TWILIO_ACCOUNT_SID;

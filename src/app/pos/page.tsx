@@ -93,6 +93,11 @@ export default function PosRegisterPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "cod" | "account" | null>(null);
   const [showAccountConfirm, setShowAccountConfirm] = useState(false);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [quoteDeposit, setQuoteDeposit] = useState("200");
+  const [quoteNote, setQuoteNote] = useState("");
+  const [quoteSending, setQuoteSending] = useState(false);
+  const [quoteResult, setQuoteResult] = useState<{ quoteNumber: string; quoteUrl: string; sent: string[] } | null>(null);
 
   // Tax exempt
   const [taxExempt, setTaxExempt] = useState(false);
@@ -1818,10 +1823,170 @@ export default function PosRegisterPage() {
               />
             </label>
           </div>
+          <button
+            onClick={() => { setShowQuoteModal(true); setQuoteResult(null); setQuoteNote(""); setQuoteDeposit("200"); }}
+            className="w-full rounded-lg bg-teal-800 py-2.5 text-sm font-bold text-teal-100 hover:bg-teal-700"
+          >
+            QUOTE
+          </button>
         </div>
       </div>
 
       {/* ── OVERLAYS ── */}
+
+      {/* Quick Quote modal */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => !quoteSending && setShowQuoteModal(false)}>
+          <div className="w-[420px] max-h-[90vh] overflow-y-auto rounded-2xl bg-zinc-900 border border-teal-600/40 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            {quoteResult ? (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <span className="text-green-400 text-xl">✓</span>
+                  </div>
+                  <h2 className="text-lg font-bold text-white">Quote Sent!</h2>
+                  <p className="text-sm text-zinc-400">{quoteResult.quoteNumber}</p>
+                  {quoteResult.sent.includes("sms") && <p className="text-xs text-green-400">SMS sent to {selectedCustomer?.phone}</p>}
+                  {quoteResult.sent.includes("email") && <p className="text-xs text-green-400">Email sent to {selectedCustomer?.email}</p>}
+                  <p className="text-xs text-zinc-500 break-all">{quoteResult.quoteUrl}</p>
+                </div>
+                <button onClick={() => setShowQuoteModal(false)} className="w-full rounded-lg bg-zinc-800 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700">Close</button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-white">Quick Quote</h2>
+
+                {/* Customer */}
+                <div className="rounded-lg bg-zinc-800 p-3 text-sm">
+                  <p className="text-zinc-400">Customer</p>
+                  <p className="font-medium text-white">{selectedCustomer?.first_name ?? (selectedCustomer as any)?.company_name ?? "Walk-in"} {selectedCustomer?.last_name ?? ""}</p>
+                  {selectedCustomer?.phone && <p className="text-xs text-zinc-500">{selectedCustomer.phone}</p>}
+                  {selectedCustomer?.email && <p className="text-xs text-zinc-500">{selectedCustomer.email}</p>}
+                  {!selectedCustomer?.phone && !selectedCustomer?.email && (
+                    <p className="text-xs text-amber-400 mt-1">Select a customer with phone or email to send</p>
+                  )}
+                </div>
+
+                {/* Items */}
+                {items.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider">Items</p>
+                    {items.map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-zinc-300">{item.quantity}x {item.product.name}</span>
+                        <span className="text-white font-medium">{formatUsd(item.quantity * item.price_cents)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-zinc-700 pt-2 mt-2 flex justify-between text-sm font-bold">
+                      <span className="text-zinc-300">Total (incl. tax)</span>
+                      <span className="text-white">{formatUsd(cashTotalCents)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500 text-center py-4">No items in cart. Add products first, or use AI Quote from admin.</p>
+                )}
+
+                {/* Deposit + Note */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-zinc-500">Deposit ($)</label>
+                    <input type="number" value={quoteDeposit} onChange={(e) => setQuoteDeposit(e.target.value)} className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-zinc-500">Valid (days)</label>
+                    <input type="number" defaultValue={30} className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-500" readOnly />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-zinc-500">Note / Description</label>
+                  <input type="text" value={quoteNote} onChange={(e) => setQuoteNote(e.target.value)} placeholder="e.g. driveway mulch refresh" className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-teal-500" />
+                </div>
+
+                {/* Send buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Send SMS", via: ["sms"], disabled: !selectedCustomer?.phone },
+                    { label: "Send Email", via: ["email"], disabled: !selectedCustomer?.email },
+                    { label: "Send Both", via: ["sms", "email"], disabled: !selectedCustomer?.phone && !selectedCustomer?.email },
+                  ].map(({ label, via, disabled }) => (
+                    <button
+                      key={label}
+                      disabled={disabled || quoteSending || items.length === 0}
+                      onClick={async () => {
+                        setQuoteSending(true);
+                        try {
+                          const res = await fetch("/api/quotes/quick", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              items: items.map((i: any) => ({
+                                name: i.product.name,
+                                quantity: i.quantity,
+                                unit: i.product.unit_label ?? "each",
+                                unitPriceCents: i.price_cents,
+                              })),
+                              customer: {
+                                name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || "Customer",
+                                phone: selectedCustomer?.phone,
+                                email: selectedCustomer?.email,
+                                address: selectedCustomer?.address,
+                                id: selectedCustomer?.id,
+                              },
+                              deliveryFeeCents: 0,
+                              depositCents: Math.round(parseFloat(quoteDeposit || "0") * 100),
+                              note: quoteNote,
+                              validDays: 30,
+                              sendVia: via,
+                            }),
+                          });
+                          const d = await res.json();
+                          if (res.ok) {
+                            setQuoteResult({ quoteNumber: d.quote.quoteNumber, quoteUrl: d.quote.quoteUrl, sent: d.sent });
+                          } else {
+                            alert(d.error ?? "Failed to create quote");
+                          }
+                        } catch { alert("Failed to create quote"); }
+                        setQuoteSending(false);
+                      }}
+                      className="rounded-lg bg-teal-700 py-2.5 text-xs font-bold text-white hover:bg-teal-600 disabled:opacity-30"
+                    >
+                      {quoteSending ? "..." : label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    disabled={quoteSending || items.length === 0}
+                    onClick={async () => {
+                      setQuoteSending(true);
+                      const res = await fetch("/api/quotes/quick", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          items: items.map((i: any) => ({ name: i.product.name, quantity: i.quantity, unit: i.product.unit_label ?? "each", unitPriceCents: i.price_cents })),
+                          customer: { name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || "Customer", phone: selectedCustomer?.phone, email: selectedCustomer?.email },
+                          depositCents: Math.round(parseFloat(quoteDeposit || "0") * 100),
+                          note: quoteNote,
+                          validDays: 30,
+                        }),
+                      });
+                      const d = await res.json();
+                      setQuoteSending(false);
+                      if (res.ok) setQuoteResult({ quoteNumber: d.quote.quoteNumber, quoteUrl: d.quote.quoteUrl, sent: [] });
+                      else alert(d.error ?? "Failed");
+                    }}
+                    className="rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700 disabled:opacity-30"
+                  >
+                    Save as Draft
+                  </button>
+                  <button onClick={() => setShowQuoteModal(false)} className="rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700">Cancel</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Account charge confirm */}
       {showAccountConfirm && selectedCustomer?.is_charge_account && (

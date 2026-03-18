@@ -31,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuickQuoteSidebarButton } from "@/components/admin/quick-quote";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Sheet,
@@ -263,8 +264,13 @@ export function AdminSidebar() {
         />
       </Link>
 
+      {/* Quick Quote */}
+      <div className="px-2 pt-3 pb-1">
+        <QuickQuoteSidebarButton />
+      </div>
+
       {/* Scrollable nav */}
-      <div className="flex-1 overflow-y-auto py-3 px-2">
+      <div className="flex-1 overflow-y-auto py-2 px-2">
         <SidebarSections badges={badges} />
       </div>
 
