@@ -173,10 +173,10 @@ function ProductTile({
       )}
 
       {/* Image — SQUARE 1:1, object-contain to show full image */}
-      <div className={`aspect-square w-full overflow-hidden rounded-t-lg ${card}`}>
+      <div className={`aspect-[4/3] w-full overflow-hidden rounded-t-lg ${card}`}>
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image_url!} alt="" className="h-full w-full object-contain p-1" onError={() => setImgError(true)} />
+          <img src={product.image_url!} alt="" className="h-full w-full object-contain object-top p-1" onError={() => setImgError(true)} />
         ) : (
           <div className={`flex h-full items-center justify-center text-2xl font-bold ${muted}`}>
             {product.name.charAt(0)}
