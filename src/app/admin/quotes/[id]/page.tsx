@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, Send, Printer, ExternalLink, Plus, X, DollarSign,
-  CheckCircle, Eye, Clock, XCircle, AlertCircle, Sparkles, Copy,
+  CheckCircle, Eye, Clock, XCircle, AlertCircle, Sparkles, Copy, Upload,
+  ImageIcon, ArrowRight, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,8 @@ interface Quote {
   declined_at: string | null;
   deposit_paid_at: string | null;
   ai_generated: boolean;
+  photo_urls: string[];
+  converted_order_id: string | null;
 }
 
 const TAX_RATE = 0.0875;
@@ -71,6 +74,9 @@ export default function QuoteDetailPage() {
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   // Form state
   const [customerName, setCustomerName] = useState("");
@@ -105,6 +111,7 @@ export default function QuoteDetailPage() {
       setTimeline(q.estimated_timeline ?? "");
       setTerms(q.terms ?? "");
       setInternalNotes(q.internal_notes ?? "");
+      setPhotoUrls(q.photo_urls ?? []);
     }
     setLoading(false);
   }
@@ -160,6 +167,7 @@ export default function QuoteDetailPage() {
       estimated_timeline: timeline || null,
       terms: terms || null,
       internal_notes: internalNotes || null,
+      photo_urls: photoUrls,
     };
     const r = await fetch(`/api/admin/quotes/${id}`, {
       method: "PATCH",
@@ -195,6 +203,45 @@ export default function QuoteDetailPage() {
     await navigator.clipboard.writeText(getQuoteUrl());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handlePhotoUpload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploadingPhoto(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("bucket", "quote-photos");
+        fd.append("quoteId", id);
+        const r = await fetch("/api/admin/quotes/upload-photo", { method: "POST", body: fd });
+        const d = await r.json();
+        if (r.ok && d.url) {
+          setPhotoUrls((prev) => [...prev, d.url]);
+        }
+      }
+    } catch {
+      alert("Photo upload failed");
+    }
+    setUploadingPhoto(false);
+  }
+
+  function removePhoto(idx: number) {
+    setPhotoUrls((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleConvertToOrder() {
+    if (!confirm("Convert this quote to an order? This will create a new order from the quote line items.")) return;
+    setConverting(true);
+    const r = await fetch(`/api/admin/quotes/${id}/convert`, { method: "POST" });
+    const d = await r.json();
+    setConverting(false);
+    if (r.ok && d.orderId) {
+      await loadQuote();
+      alert(`Order created! ID: ${d.orderId}`);
+    } else {
+      alert(d.error ?? "Conversion failed");
+    }
   }
 
   async function handleDelete() {
@@ -469,6 +516,53 @@ export default function QuoteDetailPage() {
               />
             </div>
           </div>
+          {/* Photos */}
+          <div className="rounded-lg border bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Photos</h3>
+              {!isReadOnly && (
+                <label className="cursor-pointer">
+                  <Button variant="outline" size="sm" asChild>
+                    <span>
+                      <Upload className="mr-1 size-3.5" />
+                      {uploadingPhoto ? "Uploading..." : "Add Photos"}
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handlePhotoUpload(e.target.files)}
+                    disabled={uploadingPhoto}
+                  />
+                </label>
+              )}
+            </div>
+            {photoUrls.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {photoUrls.map((url, i) => (
+                  <div key={i} className="group relative rounded-lg overflow-hidden border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Quote photo ${i + 1}`} className="aspect-square w-full object-cover" />
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => removePhoto(i)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                <ImageIcon className="mx-auto mb-1 size-6 text-muted-foreground/40" />
+                No photos attached
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Right: pricing summary */}
@@ -531,6 +625,26 @@ export default function QuoteDetailPage() {
             {quote.declined_at && <div className="flex items-center gap-2"><XCircle className="size-3 text-red-500" /><span>Declined {new Date(quote.declined_at).toLocaleDateString()}</span></div>}
             {quote.deposit_paid_at && <div className="flex items-center gap-2"><DollarSign className="size-3 text-green-500" /><span>Deposit paid {new Date(quote.deposit_paid_at).toLocaleDateString()}</span></div>}
           </div>
+
+          {/* Convert to Order (for accepted quotes) */}
+          {quote.status === "accepted" && !quote.converted_order_id && (
+            <Button
+              className="w-full bg-green-600 hover:bg-green-500 text-white"
+              size="sm"
+              onClick={handleConvertToOrder}
+              disabled={converting}
+            >
+              {converting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ArrowRight className="mr-1.5 size-4" />}
+              Convert to Order
+            </Button>
+          )}
+          {quote.converted_order_id && (
+            <Link href={`/admin/operations`}>
+              <Button variant="outline" size="sm" className="w-full text-green-600">
+                <CheckCircle className="mr-1.5 size-4" /> View Order
+              </Button>
+            </Link>
+          )}
 
           <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive" onClick={handleDelete}>
             Delete Quote

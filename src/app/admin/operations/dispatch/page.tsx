@@ -53,7 +53,100 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const TIME_SLOTS = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "13:00", "14:00", "15:00"];
 
+function WeeklyView({ startDate }: { startDate: string }) {
+  const [weekData, setWeekData] = useState<Record<string, { assignments: Assignment[]; total: number }>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadWeek() {
+      setLoading(true);
+      const start = new Date(startDate + "T12:00:00");
+      const days: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        days.push(d.toISOString().split("T")[0]);
+      }
+      const results: Record<string, { assignments: Assignment[]; total: number }> = {};
+      await Promise.all(
+        days.map(async (day) => {
+          const res = await fetch(`/api/admin/dispatch?date=${day}`);
+          if (res.ok) {
+            const data = await res.json();
+            results[day] = { assignments: data.assignments || [], total: (data.unscheduled || []).length };
+          } else {
+            results[day] = { assignments: [], total: 0 };
+          }
+        }),
+      );
+      setWeekData(results);
+      setLoading(false);
+    }
+    loadWeek();
+  }, [startDate]);
+
+  if (loading) return <div className="py-20 text-center text-muted-foreground">Loading week view...</div>;
+
+  const days = Object.entries(weekData).sort(([a], [b]) => a.localeCompare(b));
+  const MAX_HOURS_PER_DAY = 8;
+
+  return (
+    <div className="grid grid-cols-5 gap-3">
+      {days.map(([day, data]) => {
+        const dateObj = new Date(day + "T12:00:00");
+        const dayLabel = dateObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        const deliveryCount = data.assignments.length;
+        const totalDriveMin = data.assignments.reduce((s, a) => s + (a.drive_minutes || 0) * 2, 0);
+        const totalLoadMin = data.assignments.length * 30;
+        const totalTruckMin = totalDriveMin + totalLoadMin;
+        const truckHours = (totalTruckMin / 60).toFixed(1);
+        const utilization = Math.min(100, Math.round((totalTruckMin / (MAX_HOURS_PER_DAY * 60)) * 100));
+        const utilizationColor = utilization > 90 ? "text-red-600" : utilization > 70 ? "text-amber-600" : utilization > 40 ? "text-green-600" : "text-muted-foreground";
+        const barColor = utilization > 90 ? "bg-red-500" : utilization > 70 ? "bg-amber-500" : utilization > 40 ? "bg-green-500" : "bg-gray-300";
+
+        const byTruck: Record<string, Assignment[]> = {};
+        data.assignments.forEach((a) => {
+          (byTruck[a.truck_type] ??= []).push(a);
+        });
+
+        return (
+          <div key={day} className="rounded-xl border bg-card p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">{dayLabel}</p>
+              <p className="text-xs text-muted-foreground">{deliveryCount} deliver{deliveryCount !== 1 ? "ies" : "y"}</p>
+            </div>
+
+            {/* Utilization bar */}
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-muted-foreground">Truck time: {truckHours}h</span>
+                <span className={`font-semibold ${utilizationColor}`}>{utilization}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${utilization}%` }} />
+              </div>
+            </div>
+
+            {/* Truck breakdown */}
+            {Object.entries(byTruck).map(([type, assigns]) => (
+              <div key={type} className="text-xs">
+                <span className="font-medium">{TRUCK_LABELS[type] ?? type}:</span>{" "}
+                <span className="text-muted-foreground">{assigns.length} trip{assigns.length > 1 ? "s" : ""}</span>
+              </div>
+            ))}
+
+            {data.total > 0 && (
+              <p className="text-xs text-amber-600 font-medium">+{data.total} unscheduled</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DispatchBoardPage() {
+  const [view, setView] = useState<"day" | "week">("day");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [unscheduled, setUnscheduled] = useState<UnscheduledOrder[]>([]);
@@ -123,17 +216,25 @@ export default function DispatchBoardPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dispatch Board</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Dispatch Board</h1>
+          <div className="flex rounded-lg border overflow-hidden">
+            <button onClick={() => setView("day")} className={`px-3 py-1.5 text-sm font-medium ${view === "day" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>Day</button>
+            <button onClick={() => setView("week")} className={`px-3 py-1.5 text-sm font-medium ${view === "week" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>Week</button>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => changeDate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="sm" variant="outline" onClick={() => changeDate(view === "week" ? -7 : -1)}><ChevronLeft className="h-4 w-4" /></Button>
           <Button size="sm" variant={isToday ? "default" : "outline"} onClick={() => setDate(new Date().toISOString().split("T")[0])}>
             {isToday ? "Today" : dateLabel}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => changeDate(1)}><ChevronRight className="h-4 w-4" /></Button>
+          <Button size="sm" variant="outline" onClick={() => changeDate(view === "week" ? 7 : 1)}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 
-      {loading ? (
+      {view === "week" && <WeeklyView startDate={date} />}
+
+      {view === "day" && (loading ? (
         <div className="py-20 text-center text-muted-foreground">Loading dispatch board...</div>
       ) : (
         <div className="flex gap-4">
@@ -234,7 +335,8 @@ export default function DispatchBoardPage() {
             </div>
           </div>
         </div>
-      )}
+      ))}
+
 
       {/* Assign dialog */}
       {assigningOrder && (

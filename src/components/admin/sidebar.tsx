@@ -79,6 +79,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Products", href: "/admin/products", icon: Tag },
       { label: "Bulk Editor", href: "/admin/products/bulk", icon: Table2 },
+      { label: "Inventory", href: "/admin/inventory", icon: Package },
     ],
   },
   {
