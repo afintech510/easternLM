@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const supabase = getSupabaseAdminClient();
+  const supabase = getSupabaseAdminClient() as any;
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, categories(slug, name)")
+    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, barcode, sku, sort_order, categories(slug, name)")
     .eq("visible_pos", true)
+    .order("sort_order")
     .order("name");
 
-  const mapped = (products || []).map((p) => {
+  const mapped = (products || []).map((p: any) => {
     const images = (p.images as string[] | null) || [];
     return {
       id: p.id,
@@ -25,6 +26,8 @@ export async function GET() {
       category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
       category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
       image_url: images[0] || null,
+      barcode: (p as any).barcode || null,
+      sku: (p as any).sku || null,
     };
   });
 

@@ -30,6 +30,7 @@ import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
 import { POSProductGrid } from "@/components/pos/product-grid";
+import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ export default function PosRegisterPage() {
   const [processing, setProcessing] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
+  const [isOnline, setIsOnline] = useState(true);
   const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
   const [autoDrawer, setAutoDrawer] = useState(true);
@@ -232,6 +234,19 @@ export default function PosRegisterPage() {
     dark: { bg: "bg-zinc-950", card: "bg-zinc-900", border: "border-zinc-800", text: "text-zinc-100", muted: "text-zinc-500", accent: "text-amber-400", accentBg: "bg-amber-600", input: "bg-zinc-800 border-zinc-700", hover: "hover:bg-zinc-800" },
   };
   const t = themes[theme];
+
+  // Register POS service worker for offline support + network status
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/pos-sw.js").catch(() => {});
+    }
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    setIsOnline(navigator.onLine);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
+  }, []);
 
   // Load products
   useEffect(() => {
@@ -350,6 +365,24 @@ export default function PosRegisterPage() {
       return [...prev, { id: crypto.randomUUID(), product, quantity: qty, price_cents: product.price_per_unit_cents }];
     });
   }, []);
+
+  // Barcode scanner — matches by barcode, sku, or slug
+  useEffect(() => {
+    return initBarcodeScanner((barcode) => {
+      const match = products.find(
+        (p) =>
+          (p as any).barcode === barcode ||
+          (p as any).sku === barcode ||
+          p.slug === barcode ||
+          p.name.toLowerCase() === barcode.toLowerCase(),
+      );
+      if (match) {
+        addItem(match, 1);
+      } else {
+        alert(`Barcode not found: ${barcode}`);
+      }
+    });
+  }, [products, addItem]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -1608,9 +1641,16 @@ export default function PosRegisterPage() {
         {/* Action buttons */}
         <div className="space-y-2 border-t border-zinc-800 p-3">
           {/* Terminal indicator */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
-            <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
-            {terminalStatus === "simulated" ? "Simulated Reader" : terminalStatus === "connected" ? "Reader Connected" : "No Reader"}
+          <div className="flex items-center justify-center gap-3 text-xs text-zinc-500">
+            <span className="flex items-center gap-1">
+              <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
+              {terminalStatus === "simulated" ? "Sim Reader" : terminalStatus === "connected" ? "Reader OK" : "No Reader"}
+            </span>
+            {!isOnline && (
+              <span className="flex items-center gap-1 font-semibold text-amber-400">
+                <span className="size-2 rounded-full bg-amber-400 animate-pulse" /> OFFLINE
+              </span>
+            )}
           </div>
           <div className={`grid gap-2 ${selectedCustomer?.is_charge_account ? "grid-cols-2" : "grid-cols-3"}`}>
             <button
