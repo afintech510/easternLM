@@ -21,17 +21,23 @@ type PosProduct = {
 type PosCategory = { slug: string; name: string; count: number };
 type CartQty = Record<string, number>;
 
+export type PosTheme = {
+  bg: string; card: string; border: string; text: string;
+  muted: string; accent: string; accentBg: string; input: string; hover: string;
+};
+
 interface Props {
   products: PosProduct[];
   categories: PosCategory[];
   cartQtys: CartQty;
   onAddProduct: (product: PosProduct, qty: number) => void;
   onSetQty: (productId: string, qty: number) => void;
+  theme?: PosTheme;
 }
 
 const BULK_PRESETS = [3, 5, 10, 15, 20];
 
-export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty }: Props) {
+export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, theme: t }: Props) {
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
@@ -45,33 +51,41 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
     return list;
   }, [products, selectedCat, search]);
 
+  const card = t?.card ?? "bg-zinc-900";
+  const border = t?.border ?? "border-zinc-800";
+  const input = t?.input ?? "bg-zinc-800 border-zinc-700";
+  const muted = t?.muted ?? "text-zinc-500";
+  const accent = t?.accent ?? "text-amber-400";
+  const accentBg = t?.accentBg ?? "bg-amber-600";
+  const hover = t?.hover ?? "hover:bg-zinc-800";
+
   return (
     <div className="flex h-full flex-col">
-      {/* Search — fixed at top */}
-      <div className="shrink-0 border-b border-zinc-800 p-2">
+      {/* Search */}
+      <div className={`shrink-0 border-b ${border} p-2`}>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+          <Search className={`absolute left-3 top-1/2 size-4 -translate-y-1/2 ${muted}`} />
           <input
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setSelectedCat(null); }}
             placeholder="Search products…"
-            className="w-full rounded-lg bg-zinc-800 py-2 pl-9 pr-8 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+            className={`w-full rounded-lg py-2 pl-9 pr-8 text-sm ${input} focus:outline-none focus:ring-1 focus:ring-amber-500/50`}
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500">
+            <button onClick={() => setSearch("")} className={`absolute right-2 top-1/2 -translate-y-1/2 ${muted}`}>
               <X className="size-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Category pills — fixed, wraps to multiple rows */}
-      <div className="shrink-0 border-b border-zinc-800 px-2 py-1.5">
+      {/* Categories — wraps */}
+      <div className={`shrink-0 border-b ${border} px-2 py-1.5`}>
         <div className="flex flex-wrap gap-1">
           <button
             onClick={() => setSelectedCat(null)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${!selectedCat ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${!selectedCat ? `${accentBg} text-white` : `${card} ${muted}`}`}
           >
             All
           </button>
@@ -79,7 +93,7 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
             <button
               key={cat.slug}
               onClick={() => setSelectedCat(selectedCat === cat.slug ? null : cat.slug)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${selectedCat === cat.slug ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium ${selectedCat === cat.slug ? `${accentBg} text-white` : `${card} ${muted}`}`}
             >
               {cat.name} <span className="text-[10px] opacity-50">{cat.count}</span>
             </button>
@@ -87,7 +101,7 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
         </div>
       </div>
 
-      {/* Product grid — scrollable, hidden scrollbar */}
+      {/* Product grid */}
       <div className="flex-1 overflow-y-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filtered.map((product) => (
@@ -98,11 +112,12 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               isBulk={product.delivery_type === "bulk"}
               onAdd={(qty) => onAddProduct(product, qty)}
               onSetQty={(qty) => onSetQty(product.id, qty)}
+              card={card} border={border} input={input} muted={muted} accent={accent} accentBg={accentBg}
             />
           ))}
         </div>
         {filtered.length === 0 && (
-          <div className="py-16 text-center text-sm text-zinc-600">No products found</div>
+          <div className={`py-16 text-center text-sm ${muted}`}>No products found</div>
         )}
       </div>
     </div>
@@ -111,9 +126,12 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
 
 function ProductTile({
   product, cartQty, isBulk, onAdd, onSetQty,
+  card, border, input, muted, accent, accentBg,
 }: {
   product: PosProduct; cartQty: number; isBulk: boolean;
   onAdd: (qty: number) => void; onSetQty: (qty: number) => void;
+  card: string; border: string; input: string; muted: string;
+  accent: string; accentBg: string;
 }) {
   const [inputQty, setInputQty] = useState("");
   const [imgError, setImgError] = useState(false);
@@ -146,89 +164,67 @@ function ProductTile({
 
   return (
     <div className={`relative flex flex-col rounded-lg border transition-colors ${
-      isInCart
-        ? "border-green-500/60 bg-green-950/20"
-        : "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
+      isInCart ? "border-green-500/60 bg-green-950/20" : `${border} ${card}`
     }`}>
-      {/* Cart qty badge */}
       {isInCart && (
         <div className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white shadow">
           {cartQty}
         </div>
       )}
 
-      {/* Image / placeholder */}
-      <div className="h-16 w-full overflow-hidden rounded-t-lg bg-zinc-800/60">
+      {/* Image — SQUARE 1:1, object-contain to show full image */}
+      <div className={`aspect-square w-full overflow-hidden rounded-t-lg ${card}`}>
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.image_url!}
-            alt=""
-            className="h-full w-full object-cover"
-            onError={() => setImgError(true)}
-          />
+          <img src={product.image_url!} alt="" className="h-full w-full object-contain p-1" onError={() => setImgError(true)} />
         ) : (
-          <div className="flex h-full items-center justify-center text-xl font-bold text-zinc-700">
+          <div className={`flex h-full items-center justify-center text-2xl font-bold ${muted}`}>
             {product.name.charAt(0)}
           </div>
         )}
       </div>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col px-2 pt-1.5 pb-1">
-        <p className="text-[9px] uppercase tracking-wider text-zinc-600">{product.category_name}</p>
-        <p className="text-[11px] font-medium leading-tight text-zinc-200 line-clamp-2">{product.name}</p>
-        <p className="mt-auto pt-0.5 text-sm font-bold text-amber-400">
+      <div className="flex flex-col px-2 pt-1 pb-0.5">
+        <p className={`text-[9px] uppercase tracking-wider ${muted}`}>{product.category_name}</p>
+        <p className="text-[11px] font-medium leading-tight line-clamp-2">{product.name}</p>
+        <p className={`mt-0.5 text-sm font-bold ${accent}`}>
           {formatUsd(product.price_per_unit_cents)}
-          <span className="ml-0.5 text-[9px] font-normal text-zinc-500">/{product.unit_label}</span>
+          <span className={`ml-0.5 text-[9px] font-normal ${muted}`}>/{product.unit_label}</span>
         </p>
       </div>
 
       {/* Qty controls */}
-      <div className="border-t border-zinc-800/60 px-1.5 py-1.5 space-y-1">
-        {/* Quick presets for bulk */}
+      <div className={`mt-auto border-t ${border} px-1.5 py-1.5 space-y-1`}>
         {isBulk && (
           <div className="flex gap-0.5">
             {BULK_PRESETS.map((n) => (
-              <button
-                key={n}
-                onClick={() => handleQuickAdd(n)}
-                className="flex-1 rounded bg-zinc-800 py-1 text-[10px] font-semibold text-zinc-400 hover:bg-amber-600/20 hover:text-amber-400 active:bg-amber-600/30"
-              >
-                +{n}
-              </button>
+              <button key={n} onClick={() => handleQuickAdd(n)}
+                className={`flex-1 rounded ${card} py-1 text-[10px] font-semibold ${muted} hover:text-amber-400 active:bg-amber-600/30`}
+              >+{n}</button>
             ))}
           </div>
         )}
 
-        {/* -/input/+ row — LARGE touch targets */}
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => handleQtyChange(-1)}
-            disabled={cartQty <= 0}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 hover:bg-red-900/40 hover:text-red-300 disabled:opacity-20 active:bg-red-900/60"
-          >
-            <Minus className="size-5" />
-          </button>
+          <button onClick={() => handleQtyChange(-1)} disabled={cartQty <= 0}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${card} hover:bg-red-900/40 hover:text-red-300 disabled:opacity-20`}
+          ><Minus className="size-5" /></button>
 
           <input
-            type="text"
-            inputMode="decimal"
+            type="text" inputMode="decimal"
             value={inputQty || (isInCart ? String(cartQty) : "")}
             onChange={(e) => setInputQty(e.target.value)}
             onFocus={() => setInputQty(isInCart ? String(cartQty) : "")}
             onBlur={() => { if (inputQty) handleInputSubmit(); }}
             onKeyDown={(e) => { if (e.key === "Enter") handleInputSubmit(); }}
             placeholder="0"
-            className="h-10 w-10 flex-1 rounded-md border border-zinc-700/50 bg-zinc-800/30 text-center text-xs font-semibold text-zinc-200 placeholder:text-zinc-700 focus:border-amber-500/50 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={`h-10 w-8 flex-1 rounded-md ${input} text-center text-xs font-semibold focus:border-amber-500/50 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
           />
 
-          <button
-            onClick={() => handleQtyChange(1)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 hover:bg-green-900/40 hover:text-green-300 active:bg-green-900/60"
-          >
-            <Plus className="size-5" />
-          </button>
+          <button onClick={() => handleQtyChange(1)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${card} hover:bg-green-900/40 hover:text-green-300`}
+          ><Plus className="size-5" /></button>
         </div>
       </div>
     </div>

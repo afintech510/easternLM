@@ -900,6 +900,7 @@ export default function PosRegisterPage() {
           cartQtys={cartQtys}
           onAddProduct={addItem}
           onSetQty={setQtyForProduct}
+          theme={t}
         />
       </div>
 
