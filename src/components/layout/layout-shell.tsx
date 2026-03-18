@@ -6,7 +6,7 @@ import { Footer } from "./footer";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPOS = pathname.startsWith("/pos");
+  const isPOS = pathname.startsWith("/pos") || pathname.startsWith("/yard");
 
   if (isPOS) return <>{children}</>;
 
