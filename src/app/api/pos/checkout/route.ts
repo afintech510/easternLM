@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder, normalizePhone } from "@/lib/customers/lifecycle";
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
+import { createProjectFromPOSOrder } from "@/lib/projects/auto-create";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -155,6 +156,20 @@ export async function POST(request: Request) {
       }
     }
   }
+
+  // Auto-create project if order has labor/service items
+  try {
+    await createProjectFromPOSOrder({
+      id: order.id as string,
+      customer_id: resolvedCustomerId ?? null,
+      customer_name: customer_name || "Walk-in",
+      customer_phone: customer_phone || null,
+      customer_email: customer_email || null,
+      delivery_address: delivery_address || null,
+      delivery_method: delivery_method || "pickup",
+      grand_total_cents: grand_total_cents,
+    });
+  } catch (err) { console.error("POS project auto-create failed:", err); }
 
   return NextResponse.json({ ok: true, orderId: order.id });
 }
