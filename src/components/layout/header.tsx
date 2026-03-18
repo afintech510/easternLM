@@ -57,10 +57,10 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="shrink-0">
             <Image
-              src="/logo-blue.png"
+              src="/logo-elm-blue.webp"
               alt="Eastern Landscape & Mason Supply"
-              width={180}
-              height={48}
+              width={200}
+              height={57}
               priority
             />
           </Link>
