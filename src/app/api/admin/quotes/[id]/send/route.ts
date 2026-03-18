@@ -112,7 +112,12 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (error || !quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.easternlm.com";
+  // Derive site URL from request headers (works behind nginx) or env
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const siteUrl = host && !host.includes("localhost")
+    ? `${proto}://${host}`
+    : process.env.NEXT_PUBLIC_SITE_URL ?? "https://staging.easternlm.com";
   const quoteUrl = `${siteUrl}/quote/${quote.public_token}`;
 
   const errors: string[] = [];
