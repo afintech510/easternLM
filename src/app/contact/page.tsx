@@ -27,12 +27,14 @@ export default function ContactPage() {
             <br />
             {siteConfig.addressLine2}
           </p>
-          <p className="text-sm">
-            Phone:{" "}
-            <a className="font-semibold text-primary hover:underline" href={siteConfig.phoneHref}>
-              {siteConfig.phoneDisplay}
+          <div className="flex flex-wrap gap-2">
+            <a href={siteConfig.phoneHref} className="inline-flex items-center gap-1.5 rounded-lg border bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+              Call {siteConfig.phoneDisplay}
             </a>
-          </p>
+            <a href={siteConfig.smsHref} className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold hover:border-accent/40 hover:text-accent transition-colors">
+              Text Us
+            </a>
+          </div>
           <p className="text-sm">
             Email:{" "}
             <a className="font-semibold text-primary hover:underline" href={`mailto:${siteConfig.email}`}>

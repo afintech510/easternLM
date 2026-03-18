@@ -338,6 +338,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                     Call
                   </a>
                 </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href={siteConfig.smsHref}>Text</a>
+                </Button>
               </div>
             </div>
           </div>

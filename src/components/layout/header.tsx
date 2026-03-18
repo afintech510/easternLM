@@ -33,13 +33,21 @@ export function Header() {
             <span className="hidden sm:inline">Same-Day Delivery &middot; Order by 11 AM</span>
             <span className="sm:hidden">Same-Day Delivery</span>
           </p>
-          <a
-            href={siteConfig.phoneHref}
-            className="flex items-center gap-1.5 font-semibold transition-colors hover:text-accent"
-          >
-            <Phone className="size-3" />
-            {siteConfig.phoneDisplay}
-          </a>
+          <div className="flex items-center gap-2.5">
+            <a
+              href={siteConfig.phoneHref}
+              className="flex items-center gap-1.5 font-semibold transition-colors hover:text-accent"
+            >
+              <Phone className="size-3" />
+              {siteConfig.phoneDisplay}
+            </a>
+            <a
+              href={siteConfig.smsHref}
+              className="hidden sm:inline-flex rounded border border-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:text-accent hover:border-accent/30"
+            >
+              Text Us
+            </a>
+          </div>
         </div>
       </div>
 

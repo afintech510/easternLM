@@ -111,10 +111,15 @@ export default function CalculatorHubPage() {
         {/* Phone */}
         <div className="rounded-xl border bg-card p-5 text-center">
           <p className="text-sm font-semibold">Not sure which calculator to use?</p>
-          <p className="mt-1 text-sm text-muted-foreground">Call us — we help people figure this out every day.</p>
-          <a href="tel:+16318746244" className="mt-3 inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:border-accent/40 hover:text-accent transition-colors">
-            <Phone className="size-4" /> (631) 874-6244
-          </a>
+          <p className="mt-1 text-sm text-muted-foreground">Call or text us — we help people figure this out every day.</p>
+          <div className="mt-3 flex justify-center gap-2">
+            <a href="tel:+16318746244" className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:border-accent/40 hover:text-accent transition-colors">
+              <Phone className="size-4" /> Call (631) 874-6244
+            </a>
+            <a href="sms:+16318746244" className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:border-accent/40 hover:text-accent transition-colors">
+              Text Us
+            </a>
+          </div>
         </div>
       </div>
     </div>
