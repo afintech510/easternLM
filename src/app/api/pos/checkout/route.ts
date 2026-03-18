@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder, normalizePhone } from "@/lib/customers/lifecycle";
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
+import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -103,6 +104,25 @@ export async function POST(request: Request) {
 
   // Deduct inventory
   try { await deductInventoryForOrder(order.id as string); } catch (err) { console.error("Inventory deduction failed:", err); }
+
+  // Auto-create delivery assignments
+  if (delivery_method === "delivery") {
+    try {
+      await createDeliveryAssignments({
+        id: order.id as string,
+        delivery_method: delivery_method || "pickup",
+        delivery_address: delivery_address || null,
+        delivery_zip: null,
+        delivery_schedule: [],
+        distance_meters: null,
+        duration_seconds: null,
+        access_constraints: {},
+        metadata: { deliveryDate: delivery_date, notes },
+        total_loads: 1,
+        total_delivery_days: 1,
+      });
+    } catch (err) { console.error("Auto-dispatch failed:", err); }
+  }
 
   // Link customer and update stats using shared lifecycle engine
   const { customer_id: explicitCustomerId } = body;

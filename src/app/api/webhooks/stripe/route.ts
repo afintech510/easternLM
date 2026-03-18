@@ -4,6 +4,7 @@ import { sendOrderConfirmationEmail } from "@/lib/email/order-email";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder } from "@/lib/customers/lifecycle";
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
+import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 
@@ -482,6 +483,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
 
   // Deduct inventory for paid order
   try { await deductInventoryForOrder(order.id); } catch (err) { console.error("Inventory deduction failed:", err); }
+
+  // Auto-create delivery assignments for dispatch board
+  try { await createDeliveryAssignments(order as any); } catch (err) { console.error("Auto-dispatch failed:", err); }
 
   // FIX 1: Ensure customer record exists and is linked to this order
   if (!(order as any).customer_id) {
