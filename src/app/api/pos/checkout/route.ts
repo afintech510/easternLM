@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder, normalizePhone } from "@/lib/customers/lifecycle";
+import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -99,6 +100,9 @@ export async function POST(request: Request) {
     }));
     await supabase.from("order_items").insert(orderItems);
   }
+
+  // Deduct inventory
+  try { await deductInventoryForOrder(order.id as string); } catch (err) { console.error("Inventory deduction failed:", err); }
 
   // Link customer and update stats using shared lifecycle engine
   const { customer_id: explicitCustomerId } = body;

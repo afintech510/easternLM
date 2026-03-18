@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { sendOrderConfirmationEmail } from "@/lib/email/order-email";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerForOrder, linkCustomerToOrder } from "@/lib/customers/lifecycle";
+import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 
@@ -478,6 +479,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
       order = updated.data;
     }
   }
+
+  // Deduct inventory for paid order
+  try { await deductInventoryForOrder(order.id); } catch (err) { console.error("Inventory deduction failed:", err); }
 
   // FIX 1: Ensure customer record exists and is linked to this order
   if (!(order as any).customer_id) {
