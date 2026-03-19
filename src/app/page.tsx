@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { InstantQuoteWidget } from "@/components/quote/instant-quote-widget";
 import {
@@ -334,7 +336,7 @@ export default async function Home() {
               </a>
             )}
             <a
-              href="https://www.google.com/maps/place/Eastern+Landscape+%26+Mason+Supply/"
+              href="https://maps.app.goo.gl/AiDyPCCs84ZSpsSx7"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-muted-foreground underline hover:text-foreground"
