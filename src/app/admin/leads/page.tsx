@@ -1,236 +1,275 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Phone, Mail, MapPin, Plus, Calendar, AlertCircle,
+  Loader2, Search, ArrowRight, MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { formatUsd } from "@/lib/format";
 
 type Lead = {
   id: string;
+  lead_number: string | null;
   name: string;
   phone: string;
   email: string | null;
+  address: string | null;
   town: string | null;
   service_type: string;
-  status: string;
-  timeline: string | null;
   description: string | null;
-  referral_source: string | null;
-  customer_id: string | null;
-  internal_notes: string | null;
+  timeline: string | null;
+  status: string;
+  priority: string | null;
+  source: string | null;
+  estimated_value_cents: number | null;
+  assigned_to: string | null;
+  assigned_contractors: string[];
   created_at: string;
+  next_follow_up: string | null;
+  follow_up_count: number;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "bg-blue-100 text-blue-800",
-  contacted: "bg-yellow-100 text-yellow-800",
-  quoted: "bg-purple-100 text-purple-800",
-  scheduled: "bg-green-100 text-green-800",
-  completed: "bg-green-200 text-green-900",
-  lost: "bg-gray-100 text-gray-600",
-  spam: "bg-red-100 text-red-800",
+const STATUSES = ["new", "assigned", "contacted", "site_visit", "quoted", "won", "lost"];
+const STATUS_CFG: Record<string, { label: string; color: string }> = {
+  new: { label: "New", color: "bg-blue-100 text-blue-700" },
+  assigned: { label: "Assigned", color: "bg-purple-100 text-purple-700" },
+  contacted: { label: "Contacted", color: "bg-cyan-100 text-cyan-700" },
+  site_visit: { label: "Site Visit", color: "bg-amber-100 text-amber-700" },
+  quoted: { label: "Quoted", color: "bg-orange-100 text-orange-700" },
+  scheduled: { label: "Scheduled", color: "bg-teal-100 text-teal-700" },
+  completed: { label: "Completed", color: "bg-green-100 text-green-700" },
+  won: { label: "Won", color: "bg-green-100 text-green-700" },
+  lost: { label: "Lost", color: "bg-red-100 text-red-700" },
 };
 
-const SERVICE_LABELS: Record<string, string> = {
-  "gravel-driveway-new": "Gravel Driveway — New",
-  "gravel-driveway-resurface": "Gravel Driveway — Resurface",
-  "paver-driveway": "Paver Driveway",
-  "driveway-edging": "Driveway Edging",
-  "asphalt-prep": "Asphalt Prep",
-  "landscaping-design": "Landscaping — Design",
-  "landscaping-grading-drainage": "Grading & Drainage",
-  "landscaping-sod-lawn": "Sod / Lawn",
-  "landscaping-retaining-wall": "Retaining Wall (Landscape)",
-  "landscaping-garden-beds": "Garden Beds",
-  "masonry-patio": "Patio",
-  "masonry-walkway": "Walkway",
-  "masonry-retaining-wall": "Retaining Wall (Masonry)",
-  "masonry-fireplace": "Fireplace / Kitchen",
-  "masonry-veneer-steps": "Veneer / Steps",
-  "property-maintenance": "Property Maintenance",
-  "other": "Other",
+const PRIORITY_DOT: Record<string, string> = {
+  urgent: "bg-red-500", high: "bg-amber-500", normal: "bg-zinc-400", low: "bg-zinc-300",
 };
 
-export default function AdminLeadsPage() {
+export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [stats, setStats] = useState<any>({});
   const [loading, setLoading] = useState(true);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<"board" | "list">("board");
+  const [showCreate, setShowCreate] = useState(false);
 
-  const fetchLeads = useCallback(async () => {
+  // Create form
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newService, setNewService] = useState("driveways");
+  const [newDesc, setNewDesc] = useState("");
+  const [newTimeline, setNewTimeline] = useState("this-month");
+  const [newPriority, setNewPriority] = useState("normal");
+  const [creating, setCreating] = useState(false);
+
+  async function loadLeads() {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    if (statusFilter !== "all") params.set("status", statusFilter);
-
-    const res = await fetch(`/api/admin/leads?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setLeads(data.leads);
-      setTotal(data.total);
+    const params = filter !== "all" ? `?status=${filter}` : "";
+    const r = await fetch(`/api/admin/leads${params}`);
+    if (r.ok) {
+      const d = await r.json();
+      setLeads(d.leads ?? []);
+      setStats(d.stats ?? {});
     }
     setLoading(false);
-  }, [page, statusFilter]);
+  }
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { loadLeads(); }, [filter]);
 
-  async function updateStatus(id: string, status: string) {
-    await fetch(`/api/admin/leads/${id}`, {
-      method: "PATCH",
+  async function createLead() {
+    if (!newName || !newPhone) return;
+    setCreating(true);
+    await fetch("/api/admin/leads", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        name: newName, phone: newPhone, service_type: newService,
+        description: newDesc, timeline: newTimeline, priority: newPriority,
+      }),
     });
-    fetchLeads();
+    setCreating(false);
+    setShowCreate(false);
+    setNewName(""); setNewPhone(""); setNewDesc("");
+    loadLeads();
   }
 
-  function formatPhone(phone: string) {
-    if (phone.length === 10) return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
-    return phone;
-  }
+  const filtered = search
+    ? leads.filter((l) => l.name.toLowerCase().includes(search.toLowerCase()) || l.phone.includes(search) || (l.town ?? "").toLowerCase().includes(search.toLowerCase()))
+    : leads;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Service Leads</h1>
-          <p className="text-sm text-muted-foreground">{total} total leads</p>
+          <h1 className="[font-family:var(--font-display)] text-3xl text-primary">Service Leads</h1>
+          <p className="text-sm text-muted-foreground">{stats.total ?? 0} leads &middot; Pipeline: {formatUsd(stats.pipeline_value ?? 0)}</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex rounded-lg border overflow-hidden">
+            <button onClick={() => setView("board")} className={`px-3 py-1.5 text-sm font-medium ${view === "board" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"}`}>Board</button>
+            <button onClick={() => setView("list")} className={`px-3 py-1.5 text-sm font-medium ${view === "list" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"}`}>List</button>
+          </div>
+          <Button onClick={() => setShowCreate(true)}><Plus className="size-4 mr-1" /> New Lead</Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {["all", "new", "contacted", "quoted", "scheduled", "completed", "lost", "spam"].map((s) => (
-          <Button
-            key={s}
-            variant={statusFilter === s ? "default" : "outline"}
-            size="sm"
-            onClick={() => { setStatusFilter(s); setPage(1); }}
-          >
-            {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-          </Button>
-        ))}
+      {/* Stats bar */}
+      <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+        {STATUSES.map((s) => {
+          const cfg = STATUS_CFG[s] ?? STATUS_CFG.new;
+          const count = s === "won" ? (stats.won ?? 0) : (stats[s] ?? 0);
+          return (
+            <button key={s} onClick={() => setFilter(filter === s ? "all" : s)}
+              className={`rounded-lg border p-3 text-center transition-colors ${filter === s ? "border-accent bg-accent/5" : "hover:border-muted-foreground/30"}`}>
+              <p className="text-lg font-bold">{count}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{cfg.label}</p>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Leads table */}
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left">
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Phone</th>
-              <th className="px-4 py-3 font-medium">Service</th>
-              <th className="px-4 py-3 font-medium">Town</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
-            ) : leads.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No leads found</td></tr>
-            ) : (
-              leads.map((lead) => (
-                <tr key={lead.id} className="border-b hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    <button
-                      className="font-medium text-primary hover:underline"
-                      onClick={() => setSelectedLead(selectedLead?.id === lead.id ? null : lead)}
-                    >
-                      {lead.name}
-                    </button>
-                    {lead.customer_id && (
-                      <span className="ml-1 text-xs text-green-600" title="Existing customer">
-                        ★
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <a href={`tel:+1${lead.phone}`} className="text-primary hover:underline">
-                      {formatPhone(lead.phone)}
-                    </a>
-                  </td>
-                  <td className="px-4 py-3">{SERVICE_LABELS[lead.service_type] || lead.service_type}</td>
-                  <td className="px-4 py-3">{lead.town || "-"}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={STATUS_COLORS[lead.status] || ""}>{lead.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(lead.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      {lead.status === "new" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus(lead.id, "contacted")}>
-                          Mark Contacted
-                        </Button>
-                      )}
-                      {lead.status === "new" && (
-                        <Button size="sm" variant="ghost" className="text-red-500" onClick={() => updateStatus(lead.id, "spam")}>
-                          Spam
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads…" className="pl-9" />
       </div>
 
-      {/* Expanded lead detail */}
-      {selectedLead && (
-        <div className="rounded-lg border bg-card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{selectedLead.name}</h2>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedLead(null)}>Close</Button>
+      {/* Create lead form */}
+      {showCreate && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <h3 className="font-semibold">New Service Lead</h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input placeholder="Customer name *" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <Input placeholder="Phone *" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+            <select value={newService} onChange={(e) => setNewService(e.target.value)} className="rounded-md border bg-background px-3 py-2 text-sm">
+              <option value="driveways">Driveways</option>
+              <option value="landscaping">Landscaping</option>
+              <option value="masonry">Masonry</option>
+              <option value="property-maintenance">Property Maintenance</option>
+              <option value="other">Other</option>
+            </select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 text-sm">
-            <div><span className="text-muted-foreground">Phone:</span> <a href={`tel:+1${selectedLead.phone}`} className="font-medium text-primary">{formatPhone(selectedLead.phone)}</a></div>
-            <div><span className="text-muted-foreground">Email:</span> {selectedLead.email || "-"}</div>
-            <div><span className="text-muted-foreground">Town:</span> {selectedLead.town || "-"}</div>
-            <div><span className="text-muted-foreground">Timeline:</span> {selectedLead.timeline || "-"}</div>
-            <div><span className="text-muted-foreground">Referral:</span> {selectedLead.referral_source || "-"}</div>
-            <div><span className="text-muted-foreground">Service:</span> {SERVICE_LABELS[selectedLead.service_type] || selectedLead.service_type}</div>
+          <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Description / notes" rows={2}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <select value={newTimeline} onChange={(e) => setNewTimeline(e.target.value)} className="rounded-md border bg-background px-3 py-2 text-sm">
+              <option value="asap">ASAP</option>
+              <option value="this-week">This Week</option>
+              <option value="this-month">This Month</option>
+              <option value="spring">Spring</option>
+              <option value="flexible">Flexible</option>
+            </select>
+            <select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} className="rounded-md border bg-background px-3 py-2 text-sm">
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
+            </select>
           </div>
-          {selectedLead.description && (
-            <div className="text-sm">
-              <span className="text-muted-foreground">Description:</span>
-              <p className="mt-1">{selectedLead.description}</p>
-            </div>
-          )}
-          <div className="flex gap-2 pt-2">
-            {["new", "contacted", "quoted", "scheduled", "completed", "lost"].map((s) => (
-              <Button
-                key={s}
-                size="sm"
-                variant={selectedLead.status === s ? "default" : "outline"}
-                onClick={() => {
-                  updateStatus(selectedLead.id, s);
-                  setSelectedLead({ ...selectedLead, status: s });
-                }}
-              >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </Button>
-            ))}
+          <div className="flex gap-2">
+            <Button onClick={createLead} disabled={creating || !newName || !newPhone}>{creating ? "Creating..." : "Create Lead"}</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
           </div>
         </div>
       )}
 
-      {/* Pagination */}
-      {total > 25 && (
-        <div className="flex items-center justify-between">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">Page {page} of {Math.ceil(total / 25)}</span>
-          <Button variant="outline" size="sm" disabled={page * 25 >= total} onClick={() => setPage(page + 1)}>
-            Next
-          </Button>
+      {/* Board view (kanban) */}
+      {view === "board" && !loading && (
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {STATUSES.map((status) => {
+            const cfg = STATUS_CFG[status] ?? STATUS_CFG.new;
+            const columnLeads = filtered.filter((l) => l.status === status || (status === "won" && l.status === "completed"));
+            return (
+              <div key={status} className="w-72 shrink-0 rounded-xl border bg-card">
+                <div className="border-b px-3 py-2.5 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{cfg.label}</span>
+                  <Badge variant="secondary" className="text-xs">{columnLeads.length}</Badge>
+                </div>
+                <div className="space-y-2 p-2 min-h-[100px]">
+                  {columnLeads.map((lead) => (
+                    <LeadCard key={lead.id} lead={lead} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {/* List view */}
+      {view === "list" && !loading && (
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Customer</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Service</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Town</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Priority</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((lead) => {
+                const cfg = STATUS_CFG[lead.status] ?? STATUS_CFG.new;
+                return (
+                  <tr key={lead.id} className="hover:bg-muted/20">
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{lead.lead_number ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <p className="font-medium">{lead.name}</p>
+                      <p className="text-xs text-muted-foreground">{lead.phone}</p>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{lead.service_type}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{lead.town ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-block size-2.5 rounded-full ${PRIORITY_DOT[lead.priority ?? "normal"]}`} />
+                    </td>
+                    <td className="px-3 py-2"><Badge className={`text-xs ${cfg.color}`}>{cfg.label}</Badge></td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(lead.created_at).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {loading && <div className="py-20 text-center"><Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" /></div>}
+    </div>
+  );
+}
+
+function LeadCard({ lead }: { lead: Lead }) {
+  const cfg = STATUS_CFG[lead.status] ?? STATUS_CFG.new;
+  const daysSince = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000);
+
+  return (
+    <div className="rounded-lg border bg-background p-3 space-y-1.5 hover:border-accent/30 transition-colors">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-mono text-muted-foreground">{lead.lead_number}</p>
+          <p className="text-sm font-semibold">{lead.name}</p>
+        </div>
+        <span className={`size-2.5 rounded-full ${PRIORITY_DOT[lead.priority ?? "normal"]}`} />
+      </div>
+      <p className="text-xs text-muted-foreground">{lead.service_type} &middot; {lead.town ?? "—"}</p>
+      {lead.description && <p className="text-xs text-muted-foreground line-clamp-2">{lead.description}</p>}
+      <div className="flex items-center justify-between pt-1">
+        <span className="text-[10px] text-muted-foreground">{daysSince}d ago</span>
+        <div className="flex gap-1">
+          <a href={`tel:${lead.phone}`} className="rounded p-1 hover:bg-muted"><Phone className="size-3 text-muted-foreground" /></a>
+          <a href={`sms:${lead.phone}`} className="rounded p-1 hover:bg-muted"><MessageSquare className="size-3 text-muted-foreground" /></a>
+        </div>
+      </div>
     </div>
   );
 }
