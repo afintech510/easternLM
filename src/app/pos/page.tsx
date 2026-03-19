@@ -262,9 +262,20 @@ export default function PosRegisterPage() {
         setProducts(data.products || []);
         setCategories(data.categories || []);
       });
-    // Auto-connect simulated reader in test mode
-    terminalRef.current.useSimulated();
-    setTerminalStatus("simulated");
+    // Auto-detect real reader, fall back to simulated
+    terminalRef.current.getReaders().then((readers) => {
+      const online = readers.find((r) => r.status === "online");
+      if (online) {
+        terminalRef.current.connectReader(online.id);
+        setTerminalStatus("connected");
+      } else {
+        terminalRef.current.useSimulated();
+        setTerminalStatus("simulated");
+      }
+    }).catch(() => {
+      terminalRef.current.useSimulated();
+      setTerminalStatus("simulated");
+    });
 
     // Load held orders
     fetch("/api/pos/held").then(r => r.json()).then(d => setHeldOrders((d.orders || []).map((o: Record<string, unknown>) => ({
