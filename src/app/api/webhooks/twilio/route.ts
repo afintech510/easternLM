@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createServiceLead } from "@/lib/leads/engine";
 
 /**
  * Twilio incoming SMS webhook.
@@ -85,13 +86,38 @@ export async function POST(request: Request) {
     );
   }
 
-  // Any other message — log it for the admin to see
-  // Future: show in admin dashboard as incoming messages
+  // Any other message — create a lead from the incoming SMS
   console.log(`[twilio] Incoming SMS from ${phone}: ${body}`);
 
-  // Don't auto-reply to random messages to avoid loops
-  return new NextResponse(
-    '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-    { headers: { "Content-Type": "text/xml" } },
-  );
+  try {
+    // Find customer name
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("first_name, last_name")
+      .eq("phone", phone)
+      .maybeSingle();
+    const customerName = customer ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim() : `SMS: ${from}`;
+
+    // Create lead from SMS
+    await createServiceLead({
+      name: customerName,
+      phone,
+      service_type: "other",
+      description: body,
+      source: "sms_inbound",
+      source_detail: `SMS from ${from}: ${body.slice(0, 100)}`,
+    });
+
+    // Auto-reply
+    return new NextResponse(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Thanks for reaching out to Eastern LM! We got your message and will follow up shortly. Call us anytime: (631) 874-6244</Message></Response>`,
+      { headers: { "Content-Type": "text/xml" } },
+    );
+  } catch (err) {
+    console.error("[twilio] Lead creation from SMS failed:", err);
+    return new NextResponse(
+      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+      { headers: { "Content-Type": "text/xml" } },
+    );
+  }
 }
