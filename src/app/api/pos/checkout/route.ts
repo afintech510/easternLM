@@ -171,5 +171,29 @@ export async function POST(request: Request) {
     });
   } catch (err) { console.error("POS project auto-create failed:", err); }
 
+  // Notify office: SMS + email on new POS order
+  try {
+    const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+    const itemsList = (items as any[])?.map((i: any) => `${i.quantity}x ${i.product_name ?? "item"}`).join(", ") ?? "";
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+    if (sid && authToken && fromPhone) {
+      await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: "+16318746244", From: fromPhone, Body: `POS order: ${customer_name ?? "Walk-in"} — ${fmt(grand_total_cents)}\n${delivery_method === "delivery" ? `Delivery: ${delivery_address}` : "Pickup"}\n${itemsList}` }),
+      }).catch(() => {});
+    }
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com",
+      to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
+      subject: `POS Order — ${customer_name ?? "Walk-in"} — ${fmt(grand_total_cents)}`,
+      html: `<div style="font-family:sans-serif;"><h2 style="color:#1a3a5c;">POS Order</h2><p><b>Customer:</b> ${customer_name ?? "Walk-in"}</p><p><b>Total:</b> ${fmt(grand_total_cents)}</p><p><b>Payment:</b> ${payment_method}</p><p><b>Items:</b> ${itemsList}</p><p><a href="https://easternlm.com/admin/operations" style="background:#c8952e;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">View in Admin</a></p></div>`,
+    }).catch(() => {});
+  } catch {}
+
   return NextResponse.json({ ok: true, orderId: order.id });
 }

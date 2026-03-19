@@ -535,6 +535,48 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
 
       await supabaseAdmin.from("orders").update({ metadata: nextMetadata }).eq("id", order.id);
     }
+
+    // Notify office: SMS to yard phone + email to Adam & Ronnie
+    try {
+      const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+      const itemsList = itemsResult.data?.map((i: any) => `${i.quantity} ${i.unit} ${i.product_name}`).join(", ") ?? "items";
+      const orderTotal = fmt(order.grand_total_cents);
+
+      // SMS to office
+      const sid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+      if (sid && authToken && fromPhone) {
+        const smsBody = `New order! ${order.customer_name} — ${orderTotal}\n${order.delivery_method === "delivery" ? `Delivery: ${order.delivery_address}` : "Pickup"}\n${itemsList}`;
+        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+          method: "POST",
+          headers: { Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ To: "+16318746244", From: fromPhone, Body: smsBody }),
+        }).catch(() => {});
+      }
+
+      // Email to Adam & Ronnie
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com",
+          to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
+          subject: `New Order — ${order.customer_name} — ${orderTotal}`,
+          html: `<div style="font-family:sans-serif;max-width:500px;">
+            <h2 style="color:#1a3a5c;">New Order Received</h2>
+            <p><strong>Customer:</strong> ${order.customer_name}</p>
+            <p><strong>Phone:</strong> ${order.customer_phone ?? "—"}</p>
+            <p><strong>Email:</strong> ${order.customer_email}</p>
+            <p><strong>Total:</strong> ${orderTotal}</p>
+            <p><strong>Type:</strong> ${order.delivery_method === "delivery" ? `Delivery to ${order.delivery_address}` : "Pickup"}</p>
+            <p><strong>Items:</strong> ${itemsList}</p>
+            <p><strong>Source:</strong> ${(order as any).source ?? "web"}</p>
+            <p style="margin-top:16px;"><a href="https://easternlm.com/admin/operations" style="background:#c8952e;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">View in Admin</a></p>
+          </div>`,
+        });
+      } catch {}
+    } catch {}
   }
 }
 
