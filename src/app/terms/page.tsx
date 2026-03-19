@@ -53,36 +53,41 @@ export default function TermsPage() {
           Service quotes (landscaping, masonry, driveways, maintenance) are estimates based on site conditions at the time of assessment. Final pricing may vary if conditions differ from the original scope. All service work requires a signed agreement before commencement.
         </p>
 
-        <h2 id="sms-terms" className="text-lg font-semibold text-foreground">SMS Terms of Service</h2>
+        <h2 id="sms-terms" className="text-lg font-semibold text-foreground">SMS / Text Messaging Terms of Service</h2>
         <p>
-          <strong>Program name:</strong> Eastern LM Order &amp; Delivery Notifications
+          <strong>Program name:</strong> Eastern Landscape &amp; Mason Supply SMS Alerts
         </p>
         <p>
-          By providing your mobile phone number when placing an order or creating an account with {siteConfig.name}, you agree to receive automated SMS/text messages related to your transactions. These messages may include:
+          By providing your mobile phone number when placing an order, requesting a quote, creating an account, or otherwise opting in to receive text messages from Eastern Landscape &amp; Mason Supply, you consent to receive automated SMS/text messages related to your transactions and services. These messages may include:
         </p>
         <ul className="list-disc space-y-1 pl-6">
-          <li>Order confirmations</li>
-          <li>Delivery scheduling notifications</li>
-          <li>Delivery status updates (e.g., &quot;Your delivery is on the way&quot;)</li>
+          <li>Order confirmations and payment receipts</li>
+          <li>Delivery scheduling notifications and status updates</li>
+          <li>Quote notifications and follow-up reminders</li>
+          <li>Service lead updates and appointment reminders</li>
+          <li>Payment reminders and invoice links</li>
           <li>Post-delivery review requests</li>
         </ul>
         <p>
-          <strong>Message frequency varies</strong> based on your order activity. You will only receive messages related to orders you have placed with us.
+          <strong>Message frequency varies</strong> based on your order and service activity. You will only receive messages related to your interactions with Eastern Landscape &amp; Mason Supply.
         </p>
         <p>
-          <strong>Message and data rates may apply.</strong> Check with your wireless carrier for details about your messaging plan.
+          <strong>Message and data rates may apply.</strong> Check with your wireless carrier for details about your text messaging plan.
         </p>
         <p>
-          <strong>Opt-out:</strong> You can cancel SMS messages at any time by replying <strong>STOP</strong> to any message you receive from us. After opting out, you will receive a one-time confirmation message. You will no longer receive SMS messages from us unless you opt in again.
+          <strong>Opt-out:</strong> You can cancel SMS messages at any time by replying <strong>STOP</strong> to any message you receive from us. After opting out, you will receive a one-time confirmation message and will no longer receive SMS messages from us unless you opt in again.
         </p>
         <p>
-          <strong>Help:</strong> Reply <strong>HELP</strong> to any message for assistance, or call us at {siteConfig.phoneDisplay}.
+          <strong>Help:</strong> Reply <strong>HELP</strong> to any message for assistance, or contact us at {siteConfig.phoneDisplay} or {siteConfig.email}.
         </p>
         <p>
-          <strong>Carrier disclaimer:</strong> Carriers are not liable for delayed or undelivered messages. Delivery is subject to effective transmission from your network operator.
+          <strong>Carrier disclaimer:</strong> Carriers (AT&amp;T, T-Mobile, Verizon, etc.) are not liable for delayed or undelivered messages. Message delivery is subject to effective transmission from your network operator and is not guaranteed.
         </p>
         <p>
-          We will not share, sell, or provide your mobile phone number or SMS opt-in consent data to any third parties or affiliates for their marketing or promotional purposes. For more information, see our <a href="/privacy-policy" className="text-primary underline hover:no-underline">Privacy Policy</a>.
+          <strong>Privacy:</strong> We do not share, sell, rent, or trade mobile phone numbers or any personal information collected through our SMS messaging program with third parties or affiliates for marketing or promotional purposes. Mobile opt-in data and consent will not be shared with any third parties. For more information, see our <a href="/privacy-policy" className="text-primary underline hover:no-underline">Privacy Policy</a>.
+        </p>
+        <p>
+          <strong>Contact:</strong> Eastern Landscape &amp; Mason Supply, 110 Frowein Road, Center Moriches, NY 11934. Phone: {siteConfig.phoneDisplay}. Email: {siteConfig.email}.
         </p>
 
         <h2 className="text-lg font-semibold text-foreground">Limitation of Liability</h2>

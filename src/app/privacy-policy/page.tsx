@@ -43,13 +43,13 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="text-lg font-semibold text-foreground">SMS / Text Messaging</h2>
         <p>
-          When you provide your mobile phone number during checkout or account creation, you may receive transactional SMS/text messages related to your orders. These messages may include order confirmations, delivery scheduling, delivery status updates (e.g., &quot;Your delivery is on the way&quot;), and post-delivery review requests.
+          When you provide your mobile phone number during checkout, quote requests, account creation, or other interactions with Eastern Landscape &amp; Mason Supply, you may receive SMS/text messages related to your orders and services. These messages may include order confirmations, delivery scheduling updates, delivery status notifications, quote notifications, payment reminders, and post-delivery review requests.
         </p>
         <p>
-          By providing your mobile phone number, you consent to receive these transactional messages. Message frequency varies based on your order activity. Message and data rates may apply. You can opt out of SMS messages at any time by replying <strong>STOP</strong> to any message. Reply <strong>HELP</strong> for assistance, or call {siteConfig.phoneDisplay}.
+          By providing your mobile phone number and opting in to receive text messages, you consent to receive these messages from Eastern Landscape &amp; Mason Supply. Message frequency varies based on your order and service activity. Message and data rates may apply. You can opt out of SMS messages at any time by replying <strong>STOP</strong> to any message. Reply <strong>HELP</strong> for assistance, or contact us at {siteConfig.phoneDisplay} or {siteConfig.email}.
         </p>
         <p>
-          <strong>We will not share, sell, or provide your mobile phone number or SMS opt-in consent data to any third parties or affiliates for their marketing or promotional purposes.</strong> Your phone number and consent information are used solely to deliver the transactional messages described above through our SMS service provider (Twilio).
+          <strong>We do not share, sell, rent, or trade mobile phone numbers or any personal information collected through our SMS messaging program with third parties or affiliates for marketing or promotional purposes. Mobile opt-in data and consent will not be shared with any third parties.</strong> Your phone number and consent information are used solely by Eastern Landscape &amp; Mason Supply to deliver the messages described above through our SMS service provider (Twilio).
         </p>
 
         <h2 className="text-lg font-semibold text-foreground">Third-Party Services</h2>
