@@ -63,7 +63,7 @@ type LineItem = {
 
 type PosCategory = { slug: string; name: string; count: number };
 
-type MiddleTab = "calculator" | "delivery" | "customer" | "transactions";
+type MiddleTab = "delivery" | "customer" | "transactions";
 
 type RouteInfo = {
   roundTripMiles: number;
@@ -126,7 +126,7 @@ export default function PosRegisterPage() {
   const [holdReason, setHoldReason] = useState("");
 
   // Middle column state
-  const [middleTab, setMiddleTab] = useState<MiddleTab>("calculator");
+  const [middleTab, setMiddleTab] = useState<MiddleTab>("delivery");
   const [calcLength, setCalcLength] = useState("");
   const [calcWidth, setCalcWidth] = useState("");
   const [calcDepth, setCalcDepth] = useState("");
@@ -1043,7 +1043,6 @@ export default function PosRegisterPage() {
         {/* Tabs */}
         <div className="flex border-b border-zinc-800">
           {([
-            { key: "calculator" as MiddleTab, label: "Calculator", icon: Calculator },
             { key: "delivery" as MiddleTab, label: "Delivery", icon: Truck },
             { key: "customer" as MiddleTab, label: "Customer", icon: Users },
             { key: "transactions" as MiddleTab, label: "Transactions", icon: ClipboardList },
@@ -1064,75 +1063,7 @@ export default function PosRegisterPage() {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* Calculator Tab */}
-          {middleTab === "calculator" && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-zinc-300">Yards Calculator</h3>
-              <p className="text-xs text-zinc-500">
-                Enter dimensions to calculate cubic yards needed.
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">Length (feet)</label>
-                  <input
-                    type="number"
-                    value={calcLength}
-                    onChange={(e) => setCalcLength(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    step="0.5"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">Width (feet)</label>
-                  <input
-                    type="number"
-                    value={calcWidth}
-                    onChange={(e) => setCalcWidth(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    step="0.5"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">Depth (inches)</label>
-                  <input
-                    type="number"
-                    value={calcDepth}
-                    onChange={(e) => setCalcDepth(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    step="0.5"
-                  />
-                </div>
-              </div>
-
-              {/* Result */}
-              {calcYards !== null && (
-                <div className="rounded-lg border border-amber-600/30 bg-amber-900/20 p-4">
-                  <p className="text-xs text-amber-400/70">Estimated material needed:</p>
-                  <p className="mt-1 text-3xl font-bold text-amber-400">
-                    {calcYards.toFixed(2)} <span className="text-lg font-normal">yards</span>
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {parseFloat(calcLength)} ft x {parseFloat(calcWidth)} ft x {parseFloat(calcDepth)} in
-                  </p>
-                </div>
-              )}
-
-              {/* Quick reference */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                <p className="mb-2 text-xs font-semibold text-zinc-400">Quick Reference</p>
-                <div className="space-y-1 text-xs text-zinc-500">
-                  <p>1 yard covers ~108 sq ft at 3&quot; deep</p>
-                  <p>1 yard covers ~162 sq ft at 2&quot; deep</p>
-                  <p>1 yard = 27 cubic feet</p>
-                </div>
-              </div>
-            </div>
-          )}
-
+        <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#d97706 transparent" }}>
           {/* Delivery Tab */}
           {middleTab === "delivery" && (
             <div className="space-y-3">
@@ -1170,19 +1101,17 @@ export default function PosRegisterPage() {
                         key={c.id}
                         className="flex w-full flex-col gap-0.5 border-b border-zinc-800 px-3 py-2.5 text-left hover:bg-zinc-800 last:border-0"
                         onClick={() => {
-                          const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.company_name || "";
-                          setDelName(name); setCustomerName(name || "Walk-in");
-                          setDelPhone(c.phone || ""); setCustomerPhone(c.phone || "");
-                          setDelEmail(c.email || "");
+                          // Select customer on both delivery + customer tabs
+                          selectCustomer(c as any);
+                          setDelCustomerId(c.id);
+                          setDelCustomerStatus("found");
+                          // Auto-calc delivery fee if address available
                           if (c.address) {
                             const fullAddr = c.address + (c.city ? `, ${c.city}` : "") + (c.zip ? ` ${c.zip}` : "");
                             setDelAddress(fullAddr); setDeliveryAddress(fullAddr);
                             setDeliveryMethod("delivery");
                             calculateDeliveryFee(fullAddr);
                           }
-                          setDelCustomerId(c.id);
-                          setDelCustomerStatus("found");
-                          if (c.is_charge_account) setSelectedCustomer({ id: c.id, first_name: c.first_name, last_name: c.last_name, is_charge_account: true, charge_account_name: c.charge_account_name, current_balance_cents: c.current_balance_cents, credit_limit_cents: c.credit_limit_cents, payment_terms: c.payment_terms } as any);
                           setDelCustSearch("");
                           setDelCustResults([]);
                         }}
@@ -1358,18 +1287,33 @@ export default function PosRegisterPage() {
                 </div>
               </div>
 
-              {/* Fee override */}
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                <span className="text-xs text-zinc-500">Delivery Fee: $</span>
-                <input
-                  type="number"
-                  value={deliveryFeeCents / 100 || ""}
-                  onChange={(e) => setDeliveryFeeCents(Math.round(parseFloat(e.target.value || "0") * 100))}
-                  placeholder="0"
-                  className="w-20 rounded border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-sm focus:outline-none"
-                  step="5"
-                />
-                <button onClick={() => setDeliveryFeeCents(0)} className="text-xs text-amber-400 hover:underline">FREE</button>
+              {/* Fee override with +/- buttons */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                <p className="mb-2 text-xs text-zinc-500 text-center">Delivery Fee</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setDeliveryFeeCents(Math.max(0, deliveryFeeCents - 500))}
+                    className="flex size-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-xl font-bold text-zinc-300 hover:bg-zinc-700 active:scale-95"
+                  >
+                    −
+                  </button>
+                  <div className="text-center min-w-[80px]">
+                    <input
+                      type="number"
+                      value={deliveryFeeCents / 100 || ""}
+                      onChange={(e) => setDeliveryFeeCents(Math.round(parseFloat(e.target.value || "0") * 100))}
+                      className="w-20 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-center text-lg font-bold text-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      step="5"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setDeliveryFeeCents(deliveryFeeCents + 500)}
+                    className="flex size-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-xl font-bold text-zinc-300 hover:bg-zinc-700 active:scale-95"
+                  >
+                    +
+                  </button>
+                </div>
+                <button onClick={() => setDeliveryFeeCents(0)} className="mt-2 w-full text-center text-xs text-green-400 hover:underline">Set FREE delivery</button>
               </div>
             </div>
           )}
@@ -1694,23 +1638,14 @@ export default function PosRegisterPage() {
                 <X className="h-4 w-4" />
               </button>
             )}
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                {(["site", "light", "medium", "dark"] as const).map((th) => (
-                  <button key={th} onClick={() => setTheme(th)} className={`rounded px-2 py-1 text-[10px] ${theme === th ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-500"}`}>
-                    {th}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => window.location.href = "/pos/login"} className="text-zinc-500 hover:text-zinc-300" title="Sign out">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
+            <button onClick={() => window.location.href = "/pos/login"} className="text-zinc-500 hover:text-zinc-300" title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
         {/* Line items */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#d97706 transparent" }}>
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-zinc-600">
               <div className="text-center">
