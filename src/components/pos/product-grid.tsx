@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, Search, X } from "lucide-react";
+import { Calculator, Minus, Plus, Search, X } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
 type PosProduct = {
@@ -34,12 +34,13 @@ interface Props {
   cartQtys: CartQty;
   onAddProduct: (product: PosProduct, qty: number) => void;
   onSetQty: (productId: string, qty: number) => void;
+  onOpenCalculator?: () => void;
   theme?: PosTheme;
 }
 
 const BULK_PRESETS = [3, 5, 10, 15, 20];
 
-export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, theme: t }: Props) {
+export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, onOpenCalculator, theme: t }: Props) {
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
@@ -92,6 +93,16 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
             </button>
           )}
           </div>
+          {/* Calculator button */}
+          {onOpenCalculator && (
+            <button
+              onClick={onOpenCalculator}
+              className={`shrink-0 rounded-lg border ${border} ${input} p-2 transition-colors ${hover}`}
+              title="Material Calculator"
+            >
+              <Calculator className="size-5 text-amber-400" />
+            </button>
+          )}
         </div>
       </div>
 
