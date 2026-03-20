@@ -60,9 +60,8 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/admin", icon: BarChart3, exact: true },
       { label: "Customers", href: "/admin/customers", icon: Users },
-      { label: "Quotes", href: "/admin/quotes", icon: FileText },
+      { label: "Pipeline", href: "/admin/pipeline", icon: FileText, badgeKey: "followUps" },
       { label: "Campaigns", href: "/admin/campaigns", icon: Megaphone },
-      { label: "Leads", href: "/admin/leads", icon: Bell, badgeKey: "followUps" },
       { label: "Contractors", href: "/admin/contractors", icon: Users },
       { label: "Follow-Ups", href: "/admin/follow-ups", icon: Bell },
       { label: "Gallery", href: "/admin/gallery", icon: Camera },

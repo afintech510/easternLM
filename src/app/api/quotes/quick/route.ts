@@ -150,6 +150,41 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Detect lead type: material vs service
+  const hasServiceItems = (items ?? []).some((item: any) => {
+    const name = (item.name ?? "").toLowerCase();
+    return name.includes("install") || name.includes("spreading") ||
+      name.includes("grading") || name.includes("excavat") ||
+      name.includes("labor") || name.includes("resurface") ||
+      name.includes("edging") || name.includes("paver") ||
+      (item.categorySlug === "installation-services");
+  });
+  const leadType = hasServiceItems ? "service" : "material";
+  const valueTier = totalCents < 20000 ? "quick" : totalCents < 100000 ? "standard" : "high";
+
+  // Create/update lead record linked to this quote
+  const { data: lead } = await supabase.from("service_leads").insert({
+    customer_id: customer?.id ?? null,
+    name: customer?.name ?? "Customer",
+    phone: customer?.phone ?? null,
+    email: customer?.email ?? null,
+    address: customer?.address ?? null,
+    service_type: hasServiceItems ? "installation" : "material_order",
+    description: note ?? title,
+    status: "quoted",
+    source: "pos",
+    source_detail: "POS quick quote",
+    lead_type: leadType,
+    value_tier: valueTier,
+    estimated_value_cents: totalCents,
+    quote_id: quote.id,
+  }).select("id").single();
+
+  // Link lead to quote
+  if (lead) {
+    await supabase.from("quotes").update({ lead_id: lead.id }).eq("id", quote.id);
+  }
+
   // Derive site URL from request headers
   const proto = request.headers.get("x-forwarded-proto") ?? "https";
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
