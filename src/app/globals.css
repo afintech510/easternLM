@@ -139,3 +139,34 @@
 .topo-pattern {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M30 80 Q60 40 100 60 T170 50' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.07'/%3E%3Cpath d='M20 120 Q70 80 120 100 T180 90' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.05'/%3E%3Cpath d='M10 160 Q50 130 100 145 T190 135' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.07'/%3E%3Cpath d='M25 30 Q80 10 130 25 T185 20' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.04'/%3E%3Cpath d='M15 190 Q65 170 115 180 T175 175' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.06'/%3E%3C/svg%3E");
 }
+
+/* ── Mobile Usability Overrides (WCAG 2.5.8 + Apple HIG) ──────── */
+@media (max-width: 768px) {
+  /* Prevent iOS auto-zoom on input focus — 16px minimum */
+  input:not([type="checkbox"]):not([type="radio"]):not([data-pos]),
+  select:not([data-pos]),
+  textarea:not([data-pos]) {
+    font-size: 16px !important;
+    min-height: 48px;
+  }
+
+  /* Checkboxes and radios — larger touch targets */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-width: 22px;
+    min-height: 22px;
+  }
+
+  /* Buttons — 48px minimum touch target */
+  button:not([data-pos]):not([data-grid-col]),
+  [role="button"]:not([data-pos]) {
+    min-height: 44px;
+  }
+
+  /* Primary CTA buttons — even larger */
+  .btn-primary,
+  button[data-size="lg"] {
+    min-height: 52px;
+    font-size: 1.0625rem;
+  }
+}
