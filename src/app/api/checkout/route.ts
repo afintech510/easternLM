@@ -46,6 +46,14 @@ const requestSchema = z.object({
     optInEmail: z.boolean().optional(),
   }),
   createAccount: z.boolean().optional(),
+  deliverySequence: z.array(z.object({
+    deliveryNumber: z.number(),
+    productId: z.string(),
+    productName: z.string(),
+    quantity: z.number(),
+    feeCents: z.number(),
+  })).optional(),
+  mode: z.enum(["redirect", "embedded"]).optional().default("embedded"),
 });
 
 function resolveCustomerType(promoCode?: string): CustomerType {
@@ -372,37 +380,58 @@ export async function POST(request: Request) {
     const fallbackDistanceMeters =
       payload.deliveryMethod === "delivery" ? Math.round(calculation.oneWayMiles * 1609.344) : null;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: lineItems,
-      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/checkout?canceled=1`,
-      customer_email: payload.customer.email,
-      metadata: {
-        customerName: payload.customer.fullName,
-        customerPhone: payload.customer.phone,
-        deliveryMethod: payload.deliveryMethod,
-        deliveryAddress: resolvedDeliveryAddress?.fullAddress ?? "",
-        deliveryZip: resolvedDeliveryAddress?.zip ?? "",
-        combineLoads: String(payload.combineLoads),
-        promoCode: payload.promoCode ?? "",
-        accessConstraints: JSON.stringify(payload.accessConstraints ?? {}),
-        deliveryDate: payload.deliveryDate ?? "",
-        createAccount: String(Boolean(payload.createAccount)),
-        serverGrandTotalCents: String(calculation.grandTotalCents),
-        materialsSubtotalCents: String(calculation.discountedSubtotalCents),
-        deliveryTotalCents: String(calculation.deliveryFeeCents),
-        taxCents: String(calculation.taxCents),
-        ccSurchargeCents: String(calculation.ccSurchargeCents),
-        firstLoadFeeCents: String(calculation.firstLoadFeeCents),
-        additionalLoadFeeCents: String(calculation.additionalLoadFeeCents),
-        totalLoads: String(calculation.totalLoads),
-        totalDeliveryDays: String(calculation.totalDeliveryDays),
-        distanceMeters: String(cachedDistanceMeters ?? fallbackDistanceMeters ?? ""),
-        durationSeconds: String(cachedDurationSeconds ?? ""),
-        deliverySchedule: deliveryScheduleMetadata,
-      },
-    });
+    const orderMetadata = {
+      customerName: payload.customer.fullName,
+      customerPhone: payload.customer.phone,
+      deliveryMethod: payload.deliveryMethod,
+      deliveryAddress: resolvedDeliveryAddress?.fullAddress ?? "",
+      deliveryZip: resolvedDeliveryAddress?.zip ?? "",
+      combineLoads: String(payload.combineLoads),
+      promoCode: payload.promoCode ?? "",
+      accessConstraints: JSON.stringify(payload.accessConstraints ?? {}),
+      deliveryDate: payload.deliveryDate ?? "",
+      createAccount: String(Boolean(payload.createAccount)),
+      serverGrandTotalCents: String(calculation.grandTotalCents),
+      materialsSubtotalCents: String(calculation.discountedSubtotalCents),
+      deliveryTotalCents: String(calculation.deliveryFeeCents),
+      taxCents: String(calculation.taxCents),
+      ccSurchargeCents: String(calculation.ccSurchargeCents),
+      firstLoadFeeCents: String(calculation.firstLoadFeeCents),
+      additionalLoadFeeCents: String(calculation.additionalLoadFeeCents),
+      totalLoads: String(calculation.totalLoads),
+      totalDeliveryDays: String(calculation.totalDeliveryDays),
+      distanceMeters: String(cachedDistanceMeters ?? fallbackDistanceMeters ?? ""),
+      durationSeconds: String(cachedDurationSeconds ?? ""),
+      deliverySchedule: deliveryScheduleMetadata,
+      optInSms: String(payload.customer.optInSms ?? false),
+      optInEmail: String(payload.customer.optInEmail ?? false),
+    };
+
+    // Embedded mode: create PaymentIntent (customer stays on our domain)
+    // Redirect mode: create Checkout Session (redirects to Stripe)
+    const useEmbedded = payload.mode === "embedded";
+
+    let session: Stripe.Checkout.Session | null = null;
+    let paymentIntent: Stripe.PaymentIntent | null = null;
+
+    if (useEmbedded) {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: calculation.grandTotalCents,
+        currency: "usd",
+        automatic_payment_methods: { enabled: true },
+        receipt_email: payload.customer.email,
+        metadata: orderMetadata,
+      });
+    } else {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: lineItems,
+        success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/checkout?canceled=1`,
+        customer_email: payload.customer.email,
+        metadata: orderMetadata,
+      });
+    }
 
     try {
       const deliverySchedule = calculation.loads.map((load) => ({
@@ -416,7 +445,7 @@ export async function POST(request: Request) {
       const insertedOrder = await supabaseAdmin
         .from("orders")
         .insert({
-          stripe_checkout_session_id: session.id,
+          stripe_checkout_session_id: session?.id ?? paymentIntent?.id ?? null,
           customer_name: payload.customer.fullName,
           customer_email: payload.customer.email,
           customer_phone: payload.customer.phone,
@@ -487,9 +516,17 @@ export async function POST(request: Request) {
       // Do not block checkout on order pre-save; webhook fallback will persist.
     }
 
+    if (useEmbedded && paymentIntent) {
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        serverGrandTotalCents: calculation.grandTotalCents,
+      });
+    }
+
     return NextResponse.json({
-      sessionId: session.id,
-      sessionUrl: session.url,
+      sessionId: session?.id,
+      sessionUrl: session?.url,
       serverGrandTotalCents: calculation.grandTotalCents,
     });
   } catch (error) {

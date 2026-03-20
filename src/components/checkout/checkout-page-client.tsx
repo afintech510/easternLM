@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Lock, Phone, Shield, Truck, Store } from "lucide-react";
+import { AlertTriangle, CheckCircle, Lock, Phone, Shield, Truck, Store, Loader2 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/stores/cartStore";
 import { siteConfig } from "@/config/site";
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(cents / 100);
@@ -53,6 +59,8 @@ export function CheckoutPageClient() {
   const [optInSms, setOptInSms] = useState(false);
   const [optInEmail, setOptInEmail] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
@@ -93,7 +101,7 @@ export function CheckoutPageClient() {
     );
   }
 
-  async function handleCheckout() {
+  async function handleContinueToPayment() {
     setTouched({ name: true, email: true, phone: true });
     if (!formValid) { setError("Please fill in all required fields."); return; }
 
@@ -120,12 +128,13 @@ export function CheckoutPageClient() {
             quantity: item.quantity,
             feeCents: calculation!.loads?.[i]?.feeCents ?? 0,
           })),
+          mode: "embedded",
           createAccount: false,
         }),
       });
-      const body = (await response.json()) as { error?: string; sessionUrl?: string };
-      if (!response.ok || !body.sessionUrl) throw new Error(body.error ?? "Checkout failed.");
-      window.location.href = body.sessionUrl;
+      const body = await response.json();
+      if (!response.ok || !body.clientSecret) throw new Error(body.error ?? "Checkout failed.");
+      setClientSecret(body.clientSecret);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
     } finally {
@@ -247,21 +256,61 @@ export function CheckoutPageClient() {
             </p>
           )}
 
-          {/* Pay button */}
-          <Button
-            onClick={handleCheckout}
-            disabled={!canCheckout || isSubmitting}
-            size="lg"
-            className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
-          >
-            <Lock className="size-4" />
-            {isSubmitting ? "Processing..." : `Pay ${formatUsd(calculation.grandTotalCents)}`}
-          </Button>
-
-          <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Shield className="size-3" /> Secure checkout via Stripe</span>
-            <span>256-bit encryption</span>
-          </div>
+          {/* Payment section */}
+          {paymentSuccess ? (
+            <div className="rounded-xl border border-green-600/40 bg-green-50 dark:bg-green-950/20 p-6 text-center space-y-3">
+              <CheckCircle className="mx-auto size-12 text-green-600" />
+              <h2 className="text-xl font-bold text-green-700 dark:text-green-400">Payment Successful!</h2>
+              <p className="text-sm text-muted-foreground">Your order has been placed. Check your email for confirmation.</p>
+              <Button asChild><Link href="/checkout/success">View Order Confirmation</Link></Button>
+            </div>
+          ) : !clientSecret ? (
+            <>
+              <Button
+                onClick={handleContinueToPayment}
+                disabled={!canCheckout || isSubmitting}
+                size="lg"
+                className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
+              >
+                {isSubmitting ? <><Loader2 className="size-4 animate-spin" /> Preparing payment...</> : <><Lock className="size-4" /> Continue to Payment — {formatUsd(calculation.grandTotalCents)}</>}
+              </Button>
+              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Shield className="size-3" /> Secure checkout via Stripe</span>
+                <span>256-bit encryption</span>
+              </div>
+            </>
+          ) : stripePromise ? (
+            <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
+              <h2 className="text-sm font-semibold mb-4">Payment Details</h2>
+              <Elements stripe={stripePromise} options={{
+                clientSecret,
+                appearance: {
+                  theme: "stripe",
+                  variables: {
+                    colorPrimary: "#1e3a5f",
+                    borderRadius: "8px",
+                    fontFamily: "system-ui, sans-serif",
+                  },
+                },
+              }}>
+                <EmbeddedPaymentForm
+                  totalCents={calculation.grandTotalCents}
+                  onSuccess={() => {
+                    setPaymentSuccess(true);
+                    // Clear cart after successful payment
+                    useCartStore.getState().recalculateDelivery();
+                  }}
+                  onError={(msg) => setError(msg)}
+                />
+              </Elements>
+            </div>
+          ) : (
+            /* Fallback: Stripe publishable key not configured — show message */
+            <div className="rounded-xl border bg-card p-5 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">Payment system loading...</p>
+              <p className="text-xs text-muted-foreground">If this persists, call (631) 874-6244 to place your order.</p>
+            </div>
+          )}
         </div>
 
         {/* Right: order summary */}
@@ -326,5 +375,63 @@ export function CheckoutPageClient() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Embedded Stripe Payment Form — renders inside <Elements> */
+function EmbeddedPaymentForm({ totalCents, onSuccess, onError }: {
+  totalCents: number;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/checkout/success`,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      onError(error.message ?? "Payment failed.");
+      setProcessing(false);
+    } else {
+      // Payment succeeded without redirect
+      onSuccess();
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement options={{
+        layout: "tabs",
+      }} />
+      <Button
+        type="submit"
+        disabled={!stripe || processing}
+        size="lg"
+        className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
+      >
+        {processing ? (
+          <><Loader2 className="size-4 animate-spin" /> Processing...</>
+        ) : (
+          <><Lock className="size-4" /> Pay {formatUsd(totalCents)}</>
+        )}
+      </Button>
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1"><Shield className="size-3" /> Secured by Stripe</span>
+        <span>256-bit encryption</span>
+      </div>
+    </form>
   );
 }
