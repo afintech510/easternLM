@@ -119,9 +119,8 @@ export function CartPageClient() {
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
-  const [flatbedDelivery, setFlatbedDelivery] = useState(false);
-  const [hasForklift, setHasForklift] = useState(false);
-  const [yardBagging, setYardBagging] = useState(false);
+  const flatbedDelivery = false;
+  const yardBagging = false;
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
 
@@ -152,9 +151,8 @@ export function CartPageClient() {
     return 0;
   }, [calculation, deliveryMethod]);
 
-  // Flatbed/forklift delivery surcharges
-  const flatbedFeeCents = flatbedDelivery ? 5000 : 0;
-  const forkliftSavingsCents = flatbedDelivery && hasForklift ? -2500 : 0;
+  const flatbedFeeCents = 0;
+  const forkliftSavingsCents = 0;
   const bulkYards = items.filter((i) => i.deliveryType === "bulk").reduce((s, i) => s + i.quantity, 0);
   const yardBaggingCents = yardBagging ? bulkYards * 3000 : 0;
 
@@ -265,35 +263,7 @@ export function CartPageClient() {
                   <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
                 </div>
 
-                {/* Flatbed / Forklift options */}
-                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Delivery Options</p>
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" checked={flatbedDelivery} onChange={(e) => { setFlatbedDelivery(e.target.checked); if (!e.target.checked) { setHasForklift(false); setYardBagging(false); } }} className="mt-0.5 accent-accent" />
-                    <div>
-                      <span className="text-sm font-medium">Flatbed delivery (+$50)</span>
-                      <p className="text-xs text-muted-foreground">Material delivered on a flatbed truck instead of a dump truck.</p>
-                    </div>
-                  </label>
-                  {flatbedDelivery && (
-                    <>
-                      <label className="flex items-start gap-2 cursor-pointer pl-4">
-                        <input type="checkbox" checked={hasForklift} onChange={(e) => setHasForklift(e.target.checked)} className="mt-0.5 accent-accent" />
-                        <div>
-                          <span className="text-sm font-medium">I have a forklift on-site (−$25)</span>
-                          <p className="text-xs text-muted-foreground">Save $25 if you can unload with your own forklift.</p>
-                        </div>
-                      </label>
-                      <label className="flex items-start gap-2 cursor-pointer pl-4">
-                        <input type="checkbox" checked={yardBagging} onChange={(e) => setYardBagging(e.target.checked)} className="mt-0.5 accent-accent" />
-                        <div>
-                          <span className="text-sm font-medium">Yard bagging (+$30/yd)</span>
-                          <p className="text-xs text-muted-foreground">Bulk material bagged in 1-yard bags for flatbed delivery.</p>
-                        </div>
-                      </label>
-                    </>
-                  )}
-                </div>
+                {/* Delivery options removed — dump truck only */}
               </div>
             )}
 
