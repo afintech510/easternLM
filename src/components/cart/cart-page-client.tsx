@@ -228,7 +228,7 @@ export function CartPageClient() {
                 </button>
               </div>
             )}
-            <div className="rounded-xl border bg-card p-4">
+            <div className="rounded-xl border border-blue-800/40 bg-card p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 Delivery {i + 1}
               </p>
@@ -262,7 +262,7 @@ export function CartPageClient() {
 
           {/* Non-bulk items */}
           {nonBulkItems.length > 0 && (
-            <div className="rounded-xl border bg-card p-4">
+            <div className="rounded-xl border border-blue-800/40 bg-card p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
               </p>
@@ -289,7 +289,7 @@ export function CartPageClient() {
           )}
 
           {/* Customer Info — lead capture */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-3">
             <h2 className="text-sm font-semibold">Your Information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input placeholder="Name" value={custName} onChange={(e) => setCustName(e.target.value)} />
@@ -303,7 +303,7 @@ export function CartPageClient() {
           </div>
 
           {/* Delivery or Pickup */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-sm font-semibold">Delivery or Pickup</h2>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => toggleDeliveryMethod("delivery")} className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium transition-colors ${deliveryMethod === "delivery" ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted"}`}>
@@ -390,7 +390,7 @@ export function CartPageClient() {
 
         {/* ── Right: Order Summary (sticky) ──────────────────── */}
         <div className="lg:sticky lg:top-28 lg:self-start">
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-lg font-semibold">Order Summary</h2>
 
             {isCalculating && <p className="text-sm text-muted-foreground"><Spin className="inline size-3 animate-spin mr-1" />Calculating...</p>}
