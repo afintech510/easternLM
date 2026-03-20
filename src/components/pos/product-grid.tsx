@@ -35,12 +35,13 @@ interface Props {
   onAddProduct: (product: PosProduct, qty: number) => void;
   onSetQty: (productId: string, qty: number) => void;
   onOpenCalculator?: () => void;
+  onOpenNewLead?: () => void;
   theme?: PosTheme;
 }
 
 const BULK_PRESETS = [3, 5, 10, 15, 20];
 
-export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, onOpenCalculator, theme: t }: Props) {
+export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, onOpenCalculator, onOpenNewLead, theme: t }: Props) {
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
@@ -101,6 +102,37 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               title="Material Calculator"
             >
               <Calculator className="size-5 text-amber-400" />
+            </button>
+          )}
+          {/* New Service Lead button */}
+          {onOpenNewLead && (
+            <button
+              onClick={onOpenNewLead}
+              className={`shrink-0 rounded-lg border ${border} ${input} p-1.5 transition-colors ${hover}`}
+              title="New Service Lead"
+              style={{ filter: "drop-shadow(0 0 3px #39ff1466)" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24">
+                <g fill="#39FF14" stroke="#39FF14">
+                  <circle cx="28" cy="14" r="6.5" stroke="none" />
+                  <path d="M 11 29 C 11 21, 21 19, 28 19 C 35 19, 45 21, 45 29 Z" stroke="none" />
+                  <circle cx="72" cy="14" r="6.5" stroke="none" />
+                  <path d="M 55 29 C 55 21, 65 19, 72 19 C 79 19, 89 21, 89 29 Z" stroke="none" />
+                  <g strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="36" x2="92" y2="36" />
+                    <path d="M 14 36 L 41 63 L 41 76" />
+                    <path d="M 86 36 L 59 63 L 59 76" />
+                  </g>
+                  <g strokeWidth="3.5" fill="none">
+                    <ellipse cx="50" cy="84" rx="16" ry="6" />
+                    <path d="M 34 90 A 16 6 0 0 0 66 90" strokeLinecap="round" />
+                  </g>
+                  <g strokeWidth="1.5" fill="none" strokeLinecap="round">
+                    <line x1="50" y1="80" x2="50" y2="88" />
+                    <path d="M 52.5 81.5 C 52.5 80, 47.5 80, 47.5 82.5 C 47.5 85, 52.5 83, 52.5 85.5 C 52.5 88, 47.5 88, 47.5 86.5" />
+                  </g>
+                </g>
+              </svg>
             </button>
           )}
         </div>

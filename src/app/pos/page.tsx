@@ -31,6 +31,7 @@ import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
+import { NewLeadModal } from "@/components/pos/new-lead-modal";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -175,6 +176,7 @@ export default function PosRegisterPage() {
   const [processing, setProcessing] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [showMaterialCalc, setShowMaterialCalc] = useState(false);
+  const [showNewLead, setShowNewLead] = useState(false);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
@@ -1004,6 +1006,17 @@ export default function PosRegisterPage() {
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* Caller ID popup — RingCentral incoming call notifications */}
+      {/* New Lead Modal */}
+      {showNewLead && (
+        <NewLeadModal
+          customerName={delName || customerName}
+          customerPhone={delPhone || customerPhone}
+          customerEmail={delEmail}
+          customerAddress={delAddress || deliveryAddress}
+          onClose={() => setShowNewLead(false)}
+        />
+      )}
+
       {/* Material Calculator Modal */}
       {showMaterialCalc && (
         <MaterialCalculator
@@ -1034,6 +1047,7 @@ export default function PosRegisterPage() {
           onAddProduct={addItem}
           onSetQty={setQtyForProduct}
           onOpenCalculator={() => setShowMaterialCalc(true)}
+          onOpenNewLead={() => setShowNewLead(true)}
           theme={t}
         />
       </div>
