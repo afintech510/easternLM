@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calculator, Plus, Search, X } from "lucide-react";
+import { Calculator, Plus, Search, X, Lock, LockOpen, GripVertical, Check } from "lucide-react";
 import { formatUsd } from "@/lib/format";
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type PosProduct = {
   id: string;
@@ -45,6 +51,9 @@ const GRID_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
 export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, onOpenCalculator, onOpenNewLead, theme: t }: Props) {
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [reorderedIds, setReorderedIds] = useState<string[] | null>(null);
+  const [saving, setSaving] = useState(false);
   const [gridCols, setGridCols] = useState<number>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("pos-grid-cols");
@@ -71,8 +80,73 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
   const accentBg = t?.accentBg ?? "bg-amber-600";
   const hover = t?.hover ?? "hover:bg-zinc-800";
 
+  // DnD sensors — pointer needs distance, touch needs long-press
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
+
+  // Apply reorder if in edit mode
+  const displayProducts = useMemo(() => {
+    if (!editMode || !reorderedIds) return filtered;
+    const idOrder = new Map(reorderedIds.map((id, i) => [id, i]));
+    return [...filtered].sort((a, b) => {
+      const ai = idOrder.get(a.id) ?? 9999;
+      const bi = idOrder.get(b.id) ?? 9999;
+      return ai - bi;
+    });
+  }, [filtered, editMode, reorderedIds]);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = displayProducts.map((p) => p.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setReorderedIds(arrayMove(ids, oldIndex, newIndex));
+  }
+
+  function startEditMode() {
+    setReorderedIds(filtered.map((p) => p.id));
+    setEditMode(true);
+  }
+
+  function cancelEditMode() {
+    setEditMode(false);
+    setReorderedIds(null);
+  }
+
+  async function saveOrder() {
+    if (!reorderedIds) return;
+    setSaving(true);
+    await fetch("/api/pos/product-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: reorderedIds }),
+    });
+    setSaving(false);
+    setEditMode(false);
+    setReorderedIds(null);
+  }
+
   return (
     <div className="flex h-full flex-col">
+      {/* Edit mode banner */}
+      {editMode && (
+        <div className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/40 px-3 py-2">
+          <span className="flex items-center gap-2 text-xs font-semibold text-amber-400">
+            <LockOpen className="size-4" /> Drag tiles to reorder
+          </span>
+          <div className="flex gap-2">
+            <button onClick={saveOrder} disabled={saving} className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50">
+              <Check className="size-3.5" /> {saving ? "Saving..." : "Save Order"}
+            </button>
+            <button onClick={cancelEditMode} className="rounded-md border border-zinc-600 px-3 py-1 text-xs text-zinc-400 hover:bg-zinc-800">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Header: POS icon + Search */}
       <div className={`shrink-0 border-b ${border} p-2`}>
         <div className="flex items-center gap-2">
@@ -143,6 +217,14 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               </svg>
             </button>
           )}
+          {/* Lock/unlock reorder */}
+          <button
+            onClick={() => editMode ? cancelEditMode() : startEditMode()}
+            className={`shrink-0 rounded-lg p-2 transition-colors ${editMode ? "bg-amber-500/20 text-amber-400" : `${card} ${muted} ${hover}`}`}
+            title={editMode ? "Editing tile order" : "Reorder tiles"}
+          >
+            {editMode ? <LockOpen className="size-5" /> : <Lock className="size-5" />}
+          </button>
           {/* Grid column selector */}
           <div className="flex items-center gap-0.5 shrink-0">
             {GRID_OPTIONS.map((n) => (
@@ -182,22 +264,75 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
 
       {/* Product grid */}
       <div className="flex-1 overflow-y-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
-          {filtered.map((product) => (
-            <ProductTile
-              key={product.id}
-              product={product}
-              cartQty={cartQtys[product.id] ?? 0}
-              isBulk={product.delivery_type === "bulk"}
-              onAdd={(qty) => onAddProduct(product, qty)}
-              onSetQty={(qty) => onSetQty(product.id, qty)}
-              card={card} border={border} input={input} muted={muted} accent={accent} accentBg={accentBg}
-            />
-          ))}
-        </div>
-        {filtered.length === 0 && (
+        {editMode ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={displayProducts.map((p) => p.id)} strategy={rectSortingStrategy}>
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+                {displayProducts.map((product) => (
+                  <SortableTile key={product.id} product={product} card={card} border={border} muted={muted} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+            {displayProducts.map((product) => (
+              <ProductTile
+                key={product.id}
+                product={product}
+                cartQty={cartQtys[product.id] ?? 0}
+                isBulk={product.delivery_type === "bulk"}
+                onAdd={(qty) => onAddProduct(product, qty)}
+                onSetQty={(qty) => onSetQty(product.id, qty)}
+                card={card} border={border} input={input} muted={muted} accent={accent} accentBg={accentBg}
+              />
+            ))}
+          </div>
+        )}
+        {displayProducts.length === 0 && (
           <div className={`py-16 text-center text-sm ${muted}`}>No products found</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Sortable tile wrapper for edit mode */
+function SortableTile({ product, card, border, muted }: { product: PosProduct; card: string; border: string; muted: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
+  const { material } = parseName(product.name);
+  const showImage = product.image_url;
+  const [imgErr, setImgErr] = useState(false);
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : "auto" as const,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`relative flex flex-col rounded-lg border-2 border-dashed border-amber-500/50 cursor-grab active:cursor-grabbing ${card} ${isDragging ? "ring-2 ring-amber-400 shadow-lg" : ""}`}
+    >
+      <div className="absolute right-1 top-1 z-10 text-amber-400/60">
+        <GripVertical className="size-4" />
+      </div>
+      <div className={`aspect-[5/4] w-full overflow-hidden rounded-t-lg ${card}`}>
+        {showImage && !imgErr ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={product.image_url!} alt="" className="h-full w-full object-cover" onError={() => setImgErr(true)} />
+        ) : (
+          <div className={`flex h-full items-center justify-center text-2xl font-bold ${muted}`}>{product.name.charAt(0)}</div>
+        )}
+      </div>
+      <div className="px-2 py-1.5">
+        <p className="text-sm font-semibold leading-tight line-clamp-2">{material}</p>
+        <p className={`text-xs ${muted}`}>{formatUsd(product.price_per_unit_cents)}/{product.unit_label}</p>
       </div>
     </div>
   );
