@@ -616,6 +616,40 @@ export async function POST(request: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       await handleCheckoutCompleted(session, stripe);
+    } else if (event.type === "payment_intent.succeeded") {
+      // Embedded checkout — PaymentIntent completed on our domain
+      const pi = event.data.object as Stripe.PaymentIntent;
+      if (pi.metadata?.serverGrandTotalCents) {
+        const supabaseAdmin = getSupabaseAdminClient();
+        // Find the pre-created order (we stored PI id as stripe_checkout_session_id)
+        const { data: order } = await supabaseAdmin
+          .from("orders")
+          .select("id, status")
+          .eq("stripe_checkout_session_id", pi.id)
+          .maybeSingle();
+
+        if (order && order.status === "pending") {
+          await supabaseAdmin
+            .from("orders")
+            .update({ status: "paid", payment_method: "card_online" })
+            .eq("id", order.id);
+
+          // Create a minimal session-like object for the existing handler
+          const pseudoSession = {
+            id: pi.id,
+            payment_intent: pi.id,
+            amount_total: pi.amount,
+            customer_details: { email: pi.receipt_email },
+            metadata: pi.metadata,
+          } as unknown as Stripe.Checkout.Session;
+
+          try {
+            await handleCheckoutCompleted(pseudoSession, stripe);
+          } catch (err) {
+            console.error("[webhook] PI succeeded handler error:", err);
+          }
+        }
+      }
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       const supabaseAdmin = getSupabaseAdminClient();
