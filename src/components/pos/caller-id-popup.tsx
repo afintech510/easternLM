@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Phone, X, User, ShoppingCart, MapPin, Clock } from "lucide-react";
+import { Phone, X, User, ShoppingCart, MapPin, MessageSquare } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatUsd } from "@/lib/format";
 
@@ -24,6 +24,7 @@ interface IncomingCall {
     tags: string[];
     is_charge_account?: boolean;
     charge_account_name?: string | null;
+    sms_message?: string;
   } | null;
   created_at: string;
 }
@@ -112,18 +113,25 @@ export function CallerIdPopup({ onAttachCustomer }: CallerIdPopupProps) {
           ? [c.first_name, c.last_name].filter(Boolean).join(" ") || c.company_name || "Customer"
           : "Unknown Caller";
 
+        const isSms = call.customer_data?.sms_message != null;
+        const smsText = call.customer_data?.sms_message;
+
         return (
           <div
             key={call.id}
-            className="animate-in slide-in-from-right rounded-xl border border-green-600/40 bg-zinc-900 shadow-2xl shadow-green-900/20"
+            className={`animate-in slide-in-from-right rounded-xl border bg-zinc-900 shadow-2xl ${
+              isSms ? "border-blue-600/40 shadow-blue-900/20" : "border-green-600/40 shadow-green-900/20"
+            }`}
           >
             {/* Header */}
             <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2.5">
-              <div className="flex size-8 items-center justify-center rounded-full bg-green-600 animate-pulse">
-                <Phone className="size-4 text-white" />
+              <div className={`flex size-8 items-center justify-center rounded-full ${isSms ? "bg-blue-600" : "bg-green-600 animate-pulse"}`}>
+                {isSms ? <MessageSquare className="size-4 text-white" /> : <Phone className="size-4 text-white" />}
               </div>
               <div className="flex-1">
-                <p className="text-xs font-medium text-green-400">Incoming Call</p>
+                <p className={`text-xs font-medium ${isSms ? "text-blue-400" : "text-green-400"}`}>
+                  {isSms ? "Incoming Text" : "Incoming Call"}
+                </p>
                 <p className="text-sm font-semibold text-zinc-100">{formatPhone(call.caller_phone)}</p>
               </div>
               <button onClick={() => dismissCall(call.id)} className="text-zinc-600 hover:text-zinc-300">
@@ -173,6 +181,14 @@ export function CallerIdPopup({ onAttachCustomer }: CallerIdPopupProps) {
             ) : (
               <div className="px-4 py-3">
                 <p className="text-xs text-zinc-500">No matching customer found</p>
+              </div>
+            )}
+
+            {/* SMS message preview */}
+            {isSms && smsText && (
+              <div className="border-t border-zinc-800 px-4 py-2.5">
+                <p className="text-[10px] font-medium text-blue-400 mb-1">Message:</p>
+                <p className="text-xs text-zinc-300 leading-relaxed">&ldquo;{smsText.length > 200 ? smsText.slice(0, 200) + "..." : smsText}&rdquo;</p>
               </div>
             )}
 
