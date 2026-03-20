@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calculator, Minus, Plus, Search, X } from "lucide-react";
+import { Calculator, Plus, Search, X } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
 type PosProduct = {
@@ -39,11 +39,19 @@ interface Props {
   theme?: PosTheme;
 }
 
-const BULK_PRESETS = [3, 5, 10, 15, 20];
+const BULK_PRESETS = [3, 5, 10];
+const GRID_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
 
 export function POSProductGrid({ products, categories, cartQtys, onAddProduct, onSetQty, onOpenCalculator, onOpenNewLead, theme: t }: Props) {
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [gridCols, setGridCols] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("pos-grid-cols");
+      return saved ? parseInt(saved) : 5;
+    }
+    return 5;
+  });
 
   const filtered = useMemo(() => {
     let list = products;
@@ -135,6 +143,19 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               </svg>
             </button>
           )}
+          {/* Grid column selector */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {GRID_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => { setGridCols(n); localStorage.setItem("pos-grid-cols", String(n)); }}
+                className={`size-6 rounded text-[10px] font-bold ${gridCols === n ? "bg-amber-600 text-white" : `${card} ${muted} hover:text-amber-400`}`}
+                title={`${n} columns`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -161,7 +182,7 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
 
       {/* Product grid */}
       <div className="flex-1 overflow-y-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
           {filtered.map((product) => (
             <ProductTile
               key={product.id}
@@ -262,20 +283,15 @@ function ProductTile({
     <div className={`relative flex flex-col rounded-lg border transition-colors ${
       isInCart ? "border-green-500/60 bg-green-950/20" : `${border} ${card}`
     }`}>
-      {/* Qty badge + remove button */}
+      {/* Qty badge — click to remove from cart */}
       {isInCart && (
-        <>
-          <div className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white shadow">
-            {cartQty}
-          </div>
-          <button
-            onClick={() => onSetQty(0)}
-            className="absolute -left-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-400 active:scale-90"
-            title="Remove from cart"
-          >
-            <Minus className="size-3.5" />
-          </button>
-        </>
+        <button
+          onClick={(e) => { e.stopPropagation(); onSetQty(0); }}
+          className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white shadow hover:bg-red-500 active:scale-90 transition-colors"
+          title="Click to remove from cart"
+        >
+          {cartQty}
+        </button>
       )}
 
       {/* Image */}
