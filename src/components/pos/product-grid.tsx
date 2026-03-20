@@ -182,6 +182,39 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
   );
 }
 
+/** Parse product name into material name + size spec */
+function parseName(name: string): { material: string; size: string } {
+  // Common size patterns: 3/4", 1/2", 3/8", 18x18", 3'x100', etc.
+  const sizePatterns = [
+    /^(\d[\d\/]*["']\s*(?:x\s*\d[\d\/]*["'])?\s*)/i, // leading: 3/4" or 18x18"
+    /(\d[\d\/]*["']\s*(?:x\s*\d[\d\/]*["'])?)\s*$/i,   // trailing
+    /^(\d+\s*(?:yard|yd|ft|lb|oz|gal|pk|bag|roll|ton|each)s?\b)/i,
+  ];
+
+  for (const pat of sizePatterns) {
+    const m = name.match(pat);
+    if (m) {
+      const size = m[1].trim();
+      const material = name.replace(m[1], "").replace(/^[\s\-–—,]+|[\s\-–—,]+$/g, "").trim();
+      return { material: material || name, size };
+    }
+  }
+
+  // Try to split on " - " separator
+  const dashParts = name.split(/\s*[-–—]\s*/);
+  if (dashParts.length >= 2) {
+    // Check which part looks like a size
+    const sizeIdx = dashParts.findIndex(p => /\d/.test(p) && /["'x×]/.test(p));
+    if (sizeIdx >= 0) {
+      const size = dashParts.splice(sizeIdx, 1)[0];
+      return { material: dashParts.join(" - "), size };
+    }
+    return { material: dashParts[0], size: dashParts.slice(1).join(" ") };
+  }
+
+  return { material: name, size: "" };
+}
+
 function ProductTile({
   product, cartQty, isBulk, onAdd, onSetQty,
   card, border, input, muted, accent, accentBg,
@@ -194,6 +227,7 @@ function ProductTile({
   const [inputQty, setInputQty] = useState("");
   const [imgError, setImgError] = useState(false);
   const isInCart = cartQty > 0;
+  const { material, size } = parseName(product.name);
 
   function handleQtyChange(delta: number) {
     const newQty = Math.max(0, cartQty + delta);
@@ -219,22 +253,36 @@ function ProductTile({
   }
 
   const showImage = product.image_url && !imgError;
+  const priceWhole = Math.floor(product.price_per_unit_cents / 100);
+  const priceCents = product.price_per_unit_cents % 100;
+  const priceStr = priceCents === 0 ? `$${priceWhole}` : formatUsd(product.price_per_unit_cents);
+  const unitShort = product.unit_label.replace("per cubic yard", "yd").replace("cubic yard", "yd").replace("yard", "yd").replace("each", "ea").replace("bag", "bag");
 
   return (
     <div className={`relative flex flex-col rounded-lg border transition-colors ${
       isInCart ? "border-green-500/60 bg-green-950/20" : `${border} ${card}`
     }`}>
+      {/* Qty badge + remove button */}
       {isInCart && (
-        <div className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white shadow">
-          {cartQty}
-        </div>
+        <>
+          <div className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white shadow">
+            {cartQty}
+          </div>
+          <button
+            onClick={() => onSetQty(0)}
+            className="absolute -left-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-400 active:scale-90"
+            title="Remove from cart"
+          >
+            <Minus className="size-3.5" />
+          </button>
+        </>
       )}
 
-      {/* Image — SQUARE 1:1, object-contain to show full image */}
-      <div className={`aspect-[4/3] w-full overflow-hidden rounded-t-lg ${card}`}>
+      {/* Image */}
+      <div className={`aspect-[5/4] w-full overflow-hidden rounded-t-lg ${card}`}>
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image_url!} alt="" className="h-full w-full object-contain object-top p-1" onError={() => setImgError(true)} />
+          <img src={product.image_url!} alt="" className="h-full w-full object-cover" onError={() => setImgError(true)} />
         ) : (
           <div className={`flex h-full items-center justify-center text-2xl font-bold ${muted}`}>
             {product.name.charAt(0)}
@@ -242,14 +290,15 @@ function ProductTile({
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col px-2 pt-1 pb-0.5">
-        <p className={`text-[9px] uppercase tracking-wider ${muted}`}>{product.category_name}</p>
-        <p className="text-[11px] font-medium leading-tight line-clamp-2">{product.name}</p>
-        <p className={`mt-0.5 text-sm font-bold ${accent}`}>
-          {formatUsd(product.price_per_unit_cents)}
-          <span className={`ml-0.5 text-[9px] font-normal ${muted}`}>/{product.unit_label}</span>
-        </p>
+      {/* Material name + size/price row */}
+      <div className="flex flex-col px-2 pt-1.5 pb-1">
+        <p className="text-sm font-semibold leading-tight line-clamp-2">{material}</p>
+        <div className="mt-0.5 flex items-baseline justify-between">
+          <span className={`text-[11px] ${muted}`}>{size}</span>
+          <span className={`text-sm font-bold ${accent}`}>
+            {priceStr} <span className={`text-[10px] font-normal ${muted}`}>{unitShort}</span>
+          </span>
+        </div>
       </div>
 
       {/* Qty controls */}
@@ -266,8 +315,8 @@ function ProductTile({
 
         <div className="flex items-center gap-0.5">
           <button onClick={() => handleQtyChange(-1)} disabled={cartQty <= 0}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${card} hover:bg-red-900/40 hover:text-red-300 disabled:opacity-20`}
-          ><Minus className="size-5" /></button>
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${card} text-lg hover:bg-red-900/40 hover:text-red-300 disabled:opacity-20`}
+          >−</button>
 
           <input
             type="text" inputMode="decimal"
@@ -277,12 +326,12 @@ function ProductTile({
             onBlur={() => { if (inputQty) handleInputSubmit(); }}
             onKeyDown={(e) => { if (e.key === "Enter") handleInputSubmit(); }}
             placeholder="0"
-            className={`h-10 w-8 flex-1 rounded-md ${input} text-center text-xs font-semibold focus:border-amber-500/50 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+            className={`h-9 w-8 flex-1 rounded-md ${input} text-center text-sm font-semibold focus:border-amber-500/50 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
           />
 
           <button onClick={() => handleQtyChange(1)}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${card} hover:bg-green-900/40 hover:text-green-300`}
-          ><Plus className="size-5" /></button>
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${card} text-lg hover:bg-green-900/40 hover:text-green-300`}
+          >+</button>
         </div>
       </div>
     </div>
