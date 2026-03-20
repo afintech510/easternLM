@@ -45,10 +45,13 @@ export async function POST(request: Request) {
 
   const quoteNumber = await generateQuoteNumber(supabase);
 
+  // Strip fields that don't exist in the quotes table (AI response includes nested objects)
+  const { customer, ...insertBody } = body;
+
   const { data, error } = await supabase
     .from("quotes")
     .insert({
-      ...body,
+      ...insertBody,
       quote_number: quoteNumber,
       created_by: auth.userId,
     })
