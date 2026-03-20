@@ -4,9 +4,14 @@ import { Suspense } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import SignaturePad from "signature_pad";
-import { Loader2, CheckCircle, XCircle, Phone, Printer, MessageSquare } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Phone, Printer, MessageSquare, Lock, CreditCard, Truck, Shield } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) : null;
 
 interface LineItem {
   description: string;
@@ -34,6 +39,10 @@ interface Quote {
   valid_until: string | null;
   estimated_timeline: string | null;
   terms: string | null;
+  cc_surcharge_cents?: number;
+  delivery_fee_cents?: number;
+  delivery_address?: string;
+  type?: string;
   status: string;
   accepted_at: string | null;
   deposit_paid_at: string | null;
@@ -311,52 +320,12 @@ function PublicQuoteInner() {
           </div>
 
           {/* ── ACTION SECTION (hidden on print) ── */}
-          <div className="no-print bg-white border-t px-8 py-6 space-y-4">
-            {step === "view" && (
-              <>
-                <Button className="w-full bg-[#c8952e] hover:bg-[#b5842a] text-white" size="lg" onClick={() => setStep("sign")}>
-                  Accept & Sign Quote
-                </Button>
-                <Button variant="outline" className="w-full" onClick={() => setShowDeclineForm(true)}>
-                  Decline Quote
-                </Button>
-
-                {showDeclineForm && (
-                  <div className="rounded-lg border p-4 space-y-3">
-                    <p className="font-medium text-sm">Why are you declining?</p>
-                    <div className="space-y-2">
-                      {["Too expensive", "Going with someone else", "Timing doesn't work", "Other"].map((r) => (
-                        <label key={r} className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="reason" value={r} checked={declineReason === r} onChange={() => setDeclineReason(r)} className="accent-[#c8952e]" />
-                          <span className="text-sm">{r}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <Button variant="destructive" size="sm" onClick={handleDecline} disabled={declining}>
-                      {declining ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}Confirm Decline
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {step === "sign" && (
-              <div className="space-y-4">
-                <div>
-                  <p className="font-semibold text-center mb-1">Sign below to accept this quote</p>
-                  <p className="text-xs text-center text-gray-400 mb-3">Use your finger or mouse</p>
-                  <div className="relative rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden" style={{ height: 160 }}>
-                    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" style={{ touchAction: "none" }} />
-                  </div>
-                  <button className="mt-1 text-xs text-gray-400 underline" onClick={() => sigPadRef.current?.clear()}>Clear signature</button>
-                </div>
-                <Button className="w-full bg-[#c8952e] hover:bg-[#b5842a] text-white" size="lg" onClick={handleAccept} disabled={accepting}>
-                  {accepting ? <><Loader2 className="mr-2 size-4 animate-spin" />Processing…</> : <>Accept & {quote.deposit_required_cents > 0 ? `Pay ${fmt(quote.deposit_required_cents)} Deposit` : "Confirm"}</>}
-                </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep("view")}>Back</Button>
-              </div>
-            )}
-          </div>
+          <QuoteActions
+            quote={quote}
+            token={token}
+            onAccepted={() => setStep("done")}
+            onDeclined={() => setStep("declined")}
+          />
 
           {/* ── FOOTER ── */}
           <div className="bg-gray-50 print:bg-white border-t px-8 py-4 text-center text-xs text-gray-400">
@@ -366,6 +335,189 @@ function PublicQuoteInner() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Embedded payment form for quotes */
+function QuotePaymentForm({ amountCents, onSuccess, onError }: {
+  amountCents: number; onSuccess: () => void; onError: (msg: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setProcessing(true);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: window.location.href + "?deposit=success" },
+      redirect: "if_required",
+    });
+    if (error) { onError(error.message ?? "Payment failed."); setProcessing(false); }
+    else onSuccess();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement options={{ layout: "tabs", wallets: { applePay: "auto", googlePay: "auto" } }} />
+      <button type="submit" disabled={!stripe || processing}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-700 py-3.5 text-base font-bold text-white hover:bg-green-600 disabled:opacity-50">
+        {processing ? <><Loader2 className="size-4 animate-spin" /> Processing...</> : <><Lock className="size-4" /> Pay {fmt(amountCents)}</>}
+      </button>
+      <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400"><Shield className="size-3" /> Secured by Stripe · 256-bit encryption</p>
+    </form>
+  );
+}
+
+/** Quote action section — payment choice, embedded checkout, COD, decline */
+function QuoteActions({ quote, token, onAccepted, onDeclined }: {
+  quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void;
+}) {
+  const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "decline">("choose");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [chargeAmount, setChargeAmount] = useState(0);
+  const [email, setEmail] = useState(quote.customer_address ? "" : "");
+  const [error, setError] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  const isService = quote.type === "service" && quote.deposit_required_cents > 0;
+  const ccSurcharge = Math.round((isService ? quote.deposit_required_cents : quote.total_cents) * 0.03);
+  const cardTotal = (isService ? quote.deposit_required_cents : quote.total_cents) + ccSurcharge;
+
+  async function startCardPayment() {
+    setProcessing(true); setError("");
+    try {
+      const res = await fetch(`/api/quote/${token}/payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setClientSecret(data.clientSecret);
+      setChargeAmount(data.chargeAmountCents);
+      setMode("card");
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed"); }
+    finally { setProcessing(false); }
+  }
+
+  async function confirmCod() {
+    setProcessing(true);
+    const res = await fetch(`/api/quote/${token}/confirm-cod`, { method: "POST" });
+    if (res.ok) onAccepted();
+    else { const d = await res.json(); setError(d.error ?? "Failed"); }
+    setProcessing(false);
+  }
+
+  async function handleDecline(reason: string) {
+    setProcessing(true);
+    await fetch(`/api/quote/${token}/decline`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    onDeclined();
+    setProcessing(false);
+  }
+
+  return (
+    <div className="no-print bg-white border-t px-8 py-6 space-y-4">
+      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>}
+
+      {mode === "choose" && (
+        <>
+          <p className="text-sm font-semibold text-gray-700 text-center">How would you like to pay?</p>
+
+          {/* Card payment */}
+          <button onClick={startCardPayment} disabled={processing}
+            className="flex w-full items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 transition-colors disabled:opacity-50">
+            <CreditCard className="size-8 text-green-700 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-green-900">Pay by Card — {fmt(cardTotal)}</p>
+              <p className="text-xs text-green-700">Includes 3% processing fee · Secure checkout</p>
+            </div>
+            {processing && <Loader2 className="size-5 animate-spin text-green-600" />}
+          </button>
+
+          {/* COD option */}
+          <button onClick={() => setMode("cod-confirm")}
+            className="flex w-full items-center gap-4 rounded-xl border-2 border-gray-200 bg-gray-50 p-4 text-left hover:border-amber-300 transition-colors">
+            <Truck className="size-8 text-amber-700 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900">Cash on Delivery — {fmt(quote.total_cents)}</p>
+              <p className="text-xs text-gray-500">Pay when materials arrive · No processing fee</p>
+            </div>
+          </button>
+
+          <button onClick={() => setMode("decline")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 pt-2">
+            Decline this quote
+          </button>
+        </>
+      )}
+
+      {mode === "card" && clientSecret && stripePromise && (
+        <div className="space-y-4">
+          <p className="text-sm font-semibold text-center text-gray-700">Enter payment details</p>
+          <Elements stripe={stripePromise} options={{
+            clientSecret,
+            appearance: { theme: "stripe", variables: { colorPrimary: "#1e3a5f", borderRadius: "8px" } },
+          }}>
+            <QuotePaymentForm
+              amountCents={chargeAmount}
+              onSuccess={async () => {
+                // Confirm server-side
+                try {
+                  await fetch("/api/checkout/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
+                  });
+                } catch {}
+                onAccepted();
+              }}
+              onError={setError}
+            />
+          </Elements>
+          <button onClick={() => { setMode("choose"); setClientSecret(null); }} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
+            ← Back to payment options
+          </button>
+        </div>
+      )}
+
+      {mode === "cod-confirm" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 text-center">
+            <p className="text-lg font-bold text-amber-900">Cash on Delivery</p>
+            <p className="text-3xl font-bold text-amber-800 mt-2">{fmt(quote.total_cents)}</p>
+            <p className="text-sm text-amber-700 mt-2">Due when your materials are delivered</p>
+          </div>
+          <button onClick={confirmCod} disabled={processing}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-3.5 text-base font-bold text-white hover:bg-amber-500 disabled:opacity-50">
+            {processing ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-4" />}
+            Confirm COD Order
+          </button>
+          <button onClick={() => setMode("choose")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
+            ← Back to payment options
+          </button>
+        </div>
+      )}
+
+      {mode === "decline" && (
+        <div className="space-y-3">
+          <p className="font-medium text-sm">Why are you declining?</p>
+          {["Too expensive", "Going with someone else", "Timing doesn't work", "Other"].map((r) => (
+            <button key={r} onClick={() => handleDecline(r)} disabled={processing}
+              className="flex w-full items-center rounded-lg border px-4 py-3 text-sm hover:bg-gray-50 disabled:opacity-50">
+              {r}
+            </button>
+          ))}
+          <button onClick={() => setMode("choose")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 pt-2">
+            ← Back
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -67,7 +67,13 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
     if (selectedCat) list = list.filter((p) => p.category_slug === selectedCat);
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q) || p.category_name.toLowerCase().includes(q));
+      list = list.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.category_name.toLowerCase().includes(q) ||
+        (p.slug && p.slug.includes(q)) ||
+        ((p as any).barcode && (p as any).barcode.includes(q)) ||
+        ((p as any).sku && (p as any).sku.toLowerCase().includes(q))
+      );
     }
     return list;
   }, [products, selectedCat, search]);
