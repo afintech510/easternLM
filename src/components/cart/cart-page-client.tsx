@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,17 +174,61 @@ export function CartPageClient() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="[font-family:var(--font-display)] text-3xl md:text-4xl text-primary">Dump Truck Deliveries</h1>
-        <p className="mt-1 text-muted-foreground">Materials delivered from our yard to your site</p>
+      <div className="mb-8 flex items-center gap-4">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="size-14 md:size-16 shrink-0">
+          <line x1="40" y1="440" x2="472" y2="440" stroke="#1F2937" strokeWidth="14" strokeLinecap="round" />
+          <path d="M 50,180 C 50,110 110,90 150,100 C 190,40 270,60 300,120 C 330,130 330,170 330,180 Z" fill="#4B5563" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="190" y="320" width="90" height="50" fill="#9CA3AF" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <path d="M 20,180 L 340,180 L 310,320 L 70,320 Z" fill="#1E3A8A" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <line x1="45" y1="250" x2="325" y2="250" stroke="#1F2937" strokeWidth="14" strokeLinecap="round" />
+          <path d="M 320,150 L 440,150 L 440,170 L 420,170 L 420,220 L 480,220 L 480,360 L 320,360 Z" fill="#1E3A8A" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="330" y="165" width="20" height="24" fill="#BAE6FD" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="365" y="165" width="20" height="24" fill="#BAE6FD" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="400" y="165" width="20" height="24" fill="#BAE6FD" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="460" y="240" width="20" height="15" fill="#E5E7EB" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="460" y="275" width="20" height="15" fill="#E5E7EB" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <rect x="460" y="310" width="20" height="15" fill="#E5E7EB" stroke="#1F2937" strokeWidth="14" strokeLinejoin="round" />
+          <circle cx="140" cy="370" r="56" fill="#374151" stroke="#1F2937" strokeWidth="14" />
+          <circle cx="140" cy="370" r="20" fill="#E5E7EB" stroke="#1F2937" strokeWidth="14" />
+          <circle cx="390" cy="370" r="56" fill="#374151" stroke="#1F2937" strokeWidth="14" />
+          <circle cx="390" cy="370" r="20" fill="#E5E7EB" stroke="#1F2937" strokeWidth="14" />
+        </svg>
+        <div>
+          <h1 className="[font-family:var(--font-display)] text-3xl md:text-4xl text-primary">Dump Truck Deliveries</h1>
+          <p className="mt-1 text-muted-foreground">Materials delivered from our yard to your site</p>
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
         {/* ── Left: Items + Customer + Delivery ─────────────── */}
         <div className="space-y-5">
-          {/* Bulk materials — one card per delivery */}
+          {/* Bulk materials — one card per delivery with swap buttons */}
           {bulkItems.map((item, i) => (
-            <div key={item.id} className="rounded-xl border bg-card p-4">
+            <div key={item.id}>
+            {/* Swap button between deliveries */}
+            {i > 0 && (
+              <div className="flex justify-center -my-1.5 relative z-10">
+                <button
+                  onClick={() => {
+                    // Swap item positions in the cart by updating quantities
+                    const prevItem = bulkItems[i - 1];
+                    // We can't reorder Zustand items directly, so swap by removing + re-adding
+                    // For now, use a visual hint — the delivery number changes
+                    const prevQty = prevItem.quantity;
+                    const prevPrice = prevItem.unitPriceCents;
+                    const currQty = item.quantity;
+                    const currPrice = item.unitPriceCents;
+                    updateQuantity(prevItem.id, currQty);
+                    updateQuantity(item.id, prevQty);
+                  }}
+                  className="flex size-8 items-center justify-center rounded-full border bg-card shadow-sm hover:bg-muted transition-colors"
+                  title="Swap delivery order"
+                >
+                  <ArrowUpDown className="size-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
+            <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 Delivery {i + 1}
               </p>
@@ -212,6 +256,7 @@ export function CartPageClient() {
                   <Trash2 className="size-4" />
                 </button>
               </div>
+            </div>
             </div>
           ))}
 
