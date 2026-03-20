@@ -6,8 +6,9 @@ export async function GET() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, barcode, sku, sort_order, categories(slug, name)")
+    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, barcode, sku, sort_order, pos_sort_order, categories(slug, name)")
     .eq("visible_pos", true)
+    .order("pos_sort_order")
     .order("sort_order")
     .order("name");
 
