@@ -206,18 +206,17 @@ export function CartPageClient() {
           {/* Bulk materials — one card per delivery with swap buttons */}
           {bulkItems.map((item, i) => (
             <div key={item.id}>
-            {/* Swap button between deliveries */}
+            {/* Swap button centered between delivery cards */}
             {i > 0 && (
-              <div className="flex justify-center -my-1.5 relative z-10">
+              <div className="flex justify-center -mt-3 -mb-3 relative z-10">
                 <button
                   onClick={() => {
-                    // Find actual indices in the full items array
                     const prevItem = bulkItems[i - 1];
                     const idxA = items.findIndex((it) => it.id === prevItem.id);
                     const idxB = items.findIndex((it) => it.id === item.id);
                     if (idxA >= 0 && idxB >= 0) swapItems(idxA, idxB);
                   }}
-                  className="flex size-8 items-center justify-center rounded-full border bg-card shadow-sm hover:bg-muted transition-colors"
+                  className="flex size-9 items-center justify-center rounded-full border-2 border-blue-800/40 bg-card shadow-md hover:bg-muted hover:border-accent/50 transition-colors"
                   title="Swap delivery order"
                 >
                   <ArrowUpDown className="size-4 text-muted-foreground" />
