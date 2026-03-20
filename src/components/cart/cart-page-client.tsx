@@ -60,7 +60,7 @@ export function CartPageClient() {
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [custEmail, setCustEmail] = useState("");
-  const [smsOptIn, setSmsOptIn] = useState(true);
+  const [smsOptIn, setSmsOptIn] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
@@ -227,7 +227,7 @@ export function CartPageClient() {
             <div className="rounded-xl border border-blue-800/40 bg-card p-3 sm:p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Delivery {i + 1}
+                  {deliveryMethod === "delivery" ? "Delivery" : "Pickup"} {i + 1}
                 </p>
                 <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)} title="Remove">
                   <Trash2 className="size-4" />
@@ -246,7 +246,12 @@ export function CartPageClient() {
                   <button className="flex size-10 items-center justify-center rounded-lg border text-lg hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity + 1).toFixed(2)))}>+</button>
                   <span className="text-sm text-muted-foreground ml-1">cubic yards</span>
                 </div>
-                <span className="font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                <div className="text-right">
+                  <span className="font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                  {deliveryMethod === "delivery" && calculation && calculation.loads?.[i] && (
+                    <p className="text-xs text-muted-foreground">+ {formatUsd(calculation.loads[i].feeCents)} delivery</p>
+                  )}
+                </div>
               </div>
             </div>
             </div>
@@ -289,10 +294,22 @@ export function CartPageClient() {
               <Input placeholder="Phone" type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} />
               <Input placeholder="Email" type="email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} />
             </div>
-            <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
-              <input type="checkbox" checked={smsOptIn} onChange={(e) => setSmsOptIn(e.target.checked)} className="mt-0.5 rounded" />
-              Text me order updates and seasonal deals (msg &amp; data rates apply, reply STOP to opt out)
+            <label className="flex items-start gap-2.5 text-xs text-muted-foreground cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
+              <input type="checkbox" checked={smsOptIn} onChange={(e) => setSmsOptIn(e.target.checked)} className="mt-0.5 rounded size-4 shrink-0" />
+              <span>
+                I agree to receive order updates, delivery notifications, and promotional messages from Eastern Landscape &amp; Mason Supply via SMS to the phone number provided. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help. View our <a href="/terms#sms-terms" className="underline text-accent">SMS Terms</a> and <a href="/privacy-policy" className="underline text-accent">Privacy Policy</a>.
+              </span>
             </label>
+
+            {/* Save Quote — lead capture */}
+            <button
+              onClick={handleSaveQuote}
+              disabled={savingQuote || (!custPhone && !custEmail)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-40"
+            >
+              {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              Save Quote for Later — send to my phone/email
+            </button>
           </div>
 
           {/* Delivery or Pickup */}
@@ -454,15 +471,6 @@ export function CartPageClient() {
             ) : null}
 
             {/* Save as Quote — lead capture CTA */}
-            <button
-              onClick={handleSaveQuote}
-              disabled={savingQuote}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-50"
-            >
-              {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
-              Save as Quote — send to my phone/email
-            </button>
-
             <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <a href={siteConfig.phoneHref} className="flex items-center gap-1.5 hover:text-accent">
                 <Phone className="size-4" /> {siteConfig.phoneDisplay}
