@@ -33,6 +33,7 @@ import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { NewLeadModal } from "@/components/pos/new-lead-modal";
 import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
+import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -180,6 +181,7 @@ export default function PosRegisterPage() {
   const [showMaterialCalc, setShowMaterialCalc] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
   const [showSaveQuote, setShowSaveQuote] = useState<"send" | "hold" | null>(null);
+  const [showPhoneOrder, setShowPhoneOrder] = useState(false);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
@@ -1026,6 +1028,21 @@ export default function PosRegisterPage() {
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* Caller ID popup — RingCentral incoming call notifications */}
+      {/* Phone Order Modal */}
+      {showPhoneOrder && (
+        <PhoneOrderModal
+          amountCents={cashTotalCents + Math.round(cashTotalCents * 0.03)}
+          customerName={delName || customerName}
+          customerPhone={delPhone || customerPhone}
+          customerEmail={delEmail}
+          onClose={() => setShowPhoneOrder(false)}
+          onSuccess={(piId) => {
+            setShowPhoneOrder(false);
+            clearSale();
+          }}
+        />
+      )}
+
       {/* Save Quote / Hold Modal */}
       {showSaveQuote && (
         <SaveQuoteModal
@@ -1869,14 +1886,21 @@ export default function PosRegisterPage() {
             )}
           </div>
 
-          {/* Primary row: QUOTE + CHECKOUT */}
-          <div className="grid grid-cols-[1fr_2fr] gap-2">
+          {/* Primary row: QUOTE + PHONE + CHECKOUT */}
+          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
             <button
               onClick={() => items.length > 0 ? setShowSaveQuote("send") : undefined}
               disabled={items.length === 0}
-              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
+              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-xs font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
             >
               QUOTE
+            </button>
+            <button
+              onClick={() => items.length > 0 ? setShowPhoneOrder(true) : undefined}
+              disabled={items.length === 0}
+              className="rounded-lg border border-blue-600/50 bg-blue-900/20 py-3 text-xs font-semibold text-blue-400 hover:bg-blue-900/40 disabled:opacity-30"
+            >
+              PHONE
             </button>
             <button
               onClick={() => setShowCheckout(true)}

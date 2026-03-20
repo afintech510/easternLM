@@ -26,14 +26,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Amount must be at least $0.50" }, { status: 400 });
     }
 
+    // Phone orders use card (online entry), terminal orders use card_present
+    const isPhoneOrder = metadata?.source === "phone_order";
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: "usd",
-      payment_method_types: ["card_present"],
+      ...(isPhoneOrder
+        ? { automatic_payment_methods: { enabled: true } }
+        : { payment_method_types: ["card_present"] }),
       capture_method: "automatic",
       metadata: {
         order_id: orderId || "",
-        source: "pos",
+        source: isPhoneOrder ? "phone_order" : "pos",
         ...(metadata || {}),
       },
     });
