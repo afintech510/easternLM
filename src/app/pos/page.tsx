@@ -140,6 +140,10 @@ export default function PosRegisterPage() {
   const [delCustomerId, setDelCustomerId] = useState<string | null>(null);
   const [delCustomerStatus, setDelCustomerStatus] = useState<"" | "found" | "new" | "saving">("");
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [delCustSearch, setDelCustSearch] = useState("");
+  const [delCustResults, setDelCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; company_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; zip: string | null; total_orders: number; total_spent_cents: number; is_charge_account?: boolean; charge_account_name?: string | null; current_balance_cents?: number; credit_limit_cents?: number | null; payment_terms?: string | null }>>([]);
+  const [delCustSearching, setDelCustSearching] = useState(false);
+  const delCustTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
 
@@ -1102,6 +1106,77 @@ export default function PosRegisterPage() {
           {/* Delivery Tab */}
           {middleTab === "delivery" && (
             <div className="space-y-3">
+              {/* Customer search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={delCustSearch}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDelCustSearch(v);
+                    if (delCustTimerRef.current) clearTimeout(delCustTimerRef.current);
+                    if (v.trim().length >= 2) {
+                      setDelCustSearching(true);
+                      delCustTimerRef.current = setTimeout(() => {
+                        fetch(`/api/pos/customers/search?q=${encodeURIComponent(v.trim())}`)
+                          .then(r => r.json())
+                          .then(d => setDelCustResults(d.customers || []))
+                          .catch(() => setDelCustResults([]))
+                          .finally(() => setDelCustSearching(false));
+                      }, 300);
+                    } else {
+                      setDelCustResults([]);
+                      setDelCustSearching(false);
+                    }
+                  }}
+                  placeholder="Search customer — name, phone, or address..."
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                {delCustSearching && <div className="absolute right-3 top-3 size-3 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />}
+                {delCustResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl">
+                    {delCustResults.map((c) => (
+                      <button
+                        key={c.id}
+                        className="flex w-full flex-col gap-0.5 border-b border-zinc-800 px-3 py-2.5 text-left hover:bg-zinc-800 last:border-0"
+                        onClick={() => {
+                          const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.company_name || "";
+                          setDelName(name); setCustomerName(name || "Walk-in");
+                          setDelPhone(c.phone || ""); setCustomerPhone(c.phone || "");
+                          setDelEmail(c.email || "");
+                          if (c.address) { setDelAddress(c.address + (c.city ? `, ${c.city}` : "") + (c.zip ? ` ${c.zip}` : "")); setDeliveryAddress(c.address); }
+                          setDelCustomerId(c.id);
+                          setDelCustomerStatus("found");
+                          if (c.is_charge_account) setSelectedCustomer({ id: c.id, first_name: c.first_name, last_name: c.last_name, is_charge_account: true, charge_account_name: c.charge_account_name, current_balance_cents: c.current_balance_cents, credit_limit_cents: c.credit_limit_cents, payment_terms: c.payment_terms } as any);
+                          setDelCustSearch("");
+                          setDelCustResults([]);
+                        }}
+                      >
+                        <span className="text-sm font-medium text-zinc-100">
+                          {[c.first_name, c.last_name].filter(Boolean).join(" ") || c.company_name || "—"}
+                          {c.is_charge_account && <span className="ml-1.5 rounded bg-indigo-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">ACCOUNT</span>}
+                        </span>
+                        <span className="text-xs text-zinc-400">
+                          {c.phone || "no phone"} {c.address ? `· ${c.address}${c.city ? `, ${c.city}` : ""}` : ""}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          {c.total_orders} orders · ${((c.total_spent_cents || 0) / 100).toFixed(0)} lifetime
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected customer indicator */}
+              {delCustomerStatus === "found" && delCustomerId && (
+                <div className="flex items-center gap-2 rounded-lg border border-green-800/50 bg-green-900/20 px-3 py-2">
+                  <div className="size-2 rounded-full bg-green-500" />
+                  <span className="flex-1 text-xs text-green-300">{delName}{delPhone ? ` · ${delPhone}` : ""}</span>
+                  <button onClick={() => { setDelCustomerId(null); setDelCustomerStatus(""); setDelName(""); setDelPhone(""); setDelEmail(""); setDelAddress(""); setCustomerName("Walk-in"); }} className="text-[10px] text-zinc-500 hover:text-zinc-300">Clear</button>
+                </div>
+              )}
+
               {/* Google Maps embed */}
               <div className="overflow-hidden rounded-lg border border-zinc-800">
                 <iframe
