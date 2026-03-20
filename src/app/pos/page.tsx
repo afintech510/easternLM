@@ -29,6 +29,7 @@ declare global {
 import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
+import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -996,6 +997,19 @@ export default function PosRegisterPage() {
 
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
+      {/* Caller ID popup — RingCentral incoming call notifications */}
+      <CallerIdPopup
+        onAttachCustomer={(cust) => {
+          setCustomerName(cust.name);
+          setCustomerPhone(cust.phone);
+          setDelName(cust.name);
+          setDelPhone(cust.phone);
+          setDelEmail(cust.email);
+          if (cust.address) { setDelAddress(cust.address); setDeliveryAddress(cust.address); }
+          setDelCustomerId(cust.id);
+          setDelCustomerStatus("found");
+        }}
+      />
       {/* ── LEFT: Product Catalog ── */}
       <div className={`flex min-w-0 flex-1 flex-col border-r ${t.border}`}>
         <POSProductGrid
