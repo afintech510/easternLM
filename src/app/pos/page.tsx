@@ -175,6 +175,7 @@ export default function PosRegisterPage() {
   const [processing, setProcessing] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [showMaterialCalc, setShowMaterialCalc] = useState(false);
+  const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
   const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
@@ -327,6 +328,7 @@ export default function PosRegisterPage() {
       if (place.formatted_address) {
         setDelAddress(place.formatted_address);
         setDeliveryAddress(place.formatted_address);
+        setDeliveryMethod("delivery");
         calculateDeliveryFee(place.formatted_address);
       }
     });
@@ -785,6 +787,8 @@ export default function PosRegisterPage() {
         customer_email: delEmail || null,
         delivery_date: delDate || null,
         delivery_time_window: deliveryMethod === "delivery" ? delTimeWindow : null,
+        delivery_notes: delNotes || null,
+        access_constraints: accessConstraints,
         notes: delNotes || orderNotes || null,
         cash_tendered_cents: method === "cash" ? Math.round(parseFloat(cashTendered) * 100) : null,
         // Discount and tax exempt fields
@@ -1170,7 +1174,12 @@ export default function PosRegisterPage() {
                           setDelName(name); setCustomerName(name || "Walk-in");
                           setDelPhone(c.phone || ""); setCustomerPhone(c.phone || "");
                           setDelEmail(c.email || "");
-                          if (c.address) { setDelAddress(c.address + (c.city ? `, ${c.city}` : "") + (c.zip ? ` ${c.zip}` : "")); setDeliveryAddress(c.address); }
+                          if (c.address) {
+                            const fullAddr = c.address + (c.city ? `, ${c.city}` : "") + (c.zip ? ` ${c.zip}` : "");
+                            setDelAddress(fullAddr); setDeliveryAddress(fullAddr);
+                            setDeliveryMethod("delivery");
+                            calculateDeliveryFee(fullAddr);
+                          }
                           setDelCustomerId(c.id);
                           setDelCustomerStatus("found");
                           if (c.is_charge_account) setSelectedCustomer({ id: c.id, first_name: c.first_name, last_name: c.last_name, is_charge_account: true, charge_account_name: c.charge_account_name, current_balance_cents: c.current_balance_cents, credit_limit_cents: c.credit_limit_cents, payment_terms: c.payment_terms } as any);
@@ -1322,6 +1331,31 @@ export default function PosRegisterPage() {
                   rows={2}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
+              </div>
+
+              {/* Access Constraints */}
+              <div>
+                <label className="mb-1.5 block text-xs text-zinc-400">Access Constraints</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { key: "low_wires", label: "Low Wires" },
+                    { key: "narrow_driveway", label: "Narrow Driveway" },
+                    { key: "soft_ground", label: "Soft Ground" },
+                    { key: "gated", label: "Gated" },
+                    { key: "steep", label: "Steep Approach" },
+                    { key: "backyard", label: "Backyard Access" },
+                  ].map((c) => (
+                    <label key={c.key} className="flex items-center gap-2 rounded-md border border-zinc-800 px-2.5 py-2 cursor-pointer hover:bg-zinc-800/50">
+                      <input
+                        type="checkbox"
+                        checked={!!accessConstraints[c.key]}
+                        onChange={(e) => setAccessConstraints((prev) => ({ ...prev, [c.key]: e.target.checked }))}
+                        className="size-3.5 rounded border-zinc-600 accent-amber-500"
+                      />
+                      <span className="text-xs text-zinc-300">{c.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Fee override */}
@@ -1946,6 +1980,9 @@ export default function PosRegisterPage() {
                 delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
                 customer_name: delName || customerName, customer_phone: delPhone || customerPhone || null,
                 customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
+                access_constraints: accessConstraints,
+                delivery_date: delDate || null, delivery_time_window: delTimeWindow || null,
+                delivery_notes: delNotes || null,
               };
               setProcessing(true);
               const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });

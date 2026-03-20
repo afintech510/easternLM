@@ -30,7 +30,14 @@ type ReceiptOrder = {
   cashTenderedCents?: number;
   changeDueCents?: number;
   customerName?: string;
+  customerPhone?: string;
+  deliveryMethod?: string;
   deliveryAddress?: string;
+  deliveryDate?: string;
+  deliveryTimeWindow?: string;
+  deliveryNotes?: string;
+  siteContactPhone?: string;
+  accessConstraints?: Record<string, boolean>;
   notes?: string;
 };
 
@@ -89,14 +96,30 @@ export class ReceiptPrinter {
     this._connected = false;
   }
 
-  /** Print a receipt via ESC/POS */
+  /** Print a receipt via ESC/POS. For delivery orders, prints customer receipt + cut + driver ticket. */
   async printReceipt(order: ReceiptOrder): Promise<boolean> {
     if (this.device && this._connected) {
-      return this.printEscPos(order);
+      const ok = await this.printEscPos(order);
+      // If delivery order, print driver ticket after the customer receipt
+      if (ok && order.deliveryMethod === "delivery" && order.deliveryAddress) {
+        await this.printDeliveryTicket(order);
+      }
+      return ok;
     }
-    // Fallback: HTML print
+    // Fallback: HTML print (includes delivery ticket if applicable)
     this.printHtml(order);
     return true;
+  }
+
+  /** Print a driver delivery ticket (ESC/POS) */
+  private async printDeliveryTicket(order: ReceiptOrder): Promise<boolean> {
+    try {
+      const data = this.buildDeliveryTicket(order);
+      await this.device!.transferOut(1, new Uint8Array(data));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Open the cash drawer via ESC/POS DK command */
@@ -194,6 +217,129 @@ export class ReceiptPrinter {
     cmd.push(ESC, 0x61, 0x01); // Center
     this.text(cmd, "Thank you!");
     this.text(cmd, "easternlm.com");
+    this.text(cmd, "");
+    this.text(cmd, "");
+
+    // Cut paper
+    cmd.push(GS, 0x56, 0x00);
+
+    return cmd;
+  }
+
+  private buildDeliveryTicket(order: ReceiptOrder): number[] {
+    const cmd: number[] = [];
+    const W = 32;
+
+    // Initialize
+    cmd.push(ESC, 0x40);
+
+    // Center + Bold header
+    cmd.push(ESC, 0x61, 0x01);
+    cmd.push(ESC, 0x45, 0x01);
+    cmd.push(GS, 0x21, 0x01); // Double height
+    this.text(cmd, "DELIVERY TICKET");
+    cmd.push(GS, 0x21, 0x00);
+    cmd.push(ESC, 0x45, 0x00);
+    this.text(cmd, "");
+
+    // Left align
+    cmd.push(ESC, 0x61, 0x00);
+
+    if (order.orderNumber) this.text(cmd, `Order: #${order.orderNumber}`);
+    const date = new Date(order.createdAt).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
+    this.text(cmd, `Printed: ${date}`);
+    this.text(cmd, "=".repeat(W));
+
+    // Customer info
+    cmd.push(ESC, 0x45, 0x01);
+    this.text(cmd, "CUSTOMER");
+    cmd.push(ESC, 0x45, 0x00);
+    if (order.customerName) this.text(cmd, `Name: ${order.customerName}`);
+    if (order.customerPhone) this.text(cmd, `Phone: ${order.customerPhone}`);
+    if (order.siteContactPhone && order.siteContactPhone !== order.customerPhone) {
+      this.text(cmd, `Site Contact: ${order.siteContactPhone}`);
+    }
+    this.text(cmd, "");
+
+    // Delivery address
+    cmd.push(ESC, 0x45, 0x01);
+    this.text(cmd, "DELIVER TO");
+    cmd.push(ESC, 0x45, 0x00);
+    if (order.deliveryAddress) {
+      // Wrap long addresses
+      const addr = order.deliveryAddress;
+      for (let i = 0; i < addr.length; i += W) {
+        this.text(cmd, addr.substring(i, i + W));
+      }
+    }
+    this.text(cmd, "");
+
+    // Schedule
+    cmd.push(ESC, 0x45, 0x01);
+    this.text(cmd, "SCHEDULE");
+    cmd.push(ESC, 0x45, 0x00);
+    if (order.deliveryDate) this.text(cmd, `Date: ${order.deliveryDate}`);
+    if (order.deliveryTimeWindow) this.text(cmd, `Time: ${order.deliveryTimeWindow}`);
+    this.text(cmd, "");
+
+    // Materials
+    cmd.push(ESC, 0x45, 0x01);
+    this.text(cmd, "MATERIALS");
+    cmd.push(ESC, 0x45, 0x00);
+    this.text(cmd, "-".repeat(W));
+    for (const item of order.items) {
+      const line = `${item.quantity} ${item.unit}  ${item.productName}`;
+      this.text(cmd, line.substring(0, W));
+    }
+    this.text(cmd, "-".repeat(W));
+    this.text(cmd, "");
+
+    // Access constraints
+    const constraints = order.accessConstraints ?? {};
+    const activeConstraints = Object.entries(constraints).filter(([, v]) => v).map(([k]) => {
+      const labels: Record<string, string> = {
+        low_wires: "LOW WIRES", narrow_driveway: "NARROW DRIVEWAY",
+        soft_ground: "SOFT GROUND", gated: "GATED",
+        steep: "STEEP APPROACH", backyard: "BACKYARD ACCESS",
+      };
+      return labels[k] || k.toUpperCase();
+    });
+    if (activeConstraints.length > 0) {
+      cmd.push(ESC, 0x45, 0x01);
+      this.text(cmd, "!! ACCESS WARNINGS !!");
+      cmd.push(ESC, 0x45, 0x00);
+      for (const c of activeConstraints) {
+        this.text(cmd, `  * ${c}`);
+      }
+      this.text(cmd, "");
+    }
+
+    // Notes
+    if (order.deliveryNotes) {
+      cmd.push(ESC, 0x45, 0x01);
+      this.text(cmd, "NOTES");
+      cmd.push(ESC, 0x45, 0x00);
+      const n = order.deliveryNotes;
+      for (let i = 0; i < n.length; i += W) {
+        this.text(cmd, n.substring(i, i + W));
+      }
+      this.text(cmd, "");
+    }
+
+    // Payment info for COD
+    if (order.paymentMethod === "cod") {
+      cmd.push(ESC, 0x45, 0x01);
+      cmd.push(GS, 0x21, 0x01); // Double height
+      this.text(cmd, `COLLECT: ${formatMoney(order.totalCents)}`);
+      cmd.push(GS, 0x21, 0x00);
+      cmd.push(ESC, 0x45, 0x00);
+      this.text(cmd, "");
+    }
+
+    // Footer
+    cmd.push(ESC, 0x61, 0x01);
+    this.text(cmd, "Eastern Landscape & Mason Supply");
+    this.text(cmd, "(631) 874-6244");
     this.text(cmd, "");
     this.text(cmd, "");
 
