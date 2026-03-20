@@ -32,6 +32,7 @@ import { ReceiptPrinter } from "@/lib/pos/printer";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { NewLeadModal } from "@/components/pos/new-lead-modal";
+import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -178,6 +179,7 @@ export default function PosRegisterPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [showMaterialCalc, setShowMaterialCalc] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
+  const [showSaveQuote, setShowSaveQuote] = useState<"send" | "hold" | null>(null);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
@@ -1010,7 +1012,9 @@ export default function PosRegisterPage() {
       if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
       if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
       if (e.key === "F4") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
-      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); setShowDiscountModal(false); setShowHoldModal(false); }
+      if (e.key === "F5") { e.preventDefault(); if (items.length > 0) { setShowSaveQuote("send"); } }
+      if (e.key === "F6") { e.preventDefault(); if (items.length > 0) { setShowSaveQuote("hold"); } }
+      if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); setShowDiscountModal(false); setShowHoldModal(false); setShowSaveQuote(null); }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -1022,6 +1026,37 @@ export default function PosRegisterPage() {
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* Caller ID popup — RingCentral incoming call notifications */}
+      {/* Save Quote / Hold Modal */}
+      {showSaveQuote && (
+        <SaveQuoteModal
+          items={items}
+          customerName={delName || customerName}
+          customerPhone={delPhone || customerPhone}
+          customerEmail={delEmail}
+          customerId={selectedCustomer?.id ?? delCustomerId ?? null}
+          deliveryMethod={deliveryMethod}
+          deliveryAddress={delAddress || deliveryAddress}
+          deliveryFeeCents={deliveryFeeCents}
+          deliveryDate={delDate}
+          deliveryTimeWindow={delTimeWindow}
+          deliveryNotes={delNotes}
+          accessConstraints={accessConstraints}
+          routeInfo={routeInfo}
+          defaultMode={showSaveQuote}
+          onClose={() => setShowSaveQuote(null)}
+          onSuccess={(result) => {
+            setShowSaveQuote(null);
+            clearSale();
+            setDeliveryFeeCents(0);
+            setRouteInfo(null);
+            setDelAddress(""); setDelName(""); setDelPhone(""); setDelEmail("");
+            setDelDate(""); setDelNotes(""); setDelCustomerId(null); setDelCustomerStatus("");
+            setAccessConstraints({});
+            setCustomerName("Walk-in"); setCustomerPhone(""); setSelectedCustomer(null);
+          }}
+        />
+      )}
+
       {/* New Lead Modal */}
       {showNewLead && (
         <NewLeadModal
@@ -1834,20 +1869,14 @@ export default function PosRegisterPage() {
             )}
           </div>
 
-          {/* Primary row: HOLD + QUOTE + CHECKOUT */}
-          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
-            <button onClick={() => setShowHoldModal(true)} disabled={items.length === 0}
-              className="relative rounded-lg bg-zinc-800 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-700 disabled:opacity-30">
-              Hold
-              {heldOrders.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">{heldOrders.length}</span>
-              )}
-            </button>
+          {/* Primary row: QUOTE + CHECKOUT */}
+          <div className="grid grid-cols-[1fr_2fr] gap-2">
             <button
-              onClick={() => { setShowQuoteModal(true); setQuoteResult(null); setQuoteNote(""); setQuoteDeposit("200"); }}
-              className="rounded-lg bg-teal-800 py-3 text-sm font-medium text-teal-100 hover:bg-teal-700"
+              onClick={() => items.length > 0 ? setShowSaveQuote("send") : undefined}
+              disabled={items.length === 0}
+              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
             >
-              Quote
+              QUOTE
             </button>
             <button
               onClick={() => setShowCheckout(true)}
@@ -1858,41 +1887,10 @@ export default function PosRegisterPage() {
             </button>
           </div>
 
-          {/* Secondary row: Cancel + Paylink + License */}
-          <div className="grid grid-cols-3 gap-1.5">
-            <button onClick={clearSale} className="rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800">
-              Cancel
-            </button>
-            <button
-              onClick={async () => {
-                const phone = selectedCustomer?.phone || delPhone || customerPhone;
-                const email = selectedCustomer?.email || delEmail;
-                if (!phone && !email) { alert("Add customer phone or email first."); return; }
-                const desc = items.map((i: any) => `${i.quantity}x ${i.product.name}`).join(", ");
-                const res = await fetch("/api/pos/paylink", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ amountCents: cashTotalCents, customerName: selectedCustomer?.first_name ?? delName ?? "", customerEmail: email, customerPhone: phone, sendEmail: !!email, sendSms: !!phone, description: desc }),
-                });
-                if (res.ok) alert("Payment link sent!"); else alert("Failed.");
-              }}
-              disabled={items.length === 0 || processing}
-              className="rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800 disabled:opacity-30"
-            >
-              Paylink
-            </button>
-            <label className="flex cursor-pointer items-center justify-center rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800">
-              License
-              <input type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file) return;
-                  const fd = new FormData(); fd.append("file", file);
-                  const res = await fetch("/api/pos/license-photo", { method: "POST", body: fd });
-                  if (res.ok) alert("Uploaded."); else alert("Failed.");
-                  e.target.value = "";
-                }} />
-            </label>
-          </div>
+          {/* Cancel */}
+          <button onClick={clearSale} className="w-full rounded-lg bg-zinc-800/50 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800">
+            Cancel
+          </button>
         </div>
       </div>
 
