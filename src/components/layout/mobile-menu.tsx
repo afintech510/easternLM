@@ -42,7 +42,7 @@ export function MobileMenu() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
-          className="relative flex size-9 items-center justify-center rounded-md text-foreground/70 hover:bg-muted hover:text-foreground"
+          className="relative flex size-11 items-center justify-center rounded-md text-foreground/70 hover:bg-muted hover:text-foreground"
           aria-label="Open menu"
         >
           <Menu className="size-5" />
@@ -89,14 +89,24 @@ export function MobileMenu() {
           </Button>
         )}
 
-        {/* Nav links */}
-        <nav className="mt-6 space-y-0.5" aria-label="Mobile navigation">
+        {/* Call + Text buttons */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <a href={siteConfig.phoneHref} className="flex items-center justify-center gap-2 rounded-xl border bg-primary/5 py-3.5 text-sm font-semibold text-primary">
+            <Phone className="size-4" /> Call
+          </a>
+          <a href={siteConfig.smsHref} className="flex items-center justify-center gap-2 rounded-xl border bg-primary/5 py-3.5 text-sm font-semibold text-primary">
+            💬 Text Us
+          </a>
+        </div>
+
+        {/* Nav links — 52px touch targets */}
+        <nav className="mt-5 space-y-0.5" aria-label="Mobile navigation">
           {navItems.filter((i) => !i.primary).map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={close}
-              className="block rounded-md px-3 py-2.5 text-sm font-medium text-foreground/80 hover:bg-muted hover:text-foreground"
+              className="flex items-center rounded-lg px-4 py-3.5 text-base font-medium text-foreground/80 hover:bg-muted hover:text-foreground"
             >
               {link.label}
             </Link>
@@ -111,7 +121,7 @@ export function MobileMenu() {
               key={link.href}
               href={link.href}
               onClick={close}
-              className="block rounded-md px-3 py-2 text-sm text-foreground/70 hover:bg-muted hover:text-foreground"
+              className="flex items-center rounded-lg px-4 py-3 text-base text-foreground/70 hover:bg-muted hover:text-foreground"
             >
               {link.label}
             </Link>

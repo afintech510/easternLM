@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ShoppingCart, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface Props {
   deliveryType: DeliveryType;
   materialClass: MaterialClass;
   unit?: string;
+  slug?: string;
 }
 
 export function ProductCardActions({
@@ -29,57 +30,81 @@ export function ProductCardActions({
   deliveryType,
   materialClass,
   unit = "yard",
+  slug,
 }: Props) {
   const addItem = useCartStore((state) => state.addItem);
-  const [qty, setQty] = useState(1);
+  const cartItems = useCartStore((state) => state.items);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+
+  const cartItem = cartItems.find((i) => i.id === productId);
+  const isInCart = !!cartItem;
+
+  const [qty, setQty] = useState(cartItem?.quantity ?? 1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
   const isBulk = deliveryType === "bulk";
 
-  async function handleAdd(overrideQty?: number) {
-    const q = overrideQty ?? qty;
+  // Sync local qty if cart changes externally
+  useEffect(() => {
+    if (cartItem) setQty(cartItem.quantity);
+  }, [cartItem?.quantity]);
+
+  async function handleAdd() {
+    if (qty <= 0) return;
     setIsSubmitting(true);
-    await addItem({
-      id: productId,
-      name,
-      quantity: q,
-      unitPriceCents,
-      deliveryType,
-      materialClass,
-    });
+
+    if (isInCart) {
+      updateQuantity(productId, qty);
+      toast.success(`${name} updated`, {
+        description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
+        duration: 2000,
+      });
+    } else {
+      await addItem({ id: productId, name, quantity: qty, unitPriceCents, deliveryType, materialClass });
+      toast.success(`${name} added to cart`, {
+        description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
+        action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
+        duration: 3000,
+      });
+    }
+
     setIsSubmitting(false);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 2000);
-
-    toast.success(`${name} added to cart`, {
-      description: `${q} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * q)}`,
-      action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
-      duration: 3000,
-    });
   }
 
   if (justAdded) {
     return (
-      <div className="space-y-2">
-        <Button className="w-full bg-green-600 text-white hover:bg-green-600" size="sm" disabled>
-          <Check className="size-4" /> Added
+      <div className="space-y-2 px-1">
+        <Button className="w-full bg-green-600 text-white hover:bg-green-600 h-11" disabled>
+          <Check className="size-4" /> {isInCart ? "Updated" : "Added"}
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      {/* Quick qty presets for bulk */}
+    <div className="space-y-2 px-1 pb-1">
+      {/* In-cart indicator */}
+      {isInCart && (
+        <p className="text-center text-xs font-medium text-green-600">
+          ✓ In cart: {cartItem.quantity} {unit}
+        </p>
+      )}
+
+      {/* Row 1: Preset buttons — SET qty only, don't add to cart */}
       {isBulk && (
         <div className="flex gap-1">
           {BULK_PRESETS.map((p) => (
             <button
               key={p}
-              onClick={() => handleAdd(p)}
-              disabled={isSubmitting}
-              className="flex-1 rounded-md border bg-muted/50 py-1 text-xs font-medium text-foreground/70 hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-colors"
+              onClick={() => setQty(p)}
+              className={`flex-1 rounded-lg border h-10 text-sm font-semibold transition-colors ${
+                qty === p
+                  ? "bg-accent/15 text-accent border-accent/40"
+                  : "bg-muted/50 text-foreground/70 border-border hover:bg-accent/10 hover:text-accent"
+              }`}
             >
               {p}
             </button>
@@ -87,38 +112,46 @@ export function ProductCardActions({
         </div>
       )}
 
-      {/* Qty selector + add button */}
-      <div className="flex gap-1.5">
-        <div className="flex items-center rounded-md border bg-background">
-          <button
-            onClick={() => setQty(Math.max(1, qty - 1))}
-            className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <Minus className="size-3" />
-          </button>
-          <input
-            type="number"
-            min={1}
-            value={qty}
-            onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-10 border-x bg-transparent py-1.5 text-center text-xs font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <button
-            onClick={() => setQty(qty + 1)}
-            className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <Plus className="size-3" />
-          </button>
-        </div>
-        <Button
-          className="flex-1"
-          size="sm"
-          disabled={isSubmitting}
-          onClick={() => handleAdd()}
+      {/* Row 2: Qty selector */}
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => setQty(Math.max(isBulk ? 1 : 1, qty - (isBulk ? 1 : 1)))}
+          className="flex h-10 w-11 items-center justify-center rounded-lg border bg-muted/50 text-lg font-bold hover:bg-muted"
         >
-          {isSubmitting ? "Adding..." : <><ShoppingCart className="size-3.5" /> Add</>}
-        </Button>
+          −
+        </button>
+        <input
+          type="number"
+          min={1}
+          value={qty}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (!isNaN(val) && val > 0) setQty(val);
+          }}
+          className="h-10 w-16 rounded-lg border bg-background text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-accent/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          inputMode="decimal"
+        />
+        <button
+          onClick={() => setQty(qty + (isBulk ? 1 : 1))}
+          className="flex h-10 w-11 items-center justify-center rounded-lg border bg-muted/50 text-lg font-bold hover:bg-muted"
+        >
+          +
+        </button>
       </div>
+
+      {/* Row 3: Add to Cart */}
+      <Button
+        className="w-full h-11 text-sm font-semibold"
+        disabled={isSubmitting || qty <= 0}
+        onClick={handleAdd}
+      >
+        {isSubmitting ? "Adding..." : (
+          <>
+            <ShoppingCart className="size-4" />
+            {isInCart ? `Update Cart — ${qty} ${unit}` : `Add to Cart — ${qty} ${unit}`}
+          </>
+        )}
+      </Button>
     </div>
   );
 }
