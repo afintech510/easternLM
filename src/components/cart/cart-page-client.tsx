@@ -50,6 +50,8 @@ export function CartPageClient() {
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
   const addItem = useCartStore((s) => s.addItem);
   const swapItems = useCartStore((s) => s.swapItems);
+  const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
+  const storedCustomer = useCartStore((s) => s.customerInfo);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
@@ -57,9 +59,12 @@ export function CartPageClient() {
   const [timeWindow, setTimeWindow] = useState("flexible");
 
   // Lead capture
-  const [custName, setCustName] = useState("");
-  const [custPhone, setCustPhone] = useState("");
-  const [custEmail, setCustEmail] = useState("");
+  const [custName, setCustNameLocal] = useState(storedCustomer?.fullName || "");
+  const [custPhone, setCustPhoneLocal] = useState(storedCustomer?.phone || "");
+  const [custEmail, setCustEmailLocal] = useState(storedCustomer?.email || "");
+  const setCustName = (v: string) => { setCustNameLocal(v); setCustomerInfo({ fullName: v }); };
+  const setCustPhone = (v: string) => { setCustPhoneLocal(v); setCustomerInfo({ phone: v }); };
+  const setCustEmail = (v: string) => { setCustEmailLocal(v); setCustomerInfo({ email: v }); };
   const [smsOptIn, setSmsOptIn] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
 
