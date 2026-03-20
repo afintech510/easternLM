@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, X, Loader2, Phone } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
 type PaymentMethod = "cash" | "cod" | "card_terminal" | "account";
@@ -35,10 +35,11 @@ interface Props {
   onComplete: (payments: PaymentResult[]) => void;
   onCancel: () => void;
   onProcessCard: (amountCents: number) => Promise<{ success: boolean; paymentIntentId?: string; error?: string }>;
+  onPhoneOrder?: () => void;
   processing: boolean;
 }
 
-export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, processing }: Props) {
+export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onPhoneOrder, processing }: Props) {
   const [step, setStep] = useState<"select" | "cash" | "cod" | "card" | "account" | "split">("select");
   const [cashTendered, setCashTendered] = useState("");
   const [splitEnabled, setSplitEnabled] = useState(false);
@@ -163,6 +164,14 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, pro
                 <span className="text-xs text-zinc-500">{cart.isChargeAccount ? cart.accountName : "No account"}</span>
               </button>
             </div>
+
+            {/* Phone Order — card over the phone */}
+            {onPhoneOrder && (
+              <button onClick={() => { onCancel(); onPhoneOrder(); }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm text-zinc-400 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors">
+                <Phone className="size-4" /> Phone Order — enter card details manually
+              </button>
+            )}
 
             {/* Split toggle */}
             <button onClick={() => setStep("split")}

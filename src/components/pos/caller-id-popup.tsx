@@ -199,7 +199,7 @@ export function CallerIdPopup({ onAttachCustomer }: CallerIdPopupProps) {
                   onClick={() => {
                     onAttachCustomer({
                       id: c.id,
-                      name,
+                      name: (c.first_name || c.last_name) ? name : "",
                       phone: c.phone || call.caller_phone,
                       email: c.email || "",
                       address: c.address || "",

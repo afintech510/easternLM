@@ -1886,21 +1886,14 @@ export default function PosRegisterPage() {
             )}
           </div>
 
-          {/* Primary row: QUOTE + PHONE + CHECKOUT */}
-          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+          {/* Primary row: QUOTE + CHECKOUT */}
+          <div className="grid grid-cols-[1fr_2fr] gap-2">
             <button
               onClick={() => items.length > 0 ? setShowSaveQuote("send") : undefined}
               disabled={items.length === 0}
-              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-xs font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
+              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
             >
               QUOTE
-            </button>
-            <button
-              onClick={() => items.length > 0 ? setShowPhoneOrder(true) : undefined}
-              disabled={items.length === 0}
-              className="rounded-lg border border-blue-600/50 bg-blue-900/20 py-3 text-xs font-semibold text-blue-400 hover:bg-blue-900/40 disabled:opacity-30"
-            >
-              PHONE
             </button>
             <button
               onClick={() => setShowCheckout(true)}
@@ -1938,6 +1931,7 @@ export default function PosRegisterPage() {
             accountBalance: selectedCustomer?.current_balance_cents ?? 0,
             itemsSummary: items.map((i: any) => `${i.quantity} ${i.product.name}`).join(", "),
           }}
+          onPhoneOrder={() => { setShowCheckout(false); setShowPhoneOrder(true); }}
           onComplete={async (payments) => {
             setShowCheckout(false);
             // Map checkout overlay payments to completeSale
