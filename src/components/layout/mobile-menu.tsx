@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sheet";
 
 const navItems = [
-  { href: "/shop", label: "Shop Materials", primary: true },
+  { href: "/shop/bulk", label: "Shop Materials", primary: true },
   { href: "/services", label: "Get a Quote", primary: true },
   { href: "/delivery", label: "Delivery Areas" },
   { href: "/calculator", label: "Material Calculator" },
