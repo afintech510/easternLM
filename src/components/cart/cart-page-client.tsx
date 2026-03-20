@@ -49,6 +49,7 @@ export function CartPageClient() {
   const setAccessConstraints = useCartStore((s) => s.setAccessConstraints);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
   const addItem = useCartStore((s) => s.addItem);
+  const swapItems = useCartStore((s) => s.swapItems);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
@@ -172,7 +173,7 @@ export function CartPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
+    <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-10 md:py-14">
       {/* Header */}
       <div className="mb-8 flex items-center gap-4">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="size-14 md:size-16 shrink-0">
@@ -210,16 +211,11 @@ export function CartPageClient() {
               <div className="flex justify-center -my-1.5 relative z-10">
                 <button
                   onClick={() => {
-                    // Swap item positions in the cart by updating quantities
+                    // Find actual indices in the full items array
                     const prevItem = bulkItems[i - 1];
-                    // We can't reorder Zustand items directly, so swap by removing + re-adding
-                    // For now, use a visual hint — the delivery number changes
-                    const prevQty = prevItem.quantity;
-                    const prevPrice = prevItem.unitPriceCents;
-                    const currQty = item.quantity;
-                    const currPrice = item.unitPriceCents;
-                    updateQuantity(prevItem.id, currQty);
-                    updateQuantity(item.id, prevQty);
+                    const idxA = items.findIndex((it) => it.id === prevItem.id);
+                    const idxB = items.findIndex((it) => it.id === item.id);
+                    if (idxA >= 0 && idxB >= 0) swapItems(idxA, idxB);
                   }}
                   className="flex size-8 items-center justify-center rounded-full border bg-card shadow-sm hover:bg-muted transition-colors"
                   title="Swap delivery order"
@@ -228,33 +224,29 @@ export function CartPageClient() {
                 </button>
               </div>
             )}
-            <div className="rounded-xl border border-blue-800/40 bg-card p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Delivery {i + 1}
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="font-semibold text-lg">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">{item.quantity} cubic yards</p>
-                </div>
+            <div className="rounded-xl border border-blue-800/40 bg-card p-3 sm:p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Delivery {i + 1}
+                </p>
+                <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)} title="Remove">
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+              <p className="font-semibold text-base sm:text-lg leading-tight mb-1 break-words">{item.name}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
                 <div className="flex items-center gap-1.5">
-                  <button className="flex size-9 items-center justify-center rounded-lg border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, Number((item.quantity - 1).toFixed(2))))}>
-                    <Minus className="size-4" />
-                  </button>
+                  <button className="flex size-10 items-center justify-center rounded-lg border text-lg hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, Number((item.quantity - 1).toFixed(2))))}>−</button>
                   <Input
                     value={String(item.quantity)}
                     onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }}
-                    className="w-16 text-center font-semibold"
+                    className="w-16 h-10 text-center text-lg font-semibold"
                     inputMode="decimal"
                   />
-                  <button className="flex size-9 items-center justify-center rounded-lg border hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity + 1).toFixed(2)))}>
-                    <Plus className="size-4" />
-                  </button>
+                  <button className="flex size-10 items-center justify-center rounded-lg border text-lg hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity + 1).toFixed(2)))}>+</button>
+                  <span className="text-sm text-muted-foreground ml-1">cubic yards</span>
                 </div>
-                <span className="w-24 text-right font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
-                <button className="text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)}>
-                  <Trash2 className="size-4" />
-                </button>
+                <span className="font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
               </div>
             </div>
             </div>
@@ -267,22 +259,22 @@ export function CartPageClient() {
                 Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
               </p>
               {nonBulkItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-4 py-2 border-t first:border-0">
-                  <div className="flex-1">
-                    <p className="font-medium">{item.name}</p>
+                <div key={item.id} className="flex flex-wrap items-center gap-2 py-2.5 border-t first:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{formatUsd(item.unitPriceCents)} each</p>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
+                  <div className="flex items-center gap-1">
+                    <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
                       <Minus className="size-3.5" />
                     </button>
-                    <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-14 text-center text-sm" inputMode="numeric" />
-                    <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                    <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-12 h-9 text-center text-sm" inputMode="numeric" />
+                    <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
                       <Plus className="size-3.5" />
                     </button>
                   </div>
-                  <span className="w-20 text-right text-sm font-semibold">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
-                  <button className="text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
+                  <span className="text-sm font-semibold whitespace-nowrap">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                  <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
                 </div>
               ))}
             </div>
@@ -359,7 +351,7 @@ export function CartPageClient() {
                 {/* Access constraints — always visible */}
                 <div>
                   <p className="mb-1.5 text-sm font-medium">Access Constraints</p>
-                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {[
                       { key: "lowWires" as const, label: "Low Wires" },
                       { key: "narrowDriveway" as const, label: "Narrow Driveway" },

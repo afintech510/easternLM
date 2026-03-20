@@ -17,6 +17,7 @@ type CartStoreActions = {
   applyPromoCode: (code: string) => Promise<void>;
   setAccessConstraints: (constraints: Partial<DeliveryAccessInfo>) => void;
   setCustomerInfo: (info: Partial<CustomerInfo>) => void;
+  swapItems: (indexA: number, indexB: number) => void;
   recalculateDelivery: () => Promise<void>;
   clearError: () => void;
   clearCart: () => void;
@@ -209,6 +210,15 @@ export const useCartStore = create<CartStore>()(
         set((state) => ({
           customerInfo: { ...state.customerInfo, ...info },
         }));
+      },
+
+      swapItems: (indexA: number, indexB: number) => {
+        set((state) => {
+          const items = [...state.items];
+          if (indexA < 0 || indexB < 0 || indexA >= items.length || indexB >= items.length) return state;
+          [items[indexA], items[indexB]] = [items[indexB], items[indexA]];
+          return { items };
+        });
       },
 
       recalculateDelivery: async () => {
