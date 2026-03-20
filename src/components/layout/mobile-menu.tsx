@@ -21,7 +21,6 @@ const navItems = [
   { href: "/services", label: "Get a Quote", primary: true },
   { href: "/delivery", label: "Delivery Areas" },
   { href: "/calculator", label: "Material Calculator" },
-  { href: "/gallery", label: "Gallery" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
