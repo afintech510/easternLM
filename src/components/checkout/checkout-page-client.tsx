@@ -60,6 +60,7 @@ export function CheckoutPageClient() {
   const [optInEmail, setOptInEmail] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
@@ -143,6 +144,7 @@ export function CheckoutPageClient() {
       const body = await response.json();
       if (!response.ok || !body.clientSecret) throw new Error(body.error ?? "Checkout failed.");
       setClientSecret(body.clientSecret);
+      setPaymentIntentId(body.paymentIntentId ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.");
     } finally {
@@ -305,6 +307,7 @@ export function CheckoutPageClient() {
               }}>
                 <EmbeddedPaymentForm
                   totalCents={calculation.grandTotalCents}
+                  paymentIntentId={paymentIntentId ?? undefined}
                   onSuccess={() => {
                     setPaymentSuccess(true);
                     // Clear cart after successful payment
@@ -389,8 +392,9 @@ export function CheckoutPageClient() {
 }
 
 /** Embedded Stripe Payment Form — renders inside <Elements> */
-function EmbeddedPaymentForm({ totalCents, onSuccess, onError }: {
+function EmbeddedPaymentForm({ totalCents, paymentIntentId, onSuccess, onError }: {
   totalCents: number;
+  paymentIntentId?: string;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
@@ -404,7 +408,7 @@ function EmbeddedPaymentForm({ totalCents, onSuccess, onError }: {
 
     setProcessing(true);
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/checkout/success`,
@@ -416,7 +420,17 @@ function EmbeddedPaymentForm({ totalCents, onSuccess, onError }: {
       onError(error.message ?? "Payment failed.");
       setProcessing(false);
     } else {
-      // Payment succeeded without redirect
+      // Payment succeeded — confirm server-side (send emails, mark paid)
+      const piId = paymentIntent?.id || paymentIntentId;
+      if (piId) {
+        try {
+          await fetch("/api/checkout/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentIntentId: piId }),
+          });
+        } catch {}
+      }
       onSuccess();
     }
   }
