@@ -49,7 +49,11 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{ layout: "tabs" }} />
+      <PaymentElement options={{
+        layout: "tabs",
+        wallets: { applePay: "never", googlePay: "never" },
+        fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },
+      }} />
       <button
         type="submit"
         disabled={!stripe || processing}
