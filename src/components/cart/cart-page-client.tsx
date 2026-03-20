@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Bookmark, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,77 +23,12 @@ function getDefaultDeliveryDate() {
   return candidate.toISOString().slice(0, 10);
 }
 
-function SaveCartButton({ items, deliveryMethod, deliveryAddress, customerInfo }: {
-  items: any[];
-  deliveryMethod: string;
-  deliveryAddress: any;
-  customerInfo: any;
-}) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [email, setEmail] = useState(customerInfo?.email ?? "");
-  const [phone, setPhone] = useState(customerInfo?.phone ?? "");
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/cart/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          deliveryMethod,
-          deliveryAddress: deliveryAddress?.fullAddress,
-          customerName: customerInfo?.fullName,
-          customerEmail: email || undefined,
-          customerPhone: phone || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      toast.success("Cart saved!", {
-        description: email || phone ? "We sent you a link to come back." : "Bookmark this page to return.",
-        duration: 5000,
-      });
-      setOpen(false);
-    } catch (err) {
-      toast.error("Could not save cart");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Bookmark className="size-3.5" /> Save for Later
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="h-8 w-36 rounded-md border bg-background px-2 text-xs"
-      />
-      <input
-        type="tel"
-        placeholder="Phone"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        className="h-8 w-28 rounded-md border bg-background px-2 text-xs"
-      />
-      <Button size="sm" onClick={handleSave} disabled={saving}>
-        {saving ? <Spin className="size-3 animate-spin" /> : "Send Link"}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>✕</Button>
-    </div>
-  );
-}
+const TIME_WINDOWS = [
+  { value: "early", label: "Early Morning (7:30 AM – 9:00 AM)" },
+  { value: "morning", label: "Morning (8:00 AM – 12:00 PM)" },
+  { value: "afternoon", label: "Afternoon (12:00 PM – 5:00 PM)" },
+  { value: "flexible", label: "Flexible — anytime during business hours" },
+];
 
 export function CartPageClient() {
   const items = useCartStore((s) => s.items);
@@ -113,14 +48,19 @@ export function CartPageClient() {
   const applyPromoCode = useCartStore((s) => s.applyPromoCode);
   const setAccessConstraints = useCartStore((s) => s.setAccessConstraints);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
-  const customerInfo = useCartStore((s) => s.customerInfo);
   const addItem = useCartStore((s) => s.addItem);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
-  const flatbedDelivery = false;
-  const yardBagging = false;
+  const [timeWindow, setTimeWindow] = useState("flexible");
+
+  // Lead capture
+  const [custName, setCustName] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [custEmail, setCustEmail] = useState("");
+  const [smsOptIn, setSmsOptIn] = useState(true);
+  const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
 
@@ -134,7 +74,7 @@ export function CartPageClient() {
       .then((data) => {
         if (data.items?.length) {
           data.items.forEach((item: any) => addItem(item));
-          toast.success("Cart restored!", { description: `${data.items.length} item${data.items.length > 1 ? "s" : ""} loaded.` });
+          toast.success("Cart restored!", { description: `${data.items.length} items loaded.` });
           window.history.replaceState({}, "", "/cart");
         }
       })
@@ -142,7 +82,14 @@ export function CartPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Minimum order fee: if delivery and materials < $125, add fee to reach $125
+  // Auto-calculate delivery fee when address changes
+  function handleAddressSelect(addr: string) {
+    setAddressInput(addr);
+    const zip = addr.match(/\b(\d{5})\b/)?.[1] ?? "";
+    setDeliveryAddress({ fullAddress: addr, zip });
+  }
+
+  // Minimum order fee
   const minOrderFeeCents = useMemo(() => {
     if (!calculation || deliveryMethod !== "delivery") return 0;
     if (calculation.belowMinimum && calculation.subtotalCents < 12500) {
@@ -151,25 +98,64 @@ export function CartPageClient() {
     return 0;
   }, [calculation, deliveryMethod]);
 
-  const flatbedFeeCents = 0;
-  const forkliftSavingsCents = 0;
-  const bulkYards = items.filter((i) => i.deliveryType === "bulk").reduce((s, i) => s + i.quantity, 0);
-  const yardBaggingCents = yardBagging ? bulkYards * 3000 : 0;
+  // Split items: bulk materials (separate deliveries) vs non-bulk (ride along)
+  const bulkItems = items.filter((i) => i.deliveryType === "bulk");
+  const nonBulkItems = items.filter((i) => i.deliveryType !== "bulk");
 
+  // Totals — remove CC surcharge from display
   const totals = useMemo(() => {
     if (!calculation) return null;
-    return [
+    const lines = [
       { label: "Materials", value: calculation.subtotalCents },
       ...(minOrderFeeCents > 0 ? [{ label: "Min. order fee", value: minOrderFeeCents }] : []),
       ...(calculation.proDiscountCents > 0 ? [{ label: "Pro discount", value: -calculation.proDiscountCents }] : []),
-      { label: "Delivery", value: calculation.deliveryFeeCents },
-      ...(flatbedFeeCents > 0 ? [{ label: "Flatbed delivery", value: flatbedFeeCents }] : []),
-      ...(forkliftSavingsCents < 0 ? [{ label: "Forklift on-site savings", value: forkliftSavingsCents }] : []),
-      ...(yardBaggingCents > 0 ? [{ label: `Yard bagging (${bulkYards} yd × $30)`, value: yardBaggingCents }] : []),
-      { label: "Tax (8.75%)", value: calculation.taxCents },
-      { label: "CC processing fee (3%)", value: calculation.ccSurchargeCents },
     ];
-  }, [calculation, minOrderFeeCents, flatbedFeeCents, forkliftSavingsCents, yardBaggingCents, bulkYards]);
+    if (deliveryMethod === "delivery") {
+      lines.push({ label: "Delivery", value: calculation.deliveryFeeCents });
+    }
+    lines.push({ label: "Tax (8.75%)", value: calculation.taxCents });
+    return lines;
+  }, [calculation, minOrderFeeCents, deliveryMethod]);
+
+  const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) : 0;
+
+  // Save as Quote handler
+  async function handleSaveQuote() {
+    if (!custName && !custPhone && !custEmail) {
+      toast.error("Enter your name and phone or email to save a quote.");
+      return;
+    }
+    setSavingQuote(true);
+    try {
+      const res = await fetch("/api/quotes/quick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            unitPriceCents: i.unitPriceCents,
+            unit: i.deliveryType === "bulk" ? "yard" : "each",
+          })),
+          customer: { name: custName, phone: custPhone, email: custEmail },
+          deliveryFeeCents: deliveryMethod === "delivery" ? (calculation?.deliveryFeeCents ?? 0) : 0,
+          sendVia: custEmail ? (custPhone ? ["email", "sms"] : ["email"]) : custPhone ? ["sms"] : undefined,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Quote sent!", {
+          description: custEmail ? `Check ${custEmail} for your quote.` : "Check your phone for the quote link.",
+          duration: 6000,
+        });
+      } else {
+        toast.error("Could not save quote. Try again.");
+      }
+    } catch {
+      toast.error("Network error.");
+    } finally {
+      setSavingQuote(false);
+    }
+  }
 
   // ── Empty cart ─────────────────────────────────────────
   if (items.length === 0) {
@@ -187,125 +173,182 @@ export function CartPageClient() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="[font-family:var(--font-display)] text-3xl text-primary">Your Cart</h1>
-        <div className="flex items-center gap-2">
-          <SaveCartButton items={items} deliveryMethod={deliveryMethod} deliveryAddress={deliveryAddress} customerInfo={customerInfo} />
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/shop"><ArrowLeft className="size-4" /> Continue Shopping</Link>
-          </Button>
-        </div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="[font-family:var(--font-display)] text-3xl md:text-4xl text-primary">Dump Truck Deliveries</h1>
+        <p className="mt-1 text-muted-foreground">Materials delivered from our yard to your site</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
-        {/* ── Left: Items + Delivery ──────────────────────── */}
+        {/* ── Left: Items + Customer + Delivery ─────────────── */}
         <div className="space-y-5">
-          {/* Line items */}
-          <div className="rounded-xl border bg-card">
-            {items.map((item, i) => (
-              <div key={item.id} className={`flex gap-4 p-4 ${i > 0 ? "border-t" : ""}`}>
+          {/* Bulk materials — one card per delivery */}
+          {bulkItems.map((item, i) => (
+            <div key={item.id} className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Delivery {i + 1}
+              </p>
+              <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <p className="font-semibold">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">{formatUsd(item.unitPriceCents)} each &middot; {item.deliveryType === "bulk" ? "Bulk" : "Bagged"}</p>
+                  <p className="font-semibold text-lg">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">{item.quantity} cubic yards</p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity - 1).toFixed(2)))}>
-                    <Minus className="size-3.5" />
+                  <button className="flex size-9 items-center justify-center rounded-lg border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, Number((item.quantity - 1).toFixed(2))))}>
+                    <Minus className="size-4" />
                   </button>
                   <Input
                     value={String(item.quantity)}
                     onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }}
-                    className="w-16 text-center text-sm"
+                    className="w-16 text-center font-semibold"
                     inputMode="decimal"
                   />
-                  <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity + 1).toFixed(2)))}>
-                    <Plus className="size-3.5" />
+                  <button className="flex size-9 items-center justify-center rounded-lg border hover:bg-muted" onClick={() => updateQuantity(item.id, Number((item.quantity + 1).toFixed(2)))}>
+                    <Plus className="size-4" />
                   </button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-20 text-right text-sm font-semibold">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
-                  <button className="text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)} aria-label="Remove item">
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
+                <span className="w-24 text-right font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                <button className="text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)}>
+                  <Trash2 className="size-4" />
+                </button>
               </div>
-            ))}
+            </div>
+          ))}
+
+          {/* Non-bulk items */}
+          {nonBulkItems.length > 0 && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
+              </p>
+              {nonBulkItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-4 py-2 border-t first:border-0">
+                  <div className="flex-1">
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatUsd(item.unitPriceCents)} each</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
+                      <Minus className="size-3.5" />
+                    </button>
+                    <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-14 text-center text-sm" inputMode="numeric" />
+                    <button className="flex size-8 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                      <Plus className="size-3.5" />
+                    </button>
+                  </div>
+                  <span className="w-20 text-right text-sm font-semibold">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                  <button className="text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Customer Info — lead capture */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h2 className="text-sm font-semibold">Your Information</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input placeholder="Name" value={custName} onChange={(e) => setCustName(e.target.value)} />
+              <Input placeholder="Phone" type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} />
+              <Input placeholder="Email" type="email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} />
+            </div>
+            <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={smsOptIn} onChange={(e) => setSmsOptIn(e.target.checked)} className="mt-0.5 rounded" />
+              Text me order updates and seasonal deals (msg &amp; data rates apply, reply STOP to opt out)
+            </label>
           </div>
 
-          {/* Delivery method */}
+          {/* Delivery or Pickup */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h2 className="text-sm font-semibold">Delivery or Pickup</h2>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => toggleDeliveryMethod("delivery")} className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium ${deliveryMethod === "delivery" ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted"}`}>
+              <button onClick={() => toggleDeliveryMethod("delivery")} className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium transition-colors ${deliveryMethod === "delivery" ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted"}`}>
                 <Truck className="size-4" /> Delivery
               </button>
-              <button onClick={() => toggleDeliveryMethod("pickup")} className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium ${deliveryMethod === "pickup" ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted"}`}>
-                Pickup at Yard
+              <button onClick={() => toggleDeliveryMethod("pickup")} className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-sm font-medium transition-colors ${deliveryMethod === "pickup" ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted"}`}>
+                <Store className="size-4" /> Pickup at Yard
               </button>
             </div>
 
             {deliveryMethod === "delivery" && (
               <div className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Delivery address</label>
+                  <label className="mb-1 block text-sm font-medium">Delivery Address</label>
                   <AddressAutocomplete
                     value={addressInput}
                     onChange={setAddressInput}
-                    onSelect={(addr) => { const zip = addr.match(/\b(\d{5})\b/)?.[1] ?? ""; setDeliveryAddress({ fullAddress: addr, zip }); }}
+                    onSelect={handleAddressSelect}
                     placeholder="Start typing an address..."
                   />
                 </div>
-                <Button size="sm" onClick={() => { const zip = addressInput.match(/\b(\d{5})\b/)?.[1] ?? ""; setDeliveryAddress({ fullAddress: addressInput, zip }); }}>
-                  Calculate Delivery Fee
-                </Button>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Preferred delivery date</label>
-                  <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
+
+                {/* Auto-calculated fee display */}
+                {isCalculating && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Spin className="size-4 animate-spin" /> Calculating delivery fee...
+                  </p>
+                )}
+                {calculation && !isCalculating && deliveryAddress?.fullAddress && (
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    ✅ {calculation.oneWayMiles ? `${calculation.oneWayMiles.toFixed(1)} mi` : ""} · Fee: {formatUsd(calculation.deliveryFeeCents)} {calculation.totalLoads > 1 ? `(${calculation.totalLoads} loads)` : "/load"}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Preferred Date</label>
+                    <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Time Window</label>
+                    <select value={timeWindow} onChange={(e) => setTimeWindow(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                      {TIME_WINDOWS.map((tw) => <option key={tw.value} value={tw.value}>{tw.label}</option>)}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Delivery options removed — dump truck only */}
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={combineLoads} onChange={() => toggleCombineLoads()} className="rounded" />
+                  Combine loads when possible (materials may touch — saves on delivery fees)
+                </label>
+
+                {/* Access constraints — always visible */}
+                <div>
+                  <p className="mb-1.5 text-sm font-medium">Access Constraints</p>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {[
+                      { key: "lowWires" as const, label: "Low Wires" },
+                      { key: "narrowDriveway" as const, label: "Narrow Driveway" },
+                      { key: "softGround" as const, label: "Soft Ground" },
+                      { key: "gated" as const, label: "Gated" },
+                      { key: "steep" as const, label: "Steep Approach" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer hover:bg-muted/50">
+                        <input type="checkbox" checked={accessConstraints[key]} onChange={(e) => setAccessConstraints({ [key]: e.target.checked })} className="rounded" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Delivery Notes</label>
+                  <Input placeholder="Gate code, driveway instructions, landmarks..." value={accessConstraints.notes} onChange={(e) => setAccessConstraints({ notes: e.target.value })} />
+                </div>
               </div>
             )}
-
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={combineLoads} onChange={() => toggleCombineLoads()} className="rounded" />
-              Combine loads when possible
-            </label>
           </div>
 
-          {/* Access constraints */}
-          <details className="rounded-xl border bg-card p-5">
-            <summary className="cursor-pointer text-sm font-semibold">Access constraints &amp; promo code</summary>
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {[
-                  { key: "lowWires" as const, label: "Low wires" },
-                  { key: "narrowDriveway" as const, label: "Narrow driveway" },
-                  { key: "softGround" as const, label: "Soft ground" },
-                  { key: "gated" as const, label: "Gated" },
-                  { key: "steep" as const, label: "Steep approach" },
-                ].map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={accessConstraints[key]} onChange={(e) => setAccessConstraints({ [key]: e.target.checked })} className="rounded" />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <Input placeholder="Driver notes (gate code, landmarks...)" value={accessConstraints.notes} onChange={(e) => setAccessConstraints({ notes: e.target.value })} />
-              <div className="flex gap-2">
-                <Input value={promoInput} onChange={(e) => setPromoInput(e.target.value)} placeholder="Promo code" className="w-40" />
-                <Button variant="outline" size="sm" onClick={() => applyPromoCode(promoInput)}>Apply</Button>
-              </div>
-            </div>
-          </details>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/shop"><ArrowLeft className="size-4" /> Continue Shopping</Link>
+          </Button>
         </div>
 
-        {/* ── Right: Summary ──────────────────────────────── */}
+        {/* ── Right: Order Summary (sticky) ──────────────────── */}
         <div className="lg:sticky lg:top-28 lg:self-start">
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h2 className="text-lg font-semibold">Order Summary</h2>
 
-            {isCalculating && <p className="text-sm text-muted-foreground">Calculating...</p>}
+            {isCalculating && <p className="text-sm text-muted-foreground"><Spin className="inline size-3 animate-spin mr-1" />Calculating...</p>}
             {error && (
               <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {error}
@@ -313,32 +356,32 @@ export function CartPageClient() {
             )}
             {calculation?.belowMinimum && minOrderFeeCents > 0 && (
               <p className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> A $125 minimum applies for delivery. A {formatUsd(minOrderFeeCents)} min. order fee has been added. Add more items to reduce or eliminate this fee.
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> $125 minimum for delivery. A {formatUsd(minOrderFeeCents)} fee has been added.
               </p>
             )}
             {calculation?.outsideServiceArea && (
               <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> This address is outside our 50-mile service area. <a href={siteConfig.phoneHref} className="underline">Call</a> or <a href={siteConfig.smsHref} className="underline">text</a> us at (631) 874-6244.
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Outside our service area. Call (631) 874-6244.
               </p>
             )}
 
-            {/* Delivery breakdown (collapsible) */}
+            {/* Delivery breakdown — always expanded */}
             {calculation?.loads.length ? (
-              <details className="rounded-lg border bg-background p-3 text-sm">
-                <summary className="cursor-pointer font-semibold">
-                  Delivery: {formatUsd(calculation.deliveryFeeCents)} ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})
-                </summary>
-                <div className="mt-2 space-y-1.5">
-                  {calculation.loads.map((load, i) => (
-                    <p key={`${load.truckName}-${i}`} className="text-xs text-muted-foreground">
-                      Day {load.day}: {load.truckName} — {load.quantity} yd ({load.materialClass}) — {formatUsd(load.feeCents)}
-                    </p>
-                  ))}
-                </div>
-              </details>
+              <div className="rounded-lg border bg-background p-3 text-sm space-y-1.5">
+                <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Delivery Breakdown</p>
+                {calculation.loads.map((load, i) => (
+                  <div key={`load-${i}`} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Delivery {load.day}: {load.materialClass === "mulch" ? "Mulch" : "Material"} — {load.quantity} yd</span>
+                    <span>{formatUsd(load.feeCents)}</span>
+                  </div>
+                ))}
+                {calculation.totalLoads > 1 && (
+                  <p className="text-[10px] text-muted-foreground">(Load 2+ discounted 25%)</p>
+                )}
+              </div>
             ) : null}
 
-            {/* Line items */}
+            {/* Totals */}
             {totals ? (
               <div className="space-y-2 text-sm">
                 {totals.map((line) => (
@@ -349,28 +392,46 @@ export function CartPageClient() {
                 ))}
                 <div className="flex justify-between border-t pt-2 text-lg font-bold text-primary">
                   <span>Total</span>
-                  <span>{formatUsd(calculation!.grandTotalCents)}</span>
+                  <span>{formatUsd(cashTotal)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">A 3% credit card processing fee is included per NY State law.</p>
+                <p className="text-[11px] text-muted-foreground">A 3% credit card processing fee will be added at checkout.</p>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Enter a delivery address to see totals.</p>
+              <p className="text-sm text-muted-foreground">
+                {deliveryMethod === "delivery" ? "Enter a delivery address to see totals." : "Select pickup to see totals."}
+              </p>
             )}
 
-            {/* CTA */}
+            {/* Promo code */}
+            <div className="flex gap-2">
+              <Input value={promoInput} onChange={(e) => setPromoInput(e.target.value)} placeholder="Promo code" className="flex-1" />
+              <Button variant="outline" size="sm" onClick={() => applyPromoCode(promoInput)}>Apply</Button>
+            </div>
+
+            {/* Checkout CTA */}
             {calculation && !calculation.checkoutBlocked ? (
               <Button asChild size="lg" className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90">
-                <Link href="/checkout">Proceed to Checkout</Link>
+                <Link href="/checkout">Proceed to Checkout →</Link>
               </Button>
             ) : null}
 
+            {/* Save as Quote — lead capture CTA */}
+            <button
+              onClick={handleSaveQuote}
+              disabled={savingQuote}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-50"
+            >
+              {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              Save as Quote — send to my phone/email
+            </button>
+
             <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <a href={siteConfig.phoneHref} className="flex items-center gap-1.5 hover:text-accent">
-                <Phone className="size-4" /> Call {siteConfig.phoneDisplay}
+                <Phone className="size-4" /> {siteConfig.phoneDisplay}
               </a>
               <span className="text-border">|</span>
               <a href={siteConfig.smsHref} className="flex items-center gap-1.5 hover:text-accent">
-                Text Us
+                <MessageSquare className="size-4" /> Text Us
               </a>
             </div>
           </div>
@@ -383,10 +444,10 @@ export function CartPageClient() {
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <div>
               <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-lg font-bold text-primary">{formatUsd(calculation.grandTotalCents)}</p>
+              <p className="text-lg font-bold text-primary">{formatUsd(cashTotal)}</p>
             </div>
             <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link href="/checkout">Checkout</Link>
+              <Link href="/checkout">Checkout →</Link>
             </Button>
           </div>
         </div>
