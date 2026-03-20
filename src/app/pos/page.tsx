@@ -160,6 +160,7 @@ export default function PosRegisterPage() {
   const [newCustPhone, setNewCustPhone] = useState("");
   const [newCustEmail, setNewCustEmail] = useState("");
   const [newCustAddress, setNewCustAddress] = useState("");
+  const newCustAddressRef = useRef<HTMLInputElement>(null);
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [leadServiceType, setLeadServiceType] = useState("");
   const [leadDescription, setLeadDescription] = useState("");
@@ -335,6 +336,21 @@ export default function PosRegisterPage() {
       }
     });
   }, [googleLoaded, middleTab]); // re-run when switching to delivery tab
+
+  // Attach Google Places autocomplete to new customer address input
+  useEffect(() => {
+    if (!googleLoaded || !showNewCustomer || !newCustAddressRef.current || !(window as any).google) return;
+    const autocomplete = new (window as any).google.maps.places.Autocomplete(newCustAddressRef.current, {
+      componentRestrictions: { country: "us" },
+      types: ["address"],
+    });
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (place.formatted_address) {
+        setNewCustAddress(place.formatted_address);
+      }
+    });
+  }, [googleLoaded, showNewCustomer]);
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -1444,7 +1460,7 @@ export default function PosRegisterPage() {
                   <input type="text" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} placeholder="Full name *" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
                   <input type="tel" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} placeholder="Phone * (631-555-1234)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
                   <input type="email" value={newCustEmail} onChange={(e) => setNewCustEmail(e.target.value)} placeholder="Email (optional)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                  <input type="text" value={newCustAddress} onChange={(e) => setNewCustAddress(e.target.value)} placeholder="Address (optional)" className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                  <input ref={newCustAddressRef} type="text" value={newCustAddress} onChange={(e) => setNewCustAddress(e.target.value)} placeholder="Start typing address..." className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
                   <button onClick={createNewCustomer} disabled={!newCustName || !newCustPhone} className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-30">
                     Save Customer
                   </button>
