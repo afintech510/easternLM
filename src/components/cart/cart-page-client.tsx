@@ -204,11 +204,12 @@ export function CartPageClient() {
         {/* ── Left: Items + Customer + Delivery ─────────────── */}
         <div className="space-y-5">
           {/* Bulk materials — one card per delivery with swap buttons */}
+          <div className="flex flex-col gap-0">
           {bulkItems.map((item, i) => (
             <div key={item.id}>
             {/* Swap button centered between delivery cards */}
             {i > 0 && (
-              <div className="flex justify-center -mt-3 -mb-3 relative z-10">
+              <div className="flex justify-center py-1 relative z-10" style={{ marginTop: "-18px", marginBottom: "-18px" }}>
                 <button
                   onClick={() => {
                     const prevItem = bulkItems[i - 1];
@@ -250,6 +251,7 @@ export function CartPageClient() {
             </div>
             </div>
           ))}
+          </div>
 
           {/* Non-bulk items */}
           {nonBulkItems.length > 0 && (
