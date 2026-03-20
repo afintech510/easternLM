@@ -78,7 +78,10 @@ export function CheckoutPageClient() {
   const emailError = touched.email && !isValidEmail(email) ? "Valid email required" : null;
   const phoneError = touched.phone && !isValidPhone(phone) ? "Valid 10-digit phone required" : null;
 
+  const smsOptInError = touched.smsOptIn && !optInSms ? "SMS consent is required to proceed" : null;
+
   const formValid = fullName.trim().length >= 2 && isValidEmail(email) && isValidPhone(phone) &&
+    optInSms &&
     (deliveryMethod !== "delivery" || !!deliveryAddress);
 
   const canCheckout = useMemo(() => {
@@ -102,8 +105,13 @@ export function CheckoutPageClient() {
   }
 
   async function handleContinueToPayment() {
-    setTouched({ name: true, email: true, phone: true });
-    if (!formValid) { setError("Please fill in all required fields."); return; }
+    setTouched({ name: true, email: true, phone: true, smsOptIn: true });
+    if (!formValid) {
+      if (!optInSms) setError("Please agree to receive SMS order updates to continue.");
+      else if (deliveryMethod === "delivery" && !deliveryAddress) setError("Please enter a delivery address.");
+      else setError("Please fill in all required fields.");
+      return;
+    }
 
     setError(null);
     setIsSubmitting(true);
@@ -173,12 +181,14 @@ export function CheckoutPageClient() {
 
               {/* 10DLC compliant SMS opt-in */}
               <div className="mt-3 space-y-2 border-t pt-3">
-                <label className="flex items-start gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
+                <label className={`flex items-start gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30 ${smsOptInError ? "border-destructive bg-destructive/5" : ""}`}>
                   <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="mt-0.5 size-4 shrink-0 rounded" />
                   <span className="text-muted-foreground leading-relaxed">
                     I agree to receive order updates, delivery notifications, and promotional messages from Eastern Landscape &amp; Mason Supply via SMS to the phone number provided. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help. View our <a href="/terms#sms-terms" className="underline text-accent">SMS Terms</a> and <a href="/privacy-policy" className="underline text-accent">Privacy Policy</a>.
+                    <span className="text-destructive font-medium"> *Required</span>
                   </span>
                 </label>
+                {smsOptInError && <p className="text-xs text-destructive">{smsOptInError}</p>}
                 <label className="flex items-center gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
                   <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="size-4 shrink-0 rounded" />
                   <span className="text-muted-foreground">Send me deals and seasonal updates via email</span>
