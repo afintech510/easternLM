@@ -1,6 +1,6 @@
 // Completely isolated POS layout — NO site header, footer, or nav
 export const metadata = {
-  title: "Eastern LM — Yard Register",
+  title: "POS — ELM",
   robots: "noindex, nofollow",
 };
 

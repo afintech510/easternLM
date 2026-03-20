@@ -268,6 +268,7 @@ export function AdminSidebar() {
         </Link>
         <Link
           href="/yard/register"
+          target="_blank"
           title="Open POS Register"
           className="transition-transform hover:scale-110"
           style={{ filter: "drop-shadow(0 0 4px #39ff14) drop-shadow(0 0 8px #39ff1466)" }}

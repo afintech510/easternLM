@@ -30,6 +30,7 @@ import { formatUsd } from "@/lib/format";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
+import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -173,6 +174,7 @@ export default function PosRegisterPage() {
   const [customItemPrice, setCustomItemPrice] = useState("");
   const [processing, setProcessing] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [showMaterialCalc, setShowMaterialCalc] = useState(false);
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
   const [cardPaymentStatus, setCardPaymentStatus] = useState<string | null>(null);
@@ -998,6 +1000,15 @@ export default function PosRegisterPage() {
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* Caller ID popup — RingCentral incoming call notifications */}
+      {/* Material Calculator Modal */}
+      {showMaterialCalc && (
+        <MaterialCalculator
+          products={products}
+          onAddToCart={(product, qty) => addItem(product as any, qty)}
+          onClose={() => setShowMaterialCalc(false)}
+        />
+      )}
+
       <CallerIdPopup
         onAttachCustomer={(cust) => {
           setCustomerName(cust.name);
@@ -1018,6 +1029,7 @@ export default function PosRegisterPage() {
           cartQtys={cartQtys}
           onAddProduct={addItem}
           onSetQty={setQtyForProduct}
+          onOpenCalculator={() => setShowMaterialCalc(true)}
           theme={t}
         />
       </div>
