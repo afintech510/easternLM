@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Lock, Phone, Shield } from "lucide-react";
+import { AlertTriangle, Lock, Phone, Shield, Truck, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCartStore } from "@/stores/cartStore";
@@ -26,8 +26,7 @@ function isValidEmail(email: string) {
 }
 
 function isValidPhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 10;
+  return phone.replace(/\D/g, "").length >= 10;
 }
 
 export function CheckoutPageClient() {
@@ -44,36 +43,32 @@ export function CheckoutPageClient() {
   const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
 
+  // Pre-fill from cart store (customer info persisted from cart page)
   const [fullName, setFullName] = useState(customerInfo?.fullName || "");
   const [email, setEmail] = useState(customerInfo?.email || "");
   const [phone, setPhone] = useState(customerInfo?.phone || "");
   const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [optInSms, setOptInSms] = useState(true);
-  const [optInEmail, setOptInEmail] = useState(true);
+  const [optInSms, setOptInSms] = useState(false);
+  const [optInEmail, setOptInEmail] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  // Load delivery config on mount
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
-  // Auto-recalculate when delivery address exists but calculation is missing
   useEffect(() => {
     if (deliveryMethod === "delivery" && deliveryAddress && !calculation && !isCalculating) {
       setDeliveryAddress(deliveryAddress);
     }
   }, [deliveryMethod, deliveryAddress, calculation, isCalculating, setDeliveryAddress]);
 
-  // Persist customer info as they type
   const persistName = useCallback((v: string) => { setFullName(v); setCustomerInfo({ fullName: v }); }, [setCustomerInfo]);
   const persistEmail = useCallback((v: string) => { setEmail(v); setCustomerInfo({ email: v }); }, [setCustomerInfo]);
   const persistPhone = useCallback((v: string) => { setPhone(v); setCustomerInfo({ phone: v }); }, [setCustomerInfo]);
 
-  // Validation
   const nameError = touched.name && fullName.trim().length < 2 ? "Name is required" : null;
   const emailError = touched.email && !isValidEmail(email) ? "Valid email required" : null;
   const phoneError = touched.phone && !isValidPhone(phone) ? "Valid 10-digit phone required" : null;
-  const addressError = deliveryMethod === "delivery" && !deliveryAddress ? "Delivery address required" : null;
 
   const formValid = fullName.trim().length >= 2 && isValidEmail(email) && isValidPhone(phone) &&
     (deliveryMethod !== "delivery" || !!deliveryAddress);
@@ -83,6 +78,10 @@ export function CheckoutPageClient() {
     if (!formValid) return false;
     return !calculation.checkoutBlocked;
   }, [calculation, formValid, items.length]);
+
+  // Split items for display
+  const bulkItems = items.filter((i) => i.deliveryType === "bulk");
+  const nonBulkItems = items.filter((i) => i.deliveryType !== "bulk");
 
   if (!calculation || items.length === 0) {
     return (
@@ -95,13 +94,8 @@ export function CheckoutPageClient() {
   }
 
   async function handleCheckout() {
-    // Mark all fields as touched to show validation
     setTouched({ name: true, email: true, phone: true });
-
-    if (!formValid) {
-      setError("Please fill in all required fields correctly.");
-      return;
-    }
+    if (!formValid) { setError("Please fill in all required fields."); return; }
 
     setError(null);
     setIsSubmitting(true);
@@ -119,6 +113,13 @@ export function CheckoutPageClient() {
           deliveryDate,
           clientGrandTotalCents: calculation!.grandTotalCents,
           customer: { fullName, email, phone, optInSms, optInEmail },
+          deliverySequence: bulkItems.map((item, i) => ({
+            deliveryNumber: i + 1,
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            feeCents: calculation!.loads?.[i]?.feeCents ?? 0,
+          })),
           createAccount: false,
         }),
       });
@@ -133,14 +134,14 @@ export function CheckoutPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
+    <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-10 md:py-14">
       <h1 className="mb-6 [font-family:var(--font-display)] text-3xl text-primary">Checkout</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
         {/* Left: form */}
         <div className="space-y-5">
           {/* Customer info */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-sm font-semibold">Your Information</h2>
             <div className="space-y-3">
               <div>
@@ -161,25 +162,24 @@ export function CheckoutPageClient() {
                 </div>
               </div>
 
-              {/* Marketing opt-in */}
+              {/* 10DLC compliant SMS opt-in */}
               <div className="mt-3 space-y-2 border-t pt-3">
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
-                  <span className="text-muted-foreground leading-snug">
-                    Send me order updates and seasonal deals via text. Msg &amp; data rates apply. Reply STOP to opt out.{" "}
-                    <a href="/privacy-policy" className="underline">Privacy Policy</a> | <a href="/terms#sms-terms" className="underline">SMS Terms</a>
+                <label className="flex items-start gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
+                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="mt-0.5 size-4 shrink-0 rounded" />
+                  <span className="text-muted-foreground leading-relaxed">
+                    I agree to receive order updates, delivery notifications, and promotional messages from Eastern Landscape &amp; Mason Supply via SMS to the phone number provided. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help. View our <a href="/terms#sms-terms" className="underline text-accent">SMS Terms</a> and <a href="/privacy-policy" className="underline text-accent">Privacy Policy</a>.
                   </span>
                 </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <label className="flex items-center gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
+                  <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="size-4 shrink-0 rounded" />
                   <span className="text-muted-foreground">Send me deals and seasonal updates via email</span>
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Delivery confirmation */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          {/* Delivery details + sequence */}
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-3">
             <h2 className="text-sm font-semibold">
               {deliveryMethod === "delivery" ? "Delivery Details" : "Pickup Details"}
             </h2>
@@ -188,18 +188,47 @@ export function CheckoutPageClient() {
                 {deliveryAddress ? (
                   <div className="rounded-lg bg-muted/50 p-3 text-sm">
                     <p className="font-medium">{deliveryAddress.fullAddress}</p>
-                    {deliveryAddress.zip && <p className="text-xs text-muted-foreground">ZIP: {deliveryAddress.zip}</p>}
                   </div>
                 ) : (
-                  <p className="text-sm text-destructive">{addressError || "Please set a delivery address in your cart."}</p>
+                  <p className="text-sm text-destructive">Please set a delivery address in your cart.</p>
                 )}
                 <div>
                   <label className="mb-1 block text-sm font-medium" htmlFor="co-date">Preferred delivery date</label>
                   <Input id="co-date" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
                   <p className="mt-1 text-xs text-muted-foreground">Orders before 11 AM on weekdays may ship same day.</p>
                 </div>
+
+                {/* Delivery sequence — always visible */}
+                {bulkItems.length > 0 && (
+                  <div className="space-y-2 rounded-lg border bg-background p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Delivery Sequence</p>
+                    {bulkItems.map((item, i) => (
+                      <div key={item.id} className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium">Delivery {i + 1}:</span>{" "}
+                          <span className="text-muted-foreground">{item.name} — {item.quantity} yd</span>
+                        </div>
+                        <span className="font-medium whitespace-nowrap">
+                          {formatUsd(Math.round(item.quantity * item.unitPriceCents))}
+                          {calculation.loads?.[i] && (
+                            <span className="text-xs text-muted-foreground ml-1">+ {formatUsd(calculation.loads[i].feeCents)}</span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    {nonBulkItems.length > 0 && (
+                      <p className="text-xs text-muted-foreground pt-1 border-t">
+                        + {nonBulkItems.length} additional item{nonBulkItems.length > 1 ? "s" : ""} (ride with delivery)
+                      </p>
+                    )}
+                    {calculation.totalLoads > 1 && (
+                      <p className="text-[10px] text-muted-foreground">(Load 2+ discounted 25%)</p>
+                    )}
+                  </div>
+                )}
+
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/cart">Change address or method</Link>
+                  <Link href="/cart">Change address or delivery order</Link>
                 </Button>
               </>
             ) : (
@@ -226,7 +255,7 @@ export function CheckoutPageClient() {
             className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
           >
             <Lock className="size-4" />
-            {isSubmitting ? "Redirecting to Stripe..." : `Pay ${formatUsd(calculation.grandTotalCents)}`}
+            {isSubmitting ? "Processing..." : `Pay ${formatUsd(calculation.grandTotalCents)}`}
           </Button>
 
           <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
@@ -237,37 +266,38 @@ export function CheckoutPageClient() {
 
         {/* Right: order summary */}
         <div className="lg:sticky lg:top-28 lg:self-start">
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-sm font-semibold">Order Summary</h2>
 
-            {/* Items */}
+            {/* Items with delivery fees */}
             <div className="space-y-2">
-              {items.map((item) => (
+              {bulkItems.map((item, i) => (
+                <div key={item.id} className="text-sm">
+                  <div className="flex justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{deliveryMethod === "delivery" ? `Delivery ${i + 1}:` : `Pickup ${i + 1}:`} {item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.quantity} yd × {formatUsd(item.unitPriceCents)}</p>
+                    </div>
+                    <span className="font-medium whitespace-nowrap ml-2">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                  </div>
+                  {deliveryMethod === "delivery" && calculation.loads?.[i] && (
+                    <div className="flex justify-between text-xs text-muted-foreground ml-2">
+                      <span>Delivery fee</span>
+                      <span>{formatUsd(calculation.loads[i].feeCents)}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {nonBulkItems.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
                   <div>
                     <p className="font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">Qty {item.quantity} &times; {formatUsd(item.unitPriceCents)}</p>
+                    <p className="text-xs text-muted-foreground">{item.quantity} × {formatUsd(item.unitPriceCents)}</p>
                   </div>
                   <span className="font-medium">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
                 </div>
               ))}
             </div>
-
-            {/* Delivery loads */}
-            {calculation.loads.length > 0 && (
-              <details className="rounded-lg border bg-background p-3 text-sm">
-                <summary className="cursor-pointer font-semibold">
-                  Delivery: {formatUsd(calculation.deliveryFeeCents)} ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})
-                </summary>
-                <div className="mt-2 space-y-1">
-                  {calculation.loads.map((load, i) => (
-                    <p key={`${load.truckName}-${i}`} className="text-xs text-muted-foreground">
-                      Day {load.day}: {load.truckName} — {formatUsd(load.feeCents)}
-                    </p>
-                  ))}
-                </div>
-              </details>
-            )}
 
             {/* Totals */}
             <div className="space-y-1.5 border-t pt-3 text-sm">
@@ -275,7 +305,9 @@ export function CheckoutPageClient() {
               {calculation.proDiscountCents > 0 && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Pro discount</span><span className="text-green-600">-{formatUsd(calculation.proDiscountCents)}</span></div>
               )}
-              <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
+              {deliveryMethod === "delivery" && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">CC processing fee (3%)</span><span>{formatUsd(calculation.ccSurchargeCents)}</span></div>
               <div className="flex justify-between border-t pt-2 text-lg font-bold text-primary">
@@ -283,7 +315,7 @@ export function CheckoutPageClient() {
                 <span>{formatUsd(calculation.grandTotalCents)}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                A 3% credit card surcharge is applied per New York State law and disclosed here before payment.
+                A 3% credit card surcharge is applied per New York State law.
               </p>
             </div>
 
