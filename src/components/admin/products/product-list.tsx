@@ -29,7 +29,7 @@ type Product = {
   is_taxable: boolean; categories: { name: string; slug: string } | null;
 };
 
-type SortKey = "name" | "category" | "price" | "type" | "status";
+type SortKey = "name" | "category" | "price" | "type" | "status" | "sort_order";
 
 function EditableCell({ value, onSave, type = "text", prefix }: {
   value: string; onSave: (v: string) => void; type?: string; prefix?: string;
@@ -88,6 +88,7 @@ export function ProductList({ initialProducts, categories }: { initialProducts: 
       else if (sortKey === "price") cmp = a.price_per_unit_cents - b.price_per_unit_cents;
       else if (sortKey === "type") cmp = a.delivery_type.localeCompare(b.delivery_type);
       else if (sortKey === "status") cmp = (a.visible_web ? 0 : 1) - (b.visible_web ? 0 : 1);
+      else if (sortKey === "sort_order") cmp = a.sort_order - b.sort_order;
       return sortAsc ? cmp : -cmp;
     });
 
@@ -171,12 +172,13 @@ export function ProductList({ initialProducts, categories }: { initialProducts: 
               <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground">Web Price</th>
               <SortHeader label="Type" k="type" />
               <SortHeader label="Visibility" k="status" />
+              <SortHeader label="Sort #" k="sort_order" />
               <th className="w-10" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="text-center text-muted-foreground py-8">No products found</td></tr>
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No products found</td></tr>
             )}
             {filtered.map((product) => {
               const isExpanded = expandedId === product.id;
@@ -240,6 +242,14 @@ export function ProductList({ initialProducts, categories }: { initialProducts: 
                     >
                       {product.visible_web && product.visible_pos ? "Web+POS" : product.visible_web ? "Web" : product.visible_pos ? "POS" : "Hidden"}
                     </Badge>
+                  </td>
+                  {/* Sort Order — click to edit */}
+                  <td className="px-3 py-2">
+                    <EditableCell
+                      value={String(product.sort_order)}
+                      onSave={(v) => quickSave(product.id, "sort_order", parseInt(v) || 100)}
+                      type="number"
+                    />
                   </td>
                   {/* Actions */}
                   <td className="px-2">
