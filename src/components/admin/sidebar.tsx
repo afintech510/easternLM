@@ -255,16 +255,44 @@ export function AdminSidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 md:flex">
-      {/* Logo */}
-      <Link href="/admin" className="block border-b border-zinc-800 px-4 py-3">
-        <Image
-          src="/logo-blue.png"
-          alt="Eastern LM"
-          width={120}
-          height={32}
-          className="brightness-0 invert opacity-80"
-        />
-      </Link>
+      {/* Logo + POS link */}
+      <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        <Link href="/admin">
+          <Image
+            src="/logo-blue.png"
+            alt="Eastern LM"
+            width={120}
+            height={32}
+            className="brightness-0 invert opacity-80"
+          />
+        </Link>
+        <Link
+          href="/yard/register"
+          title="Open POS Register"
+          className="transition-transform hover:scale-110"
+          style={{ filter: "drop-shadow(0 0 4px #39ff14) drop-shadow(0 0 8px #39ff1466)" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28">
+            <path fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" d="M 75 24 L 83 24 C 85 24, 86 25, 86 27 L 86 38 C 86 40, 85 41, 83 41 L 75 41" />
+            <path fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" d="M 41 57 L 38 72 M 53 57 L 55 68" />
+            <path fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" d="M 38 72 L 23 72 C 18 72, 16 74, 16 78 L 16 84 C 16 87, 18 88, 21 88 L 54 88" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="16" y1="79" x2="52" y2="79" />
+            <rect fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" x="52" y="65" width="34" height="23" rx="4" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="59" y1="73" x2="64" y2="73" />
+            <circle fill="#39ff14" cx="79" cy="73" r="2.2" />
+            <circle fill="#39ff14" cx="60" cy="81" r="2.2" />
+            <circle fill="#39ff14" cx="67" cy="81" r="2.2" />
+            <circle fill="#39ff14" cx="74" cy="81" r="2.2" />
+            <path fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" d="M 48 10 L 21 10 C 16 10, 14 12, 14 17 L 14 50 C 14 55, 16 57, 21 57 L 69 57 C 74 57, 76 55, 76 50 L 76 17 C 76 12, 74 10, 69 10 L 61 10" />
+            <circle fill="#39ff14" cx="55" cy="10" r="2.2" />
+            <rect fill="none" stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" x="24" y="19" width="42" height="29" rx="1.5" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="31" y1="25" x2="51" y2="25" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="31" y1="32" x2="51" y2="32" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="31" y1="39" x2="35" y2="39" />
+            <line stroke="#39ff14" strokeWidth="4.5" strokeLinecap="round" x1="54" y1="42" x2="63" y2="42" />
+          </svg>
+        </Link>
+      </div>
 
       {/* Quick Quote */}
       <div className="px-2 pt-3 pb-1">
