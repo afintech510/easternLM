@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// RingCentral sends a validation request on webhook subscription
 export async function POST(request: Request) {
-  const body = await request.json();
-
-  // Webhook validation — RingCentral sends a validation token on subscription
-  if (body.validationToken) {
+  // RingCentral validation: sends Validation-Token header, expects it echoed back
+  const validationToken = request.headers.get("Validation-Token");
+  if (validationToken) {
     return new NextResponse(null, {
       status: 200,
-      headers: { "Validation-Token": body.validationToken },
+      headers: { "Validation-Token": validationToken },
     });
+  }
+
+  // Parse body safely
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ ok: true });
   }
 
   // Handle telephony session events
@@ -19,8 +25,9 @@ export async function POST(request: Request) {
     if (!session?.parties) return NextResponse.json({ ok: true });
 
     for (const party of session.parties) {
-      // Only handle inbound calls
-      if (party.direction !== "Inbound" || party.status?.code !== "Proceeding") continue;
+      // Only handle inbound calls that are ringing
+      if (party.direction !== "Inbound") continue;
+      if (!["Proceeding", "Setup"].includes(party.status?.code)) continue;
 
       const callerPhone = party.from?.phoneNumber;
       if (!callerPhone) continue;
@@ -39,16 +46,25 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle();
 
-      // Broadcast to POS via Supabase Realtime (insert into a lightweight table)
-      await (supabase as any)
+      // Dedupe: don't insert if same session already logged in last 30 seconds
+      const { data: existing } = await supabase
         .from("incoming_calls")
-        .insert({
-          caller_phone: callerPhone,
-          caller_digits: digits,
-          customer_id: customer?.id ?? null,
-          customer_data: customer ?? null,
-          session_id: session.sessionId ?? body.subscriptionId ?? null,
-        });
+        .select("id")
+        .eq("caller_digits", digits)
+        .gte("created_at", new Date(Date.now() - 30000).toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) continue;
+
+      // Broadcast to POS via Supabase Realtime
+      await supabase.from("incoming_calls").insert({
+        caller_phone: callerPhone,
+        caller_digits: digits,
+        customer_id: customer?.id ?? null,
+        customer_data: customer ?? null,
+        session_id: session.sessionId ?? body.subscriptionId ?? null,
+      });
     }
   }
 
