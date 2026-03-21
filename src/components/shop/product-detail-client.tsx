@@ -8,6 +8,7 @@ import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductImage } from "@/components/ui/product-image";
+import { ProductImageGallery } from "@/components/shop/product-image-gallery";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { calculateDeliveryFees, type DeliveryPricingConfig, type TruckType } from "@/lib/delivery";
 import type { ShopProduct } from "@/lib/data/catalog";
@@ -140,31 +141,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
       {/* ── Main: Image + Purchase Info ──────────────────── */}
       <section className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
         {/* Image gallery */}
-        <div className="space-y-3">
-          <ProductImage
-            src={imageList[activeImageIndex] ?? imageList[0]}
-            alt={product.name}
-            className="h-[360px] w-full rounded-xl border object-cover md:h-[460px]"
-            width={1200}
-            height={800}
-            priority
-            sizes="(max-width: 1024px) 100vw, 55vw"
-          />
-          {imageList.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {imageList.slice(0, 4).map((image, i) => (
-                <button
-                  key={`${image}-${i}`}
-                  type="button"
-                  className={`overflow-hidden rounded-lg border ${i === activeImageIndex ? "ring-2 ring-accent" : ""}`}
-                  onClick={() => setActiveImageIndex(i)}
-                >
-                  <ProductImage src={image} alt={`${product.name} ${i + 1}`} className="h-20 w-full object-cover" width={400} height={200} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductImageGallery images={product.images} productName={product.name} />
 
         {/* Purchase column */}
         <div className="space-y-5">
