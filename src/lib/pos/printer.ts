@@ -178,16 +178,31 @@ export class ReceiptPrinter {
     this.txt(c, `Date:  ${dt.toLocaleDateString()} ${dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     if (o.staffName) this.txt(c, `Staff: ${o.staffName}`);
     this.txt(c, "");
-    if (o.customerName && o.customerName !== "Walk-in") this.txt(c, `Customer: ${o.customerName}`);
-    if (o.customerPhone) this.txt(c, `Phone:    ${o.customerPhone}`);
+    // Customer name — clean up raw phone / SMS prefix
+    const cleanName = (o.customerName ?? "Walk-in")
+      .replace(/^SMS:\s*/i, "").replace(/^\+1/, "").trim();
+    if (cleanName && cleanName !== "Walk-in") this.txt(c, `Customer: ${cleanName}`);
+    if (o.customerPhone) {
+      const ph = o.customerPhone.replace(/\D/g, "").slice(-10);
+      const fmtPhone = ph.length === 10 ? `(${ph.slice(0,3)}) ${ph.slice(3,6)}-${ph.slice(6)}` : o.customerPhone;
+      this.txt(c, `Phone:    ${fmtPhone}`);
+    }
+    if (o.customerEmail) this.txt(c, `Email:    ${o.customerEmail}`);
     this.txt(c, div());
 
-    // Items
+    // Items — proper unit formatting
     this.bold(c, true); this.txt(c, "ITEMS"); this.bold(c, false);
     this.txt(c, div());
     for (const item of o.items) {
-      this.txt(c, `${item.quantity} ${item.unit}  ${item.productName.substring(0, W - 12)}`);
-      this.txt(c, line(`      @ ${fmt(item.unitPriceCents)}/${item.unit}`, fmt(item.lineTotalCents)));
+      const isBulk = item.deliveryType === "bulk";
+      if (isBulk) {
+        this.txt(c, `${item.quantity} cu. yards of ${item.productName.substring(0, W - 18)}`);
+        this.txt(c, line(`  @ ${fmt(item.unitPriceCents)} per cu. yard`, fmt(item.lineTotalCents)));
+      } else {
+        const unitLabel = item.unit === "yard" ? "cu. yards" : item.unit === "each" ? "" : ` ${item.unit}`;
+        this.txt(c, `${item.quantity}${unitLabel} ${item.productName.substring(0, W - 10)}`);
+        this.txt(c, line(`  @ ${fmt(item.unitPriceCents)} each`, fmt(item.lineTotalCents)));
+      }
     }
     this.txt(c, div());
 
@@ -444,10 +459,14 @@ export class ReceiptPrinter {
 
   private buildReceiptHtml(o: ReceiptOrder): string {
     const f = fmt;
-    const items = o.items.map((i) =>
-      `<div class="row"><span>${i.quantity} ${i.unit} ${i.productName}</span><span>${f(i.lineTotalCents)}</span></div>
-       <div style="color:#666;margin-left:12px;">@ ${f(i.unitPriceCents)}/${i.unit}</div>`
-    ).join("");
+    const cleanName = (o.customerName ?? "Walk-in").replace(/^SMS:\s*/i, "").replace(/^\+1/, "").trim();
+    const items = o.items.map((i) => {
+      const isBulk = i.deliveryType === "bulk";
+      const desc = isBulk ? `${i.quantity} cu. yards of ${i.productName}` : `${i.quantity} ${i.productName}`;
+      const rate = isBulk ? `@ ${f(i.unitPriceCents)} per cu. yard` : `@ ${f(i.unitPriceCents)} each`;
+      return `<div class="row"><span>${desc}</span><span>${f(i.lineTotalCents)}</span></div>
+              <div style="color:#666;margin-left:12px;">${rate}</div>`;
+    }).join("");
 
     let payment = "";
     if (o.paymentMethod === "cash") {
@@ -471,7 +490,7 @@ export class ReceiptPrinter {
       ${o.orderNumber ? `<div>Order: #${o.orderNumber}</div>` : ""}
       <div>Date: ${new Date(o.createdAt).toLocaleString()}</div>
       ${o.staffName ? `<div>Staff: ${o.staffName}</div>` : ""}
-      ${o.customerName && o.customerName !== "Walk-in" ? `<div>Customer: ${o.customerName}</div>` : ""}
+      ${cleanName && cleanName !== "Walk-in" ? `<div>Customer: ${cleanName}</div>` : ""}
       ${o.customerPhone ? `<div>Phone: ${o.customerPhone}</div>` : ""}
       <div class="hr"></div>
       ${items}
