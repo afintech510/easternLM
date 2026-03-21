@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Phone, Truck } from "lucide-react";
+import { Phone, ShoppingBag, Truck } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { CartActions } from "@/components/layout/cart-actions";
 import { MobileMenu } from "@/components/layout/mobile-menu";
@@ -42,7 +42,7 @@ export function Header() {
             </a>
             <a
               href={siteConfig.smsHref}
-              className="hidden sm:inline-flex rounded border border-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:text-accent hover:border-accent/30"
+              className="inline-flex rounded border border-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:text-accent hover:border-accent/30"
             >
               Text Us
             </a>
@@ -88,15 +88,15 @@ export function Header() {
           <div className="flex items-center gap-2">
             <CartActions />
 
-            {/* Mobile: phone icon + cart + hamburger */}
+            {/* Mobile: shop + cart + hamburger */}
             <div className="flex items-center gap-1 lg:hidden">
-              <a
-                href={siteConfig.phoneHref}
+              <Link
+                href="/shop/bulk"
                 className="flex size-9 items-center justify-center rounded-md text-foreground/70 hover:bg-muted hover:text-foreground"
-                aria-label="Call us"
+                aria-label="Shop"
               >
-                <Phone className="size-5" />
-              </a>
+                <ShoppingBag className="size-5" />
+              </Link>
               <MobileMenu />
             </div>
           </div>

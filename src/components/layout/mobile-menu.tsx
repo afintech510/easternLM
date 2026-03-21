@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Calculator, Menu, Phone, ShoppingCart, Truck } from "lucide-react";
 import { useState } from "react";
 import { siteConfig } from "@/config/site";
@@ -21,8 +22,6 @@ const navItems = [
   { href: "/services", label: "Get a Quote", primary: true },
   { href: "/delivery", label: "Delivery Areas" },
   { href: "/calculator", label: "Material Calculator" },
-  { href: "/blog", label: "Blog" },
-  { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -56,10 +55,10 @@ export function MobileMenu() {
 
       <SheetContent side="right" className="w-80 overflow-y-auto">
         <SheetHeader className="text-left">
-          <SheetTitle className="[font-family:var(--font-display)] text-xl text-primary">
-            Eastern LM
+          <SheetTitle>
+            <Image src="/logo-elm-blue.webp" alt="Eastern Landscape & Mason Supply" width={160} height={45} />
           </SheetTitle>
-          <SheetDescription>Landscape &amp; Mason Supply</SheetDescription>
+          <SheetDescription className="sr-only">Navigation menu</SheetDescription>
         </SheetHeader>
 
         {/* Primary actions */}
