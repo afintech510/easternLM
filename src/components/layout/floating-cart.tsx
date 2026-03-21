@@ -12,7 +12,6 @@ export function FloatingCart() {
   const pathname = usePathname();
   const items = useCartStore((s) => s.items);
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-  const itemCount = items.length;
 
   const [bounce, setBounce] = useState(false);
   const prevCount = useRef(totalQty);
@@ -26,7 +25,11 @@ export function FloatingCart() {
   }, [totalQty]);
 
   const isHidden = HIDDEN_PATHS.some((p) => pathname.startsWith(p));
-  if (isHidden || itemCount === 0) return null;
+  if (isHidden || items.length === 0) return null;
+
+  const qtyDisplay = totalQty % 1 === 0 ? totalQty.toString() : totalQty.toFixed(1);
+  const allBulk = items.every((i) => i.deliveryType === "bulk");
+  const unitLabel = allBulk ? `${qtyDisplay} yd` : `${qtyDisplay} items`;
 
   return (
     <Link
@@ -35,22 +38,15 @@ export function FloatingCart() {
         top-[calc(var(--header-height,96px)+12px)]
         flex items-center gap-2
         rounded-full bg-accent text-accent-foreground
-        pl-4 pr-3 py-2.5
+        pl-4 pr-4 py-2.5
         shadow-lg shadow-black/20
         active:scale-95 transition-transform duration-200
         ${bounce ? "scale-110" : "scale-100"}`}
       style={{ animation: "slideInRight 0.3s ease-out" }}
-      aria-label={`View cart with ${Math.round(totalQty)} items`}
+      aria-label={`View cart — ${unitLabel}`}
     >
-      <span className="text-sm font-semibold">
-        {Math.round(totalQty)} {totalQty === 1 ? "item" : "items"}
-      </span>
-      <div className="relative">
-        <ShoppingCart className="size-5" />
-        <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-white text-accent text-[10px] font-bold">
-          {itemCount}
-        </span>
-      </div>
+      <ShoppingCart className="size-5" />
+      <span className="text-sm font-bold">{unitLabel}</span>
     </Link>
   );
 }
