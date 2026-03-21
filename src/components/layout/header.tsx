@@ -23,7 +23,10 @@ export function Header() {
   if (pathname.startsWith("/admin") || pathname.startsWith("/pos")) return null;
 
   return (
-    <header className="sticky top-0 z-50">
+    <header
+      className="sticky top-0 z-50"
+      ref={(el) => { if (el) document.documentElement.style.setProperty("--header-height", `${el.offsetHeight}px`); }}
+    >
       {/* ── Utility bar ────────────────────────────────── */}
       <div className="bg-primary text-primary-foreground">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-xs sm:px-6">
