@@ -14,7 +14,7 @@ export default async function BulkMaterialsPage() {
     const supabase = getSupabaseAdminClient();
     const { data } = await supabase
       .from("products")
-      .select("id, name, slug, price_per_unit_cents, unit_display, delivery_type, material_class, images, category_id, categories(name, slug, sort_order)")
+      .select("id, name, slug, price_per_unit_cents, web_price_per_unit_cents, unit_display, delivery_type, material_class, images, category_id, categories(name, slug, sort_order)")
       .eq("delivery_type", "bulk")
       .eq("visible_web", true)
       .eq("is_active", true)
