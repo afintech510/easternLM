@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { PromoPopup } from "@/components/marketing/promo-popup";
+import { FloatingCart } from "@/components/layout/floating-cart";
 import "./globals.css";
 
 const publicSans = Public_Sans({
@@ -73,6 +74,7 @@ export default function RootLayout({
       <body className={`${publicSans.variable} ${breeSerif.variable} antialiased`}>
         <LayoutShell>{children}</LayoutShell>
         <Toaster position="top-right" richColors toastOptions={{ className: "text-sm" }} />
+        <FloatingCart />
         <PromoPopup />
         <Analytics />
       </body>
