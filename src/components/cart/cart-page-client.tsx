@@ -54,6 +54,13 @@ export function CartPageClient() {
   const storedCustomer = useCartStore((s) => s.customerInfo);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
+  // Sync address input when Zustand hydrates from localStorage (avoids blank field on refresh)
+  useEffect(() => {
+    if (deliveryAddress?.fullAddress && !addressInput) {
+      setAddressInput(deliveryAddress.fullAddress);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryAddress?.fullAddress]);
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
   const [timeWindow, setTimeWindow] = useState("flexible");
