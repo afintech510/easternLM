@@ -124,9 +124,9 @@ export async function POST(request: Request) {
         to: order.customer_email,
         subject: `Order Confirmed — Eastern Landscape & Mason Supply`,
         html: `<div style="max-width:560px;margin:0 auto;font-family:system-ui,sans-serif;">
-          <div style="background:#1a2e0a;padding:20px;text-align:center;"><span style="color:#fff;font-size:20px;font-weight:700;">Eastern Landscape & Mason Supply</span></div>
+          <div style="background:#002e44;padding:20px;text-align:center;"><span style="color:#fff;font-size:20px;font-weight:700;">Eastern Landscape & Mason Supply</span></div>
           <div style="padding:24px;">
-            <h2 style="color:#1a2e0a;">Order Confirmed!</h2>
+            <h2 style="color:#002e44;">Order Confirmed!</h2>
             <p>Hi ${order.customer_name},</p>
             <p>Thank you for your order. Here's your summary:</p>
             <table style="width:100%;border-collapse:collapse;">${itemRows}</table>
