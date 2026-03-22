@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Calculator, Plus, Search, X, Lock, LockOpen, GripVertical, Check } from "lucide-react";
@@ -54,13 +54,13 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
   const [editMode, setEditMode] = useState(false);
   const [reorderedIds, setReorderedIds] = useState<string[] | null>(null);
   const [saving, setSaving] = useState(false);
-  const [gridCols, setGridCols] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pos-grid-cols");
-      return saved ? parseInt(saved) : 5;
-    }
-    return 5;
-  });
+  const [gridCols, setGridCols] = useState(7);
+
+  // Hydrate from localStorage on mount (avoids SSR mismatch)
+  useEffect(() => {
+    const saved = localStorage.getItem("pos-grid-cols");
+    if (saved) setGridCols(parseInt(saved));
+  }, []);
 
   const filtered = useMemo(() => {
     let list = products;
@@ -126,14 +126,17 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
   async function saveOrder() {
     if (!reorderedIds) return;
     setSaving(true);
-    await fetch("/api/pos/product-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order: reorderedIds }),
-    });
-    setSaving(false);
-    setEditMode(false);
-    setReorderedIds(null);
+    try {
+      await fetch("/api/pos/product-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: reorderedIds }),
+      });
+    } finally {
+      setSaving(false);
+      setEditMode(false);
+      setReorderedIds(null);
+    }
   }
 
   return (
