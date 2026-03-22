@@ -67,13 +67,19 @@ async function sendQuoteEmail(email: string, customerName: string, quoteNumber: 
 /**
  * POST /api/quotes/quick — Fast quote creation from cart items (no AI).
  * Also handles optional immediate send via SMS/email.
- * Auth: requirePOS (admin, staff, or pos role)
+ * Auth: requirePOS for POS/admin callers; unauthenticated allowed for
+ * source="cart" (customer self-service save-quote from the cart page).
  */
 export async function POST(request: Request) {
-  const auth = await requirePOS();
-  if (auth instanceof NextResponse) return auth;
-
   const body = await request.json();
+  const isCartRequest = body.source === "cart";
+
+  let auth: Awaited<ReturnType<typeof requirePOS>> | null = null;
+  if (!isCartRequest) {
+    auth = await requirePOS();
+    if (auth instanceof NextResponse) return auth;
+  }
+
   const {
     items,
     customer,
@@ -142,13 +148,37 @@ export async function POST(request: Request) {
       valid_until: validUntil,
       terms: "Prices subject to availability. Delivery fee based on distance from our yard.",
       ai_generated: false,
-      created_by: auth.userId,
+      created_by: auth ? (auth as any).userId : null,
       status: "draft",
     })
     .select("id, quote_number, public_token, total_cents")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Lead creation only for POS/admin (not customer self-service cart quotes)
+  if (isCartRequest) {
+    // Skip lead creation for cart-originated quotes — just send and return
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
+    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+    const siteUrl = host && !host.includes("localhost")
+      ? `${proto}://${host}`
+      : process.env.NEXT_PUBLIC_SITE_URL ?? "https://staging.easternlm.com";
+    const quoteUrl = `${siteUrl}/quote/${quote.public_token}`;
+    const sent: string[] = [];
+    if (sendVia?.includes("sms") && customer?.phone) {
+      await sendQuoteSms(customer.phone, quoteNumber, totalCents, quoteUrl);
+      sent.push("sms");
+    }
+    if (sendVia?.includes("email") && customer?.email) {
+      await sendQuoteEmail(customer.email, customer.name, quoteNumber, totalCents, quoteUrl);
+      sent.push("email");
+    }
+    if (sent.length > 0) {
+      await supabase.from("quotes").update({ status: "sent", sent_at: new Date().toISOString(), sent_via: sent }).eq("id", quote.id);
+    }
+    return NextResponse.json({ ok: true, quote: { id: quote.id, quoteNumber: quote.quote_number, publicToken: quote.public_token, totalCents, quoteUrl }, sent });
+  }
 
   // Detect lead type: material vs service
   const hasServiceItems = (items ?? []).some((item: any) => {

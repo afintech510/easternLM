@@ -145,6 +145,7 @@ export function CartPageClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          source: "cart",
           items: items.map((i) => ({
             name: i.name,
             quantity: i.quantity,
