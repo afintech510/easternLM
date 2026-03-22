@@ -26,7 +26,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 const stripeAppearance = {
   theme: "stripe" as const,
   variables: {
-    colorPrimary: "#2d5016",
+    colorPrimary: "#d58300",
     colorBackground: "#ffffff",
     colorText: "#18181b",
     colorDanger: "#dc2626",
@@ -42,8 +42,8 @@ const stripeAppearance = {
       fontSize: "16px",
     },
     ".Input:focus": {
-      border: "1.5px solid #2d5016",
-      boxShadow: "0 0 0 3px rgba(45,80,22,0.1)",
+      border: "1.5px solid #002e44",
+      boxShadow: "0 0 0 3px rgba(0,46,68,0.1)",
     },
     ".Label": { fontSize: "13px", fontWeight: "600", color: "#71717a" },
   },
@@ -152,7 +152,7 @@ function HeroHeader({ name, quoteNumber }: { name: string; quoteNumber: string }
   return (
     <header
       className="relative px-5 pt-10 pb-8 text-white text-center"
-      style={{ background: "linear-gradient(135deg, #1a2e0a 0%, #2d4a15 60%, #1f3a10 100%)" }}
+      style={{ background: "linear-gradient(135deg, #001f30 0%, #002e44 60%, #003d5c 100%)" }}
     >
       {/* Subtle topo texture */}
       <div
@@ -187,8 +187,8 @@ function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
       <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
       <div className="mx-auto max-w-md px-4 py-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="size-9 text-green-600" />
+          <div className="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="size-9 text-[#002e44]" />
           </div>
           <h2 className="text-xl font-bold text-zinc-900 mb-1">
             {byCard ? "Payment Received!" : "Order Confirmed!"}
@@ -265,13 +265,13 @@ function TrustFooter() {
       <div className="flex justify-center gap-3">
         <a
           href="tel:+16318746244"
-          className="flex items-center gap-2 h-12 px-5 rounded-xl bg-green-700 text-white text-sm font-semibold active:bg-green-800"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl bg-[#d58300] text-white text-sm font-semibold active:bg-[#b87000]"
         >
           <Phone className="size-4" /> (631) 874-6244
         </a>
         <a
           href="sms:+16318746244"
-          className="flex items-center gap-2 h-12 px-5 rounded-xl border border-zinc-300 bg-white text-zinc-700 text-sm font-semibold active:bg-zinc-50"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl border border-[#002e44] bg-white text-[#002e44] text-sm font-semibold active:bg-sky-50"
         >
           <MessageSquare className="size-4" /> Text Us
         </a>
@@ -320,7 +320,7 @@ function StripePaymentForm({
       <button
         type="submit"
         disabled={!stripe || processing}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-base font-bold text-white hover:bg-green-600 active:bg-green-800 disabled:opacity-50 transition-colors"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d58300] py-4 text-base font-bold text-white hover:bg-[#c07600] active:bg-[#b87000] disabled:opacity-50 transition-colors"
       >
         {processing
           ? <><Loader2 className="size-4 animate-spin" /> Processing…</>
@@ -364,7 +364,7 @@ function PaymentSection({
     if (ctx) ctx.scale(ratio, ratio);
     sigPadRef.current = new SignaturePad(canvas, {
       backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#1a2e0a",
+      penColor: "#002e44",
     });
     return () => { sigPadRef.current?.off(); sigPadRef.current = null; };
   }, [mode]);
@@ -444,14 +444,14 @@ function PaymentSection({
           {isService ? (
             <button
               onClick={() => setMode("signing")}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 active:border-green-500 transition-colors"
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-[#d58300]/30 bg-[#d58300]/5 p-4 text-left hover:border-[#d58300]/60 active:border-[#d58300] transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#d58300] flex items-center justify-center shrink-0">
                 <Lock className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-green-900">Sign &amp; Pay Deposit</p>
-                <p className="text-xs text-green-700 mt-0.5">
+                <p className="font-semibold text-zinc-900">Sign &amp; Pay Deposit</p>
+                <p className="text-xs text-[#b87000] mt-0.5">
                   {fmt(cardTotal)} by card · Deposit secures your project
                 </p>
               </div>
@@ -460,16 +460,16 @@ function PaymentSection({
             <button
               onClick={startCardPayment}
               disabled={processing}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 active:border-green-500 transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-[#d58300]/30 bg-[#d58300]/5 p-4 text-left hover:border-[#d58300]/60 active:border-[#d58300] transition-colors disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#d58300] flex items-center justify-center shrink-0">
                 {processing
                   ? <Loader2 className="size-5 text-white animate-spin" />
                   : <Lock className="size-5 text-white" />}
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-green-900">Pay by Card — {fmt(cardTotal)}</p>
-                <p className="text-xs text-green-700 mt-0.5">
+                <p className="font-semibold text-zinc-900">Pay by Card — {fmt(cardTotal)}</p>
+                <p className="text-xs text-[#b87000] mt-0.5">
                   Card · Apple Pay · Klarna · Affirm · Afterpay
                 </p>
               </div>
@@ -539,7 +539,7 @@ function PaymentSection({
           <button
             onClick={submitSignatureAndPay}
             disabled={processing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-base font-bold text-white hover:bg-green-600 disabled:opacity-50 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d58300] py-4 text-base font-bold text-white hover:bg-[#c07600] disabled:opacity-50 transition-colors"
           >
             {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment →</>}
           </button>
@@ -882,7 +882,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                     <span className="text-zinc-900">Project Total</span>
                     <span className="text-zinc-900">{fmt(quote.total_cents)}</span>
                   </div>
-                  <div className="flex justify-between font-semibold text-green-700">
+                  <div className="flex justify-between font-semibold text-[#d58300]">
                     <span>Deposit Required</span>
                     <span>{fmt(quote.deposit_required_cents)}</span>
                   </div>
@@ -967,7 +967,7 @@ function PublicQuoteInner() {
         <p className="text-sm text-zinc-500 max-w-xs">
           {fetchError || "This quote link is invalid or has expired."}
         </p>
-        <a href="tel:+16318746244" className="text-sm text-green-700 font-semibold hover:underline mt-2">
+        <a href="tel:+16318746244" className="text-sm text-[#002e44] font-semibold hover:underline mt-2">
           Call (631) 874-6244
         </a>
       </div>
