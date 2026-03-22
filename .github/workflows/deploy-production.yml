@@ -1,20 +1,25 @@
-name: Deploy to Staging (staging.easternlm.com)
+name: Deploy to Production (easternlm.com)
 
+# MANUAL TRIGGER ONLY — never auto-deploys
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-production" to confirm'
+        required: true
+        type: string
 
 env:
-  DOCKER_IMAGE: easternlm-web
-  CONTAINER_NAME: easternlm-web
-  HOST_PORT: 3100
+  DOCKER_IMAGE: easternlm-web-prod
+  CONTAINER_NAME: easternlm-web-prod
+  HOST_PORT: 3101
   CONTAINER_PORT: 3000
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event.inputs.confirm == 'deploy-production'
 
     steps:
       - name: Checkout code
@@ -28,7 +33,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           source: "."
-          target: /opt/easternlm
+          target: /opt/easternlm-prod
           overwrite: true
 
       - name: Build and deploy on VPS
@@ -40,15 +45,15 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 10m
           script: |
-            cd /opt/easternlm
+            cd /opt/easternlm-prod
 
             echo "=== Building Docker image ==="
             docker build \
               --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
               --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
               --build-arg SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
+              --build-arg STRIPE_SECRET_KEY=${{ secrets.PROD_STRIPE_SECRET_KEY }} \
+              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
               -t ${{ env.DOCKER_IMAGE }}:latest \
               -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
               .
@@ -66,19 +71,19 @@ jobs:
               -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
               -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
               -e SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              -e STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              -e STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-              -e NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
+              -e STRIPE_SECRET_KEY=${{ secrets.PROD_STRIPE_SECRET_KEY }} \
+              -e STRIPE_WEBHOOK_SECRET=${{ secrets.PROD_STRIPE_WEBHOOK_SECRET }} \
+              -e NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
               -e GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
               -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
               -e RESEND_FROM_EMAIL=${{ secrets.RESEND_FROM_EMAIL }} \
-              -e NEXT_PUBLIC_SITE_URL=https://staging.easternlm.com \
+              -e NEXT_PUBLIC_SITE_URL=https://easternlm.com \
               ${{ env.DOCKER_IMAGE }}:latest
 
             echo "=== Waiting for health check ==="
             sleep 5
             if curl -sf http://localhost:${{ env.HOST_PORT }} > /dev/null 2>&1; then
-              echo "Deployment successful! Site is responding."
+              echo "Production deployment successful! Site is responding."
             else
               echo "Warning: Site not responding yet. Check container logs:"
               docker logs --tail 20 ${{ env.CONTAINER_NAME }}
