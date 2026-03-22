@@ -33,6 +33,7 @@ import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { NewLeadModal } from "@/components/pos/new-lead-modal";
 import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
+import { QuoteBuilder } from "@/components/pos/quote-builder";
 import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
@@ -181,6 +182,7 @@ export default function PosRegisterPage() {
   const [showMaterialCalc, setShowMaterialCalc] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
   const [showSaveQuote, setShowSaveQuote] = useState<"send" | "hold" | null>(null);
+  const [showQuoteBuilder, setShowQuoteBuilder] = useState(false);
   const [showPhoneOrder, setShowPhoneOrder] = useState(false);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
@@ -440,6 +442,10 @@ export default function PosRegisterPage() {
     if (qty <= 0) { removeItem(id); return; }
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: qty } : i));
   }, [removeItem]);
+
+  const updateItemPrice = useCallback((id: string, priceCents: number) => {
+    setItems((prev) => prev.map((i) => i.id === id ? { ...i, price_cents: priceCents } : i));
+  }, []);
 
   // For POSProductGrid: set/remove by product ID
   const setQtyForProduct = useCallback((productId: string, qty: number) => {
@@ -1014,7 +1020,7 @@ export default function PosRegisterPage() {
       if (e.key === "F2") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
       if (e.key === "F3") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
       if (e.key === "F4") { e.preventDefault(); if (items.length > 0) { setShowCheckout(true); } }
-      if (e.key === "F5") { e.preventDefault(); if (items.length > 0) { setShowSaveQuote("send"); } }
+      if (e.key === "F5") { e.preventDefault(); setShowQuoteBuilder(true); }
       if (e.key === "F6") { e.preventDefault(); if (items.length > 0) { setShowSaveQuote("hold"); } }
       if (e.key === "Escape") { setShowNumpad(null); setShowCashDialog(false); setShowCustomItem(false); setShowNotes(false); setShowEditCustomer(false); setShowDiscountModal(false); setShowHoldModal(false); setShowSaveQuote(null); }
     }
@@ -1073,6 +1079,60 @@ export default function PosRegisterPage() {
           }}
         />
       )}
+
+      {/* Quote Builder — full-screen overlay */}
+      <QuoteBuilder
+        open={showQuoteBuilder}
+        onClose={() => setShowQuoteBuilder(false)}
+        onSuccess={() => {
+          setShowQuoteBuilder(false);
+          clearSale();
+          setDeliveryFeeCents(0);
+          setRouteInfo(null);
+          setDelAddress(""); setDelName(""); setDelPhone(""); setDelEmail("");
+          setDelDate(""); setDelNotes(""); setDelCustomerId(null); setDelCustomerStatus("");
+          setAccessConstraints({});
+          setCustomerName("Walk-in"); setCustomerPhone(""); setSelectedCustomer(null);
+        }}
+        products={products}
+        items={items}
+        onAddItem={addItem}
+        onUpdateQty={updateQuantity}
+        onRemoveItem={removeItem}
+        onUpdateItemPrice={updateItemPrice}
+        customer={{
+          name: delName || customerName,
+          phone: delPhone || customerPhone,
+          email: delEmail,
+          id: selectedCustomer?.id ?? delCustomerId ?? null,
+        }}
+        onCustomerChange={(patch) => {
+          if (patch.name !== undefined) { setDelName(patch.name); setCustomerName(patch.name); }
+          if (patch.phone !== undefined) { setDelPhone(patch.phone); setCustomerPhone(patch.phone); }
+          if (patch.email !== undefined) setDelEmail(patch.email);
+          if (patch.id !== undefined) setDelCustomerId(patch.id);
+        }}
+        delivery={{
+          method: deliveryMethod,
+          address: delAddress || deliveryAddress,
+          feeCents: deliveryFeeCents,
+          date: delDate,
+          timeWindow: delTimeWindow,
+          notes: delNotes,
+          constraints: accessConstraints,
+          routeInfo,
+        }}
+        onDeliveryChange={(patch) => {
+          if (patch.method !== undefined) setDeliveryMethod(patch.method);
+          if (patch.address !== undefined) { setDelAddress(patch.address); setDeliveryAddress(patch.address); }
+          if (patch.feeCents !== undefined) setDeliveryFeeCents(patch.feeCents);
+          if (patch.date !== undefined) setDelDate(patch.date);
+          if (patch.timeWindow !== undefined) setDelTimeWindow(patch.timeWindow);
+          if (patch.notes !== undefined) setDelNotes(patch.notes);
+          if (patch.constraints !== undefined) setAccessConstraints(patch.constraints);
+          if (patch.routeInfo !== undefined) setRouteInfo(patch.routeInfo);
+        }}
+      />
 
       {/* New Lead Modal */}
       {showNewLead && (
@@ -1889,8 +1949,8 @@ export default function PosRegisterPage() {
           {/* Primary row: QUOTE + CHECKOUT */}
           <div className="grid grid-cols-[1fr_2fr] gap-2">
             <button
-              onClick={() => items.length > 0 ? setShowSaveQuote("send") : undefined}
-              disabled={items.length === 0}
+              onClick={() => setShowQuoteBuilder(true)}
+              disabled={false}
               className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
             >
               QUOTE
