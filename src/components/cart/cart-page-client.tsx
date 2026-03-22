@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, RefreshCw, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,10 +65,18 @@ export function CartPageClient() {
   const setCustName = (v: string) => { setCustNameLocal(v); setCustomerInfo({ fullName: v }); };
   const setCustPhone = (v: string) => { setCustPhoneLocal(v); setCustomerInfo({ phone: v }); };
   const setCustEmail = (v: string) => { setCustEmailLocal(v); setCustomerInfo({ email: v }); };
-  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [smsOptIn, setSmsOptInLocal] = useState(storedCustomer?.smsOptIn ?? false);
+  const setSmsOptIn = (v: boolean) => { setSmsOptInLocal(v); setCustomerInfo({ smsOptIn: v }); };
   const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
+
+  // Auto-recalc if address is already in store but calculation is missing (e.g. after page reload)
+  useEffect(() => {
+    if (deliveryMethod === "delivery" && deliveryAddress && !calculation && !isCalculating) {
+      setDeliveryAddress(deliveryAddress);
+    }
+  }, [deliveryMethod, deliveryAddress, calculation, isCalculating, setDeliveryAddress]);
 
   // Restore saved cart from ?restore=TOKEN
   useEffect(() => {
@@ -333,12 +341,22 @@ export function CartPageClient() {
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-sm font-medium">Delivery Address</label>
-                  <AddressAutocomplete
-                    value={addressInput}
-                    onChange={setAddressInput}
-                    onSelect={handleAddressSelect}
-                    placeholder="Start typing an address..."
-                  />
+                  <div className="flex gap-2">
+                    <AddressAutocomplete
+                      value={addressInput}
+                      onChange={setAddressInput}
+                      onSelect={handleAddressSelect}
+                      placeholder="Start typing an address..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { if (addressInput) handleAddressSelect(addressInput); }}
+                      title="Recalculate delivery fee"
+                      className="flex shrink-0 items-center justify-center size-10 rounded-md border hover:bg-muted text-muted-foreground hover:text-accent transition-colors"
+                    >
+                      <RefreshCw className="size-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Auto-calculated fee display */}

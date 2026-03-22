@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, Lock, Phone, Shield, Truck, Store, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, CheckCircle, Lock, Phone, Shield, Truck, Store, Loader2 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -56,12 +56,12 @@ export function CheckoutPageClient() {
   const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [optInSms, setOptInSms] = useState(false);
-  const [optInEmail, setOptInEmail] = useState(false);
+  const [optInSms, setOptInSms] = useState(customerInfo?.smsOptIn ?? false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const autoTriggered = useRef(false);
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
@@ -74,6 +74,7 @@ export function CheckoutPageClient() {
   const persistName = useCallback((v: string) => { setFullName(v); setCustomerInfo({ fullName: v }); }, [setCustomerInfo]);
   const persistEmail = useCallback((v: string) => { setEmail(v); setCustomerInfo({ email: v }); }, [setCustomerInfo]);
   const persistPhone = useCallback((v: string) => { setPhone(v); setCustomerInfo({ phone: v }); }, [setCustomerInfo]);
+  const persistSmsOptIn = useCallback((v: boolean) => { setOptInSms(v); setCustomerInfo({ smsOptIn: v }); }, [setCustomerInfo]);
 
   const nameError = touched.name && fullName.trim().length < 2 ? "Name is required" : null;
   const emailError = touched.email && !isValidEmail(email) ? "Valid email required" : null;
@@ -90,6 +91,15 @@ export function CheckoutPageClient() {
     if (!formValid) return false;
     return !calculation.checkoutBlocked;
   }, [calculation, formValid, items.length]);
+
+  // Auto-proceed to payment if all fields are already filled from cart
+  useEffect(() => {
+    if (!autoTriggered.current && canCheckout && !clientSecret && !isSubmitting) {
+      autoTriggered.current = true;
+      handleContinueToPayment();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCheckout]);
 
   // Split items for display
   const bulkItems = items.filter((i) => i.deliveryType === "bulk");
@@ -129,7 +139,7 @@ export function CheckoutPageClient() {
           accessConstraints,
           deliveryDate,
           clientGrandTotalCents: calculation!.grandTotalCents,
-          customer: { fullName, email, phone, optInSms, optInEmail },
+          customer: { fullName, email, phone, optInSms },
           deliverySequence: bulkItems.map((item, i) => ({
             deliveryNumber: i + 1,
             productId: item.id,
@@ -182,19 +192,15 @@ export function CheckoutPageClient() {
               </div>
 
               {/* 10DLC compliant SMS opt-in */}
-              <div className="mt-3 space-y-2 border-t pt-3">
+              <div className="mt-3 border-t pt-3">
                 <label className={`flex items-start gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30 ${smsOptInError ? "border-destructive bg-destructive/5" : ""}`}>
-                  <input type="checkbox" checked={optInSms} onChange={(e) => setOptInSms(e.target.checked)} className="mt-0.5 size-4 shrink-0 rounded" />
+                  <input type="checkbox" checked={optInSms} onChange={(e) => persistSmsOptIn(e.target.checked)} className="mt-0.5 size-4 shrink-0 rounded" />
                   <span className="text-muted-foreground leading-relaxed">
                     I agree to receive order updates, delivery notifications, and promotional messages from Eastern Landscape &amp; Mason Supply via SMS to the phone number provided. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help. View our <a href="/terms#sms-terms" className="underline text-accent">SMS Terms</a> and <a href="/privacy-policy" className="underline text-accent">Privacy Policy</a>.
                     <span className="text-destructive font-medium"> *Required</span>
                   </span>
                 </label>
-                {smsOptInError && <p className="text-xs text-destructive">{smsOptInError}</p>}
-                <label className="flex items-center gap-2.5 text-xs cursor-pointer rounded-lg border p-3 hover:bg-muted/30">
-                  <input type="checkbox" checked={optInEmail} onChange={(e) => setOptInEmail(e.target.checked)} className="size-4 shrink-0 rounded" />
-                  <span className="text-muted-foreground">Send me deals and seasonal updates via email</span>
-                </label>
+                {smsOptInError && <p className="mt-1 text-xs text-destructive">{smsOptInError}</p>}
               </div>
             </div>
           </div>
@@ -248,9 +254,12 @@ export function CheckoutPageClient() {
                   </div>
                 )}
 
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/cart">Change address or delivery order</Link>
-                </Button>
+                <Link
+                  href="/cart"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+                >
+                  <ArrowLeft className="size-4" /> Return to Cart / Change Address
+                </Link>
               </>
             ) : (
               <div className="rounded-lg bg-muted/50 p-3 text-sm">

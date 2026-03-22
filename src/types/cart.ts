@@ -25,6 +25,7 @@ export type CustomerInfo = {
   fullName: string;
   email: string;
   phone: string;
+  smsOptIn: boolean;
 };
 
 export type CartStoreState = {
