@@ -110,10 +110,10 @@ function formatDeliveryDate(d: string): string {
 
 function formatTimeWindow(tw: string): string {
   const map: Record<string, string> = {
-    morning: "Morning (7 AM – 12 PM)",
-    midday: "Mid-day (10 AM – 1 PM)",
-    afternoon: "Afternoon (12 – 4 PM)",
-    flexible: "Flexible",
+    early: "Early Morning (7:30 AM – 9:00 AM)",
+    morning: "Morning (8:00 AM – 12:00 PM)",
+    afternoon: "Afternoon (12:00 PM – 5:00 PM)",
+    flexible: "Flexible (7:30 AM – 5:00 PM)",
   };
   return map[tw] ?? tw;
 }
@@ -570,7 +570,7 @@ function PaymentSection({
               <StripePaymentForm
                 amountCents={chargeAmount}
                 onSuccess={() => {
-                  fetch("/api/checkout/confirm", {
+                  fetch(`/api/quote/${token}/confirm-card`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
@@ -783,6 +783,16 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                 </div>
               )}
             </div>
+          </section>
+        )}
+
+        {/* ── Order Notes (material quotes) ── */}
+        {!isService && quote.description && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+              <FileText className="size-3.5" /> Order Notes
+            </h2>
+            <p className="text-sm text-zinc-600 leading-relaxed">{quote.description}</p>
           </section>
         )}
 
