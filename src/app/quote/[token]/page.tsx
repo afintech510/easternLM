@@ -12,7 +12,7 @@ import {
 } from "@stripe/react-stripe-js";
 import SignaturePad from "signature_pad";
 import {
-  Loader2, Phone, MessageSquare, Lock, Shield,
+  Loader2, Phone, Mail, MessageSquare, Lock, Shield, User,
   CheckCircle, XCircle, MapPin, Calendar, Clock,
   Truck, AlertTriangle, FileText, Package,
 } from "lucide-react";
@@ -65,6 +65,8 @@ interface Quote {
   quote_number: string;
   public_token: string;
   customer_name: string;
+  customer_phone?: string | null;
+  customer_email?: string | null;
   customer_address: string | null;
   title: string;
   description: string | null;
@@ -649,13 +651,12 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
   quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void;
 }) {
   const isService = (quote.deposit_required_cents ?? 0) > 0;
-  const deliveryFeeCents = quote.delivery_fee_cents ?? 0;
-  const ccSurchargeCents = quote.cc_surcharge_cents ?? Math.round(quote.total_cents * 0.03);
-  const cardTotal = quote.total_cents + ccSurchargeCents;
-
-  // Separate delivery line items from material items
+  // Separate delivery line items from material items first so we can derive fee from line items
   const deliveryItem = quote.line_items.find(i => i.unit === "trip" || i.description.toLowerCase().startsWith("delivery"));
   const materialItems = quote.line_items.filter(i => i !== deliveryItem);
+  const deliveryFeeCents = quote.delivery_fee_cents ?? deliveryItem?.total_cents ?? 0;
+  const ccSurchargeCents = quote.cc_surcharge_cents ?? Math.round(quote.total_cents * 0.03);
+  const cardTotal = quote.total_cents + ccSurchargeCents;
   const laborItems = materialItems.filter(i => {
     const d = i.description.toLowerCase();
     return d.includes("labor") || d.includes("install") || d.includes("service") ||
@@ -758,6 +759,33 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
           </div>
         </section>
 
+        {/* ── Customer Info ── */}
+        {(quote.customer_phone || quote.customer_email) && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+              <User className="size-3.5" /> Your Info
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-3">
+                <User className="size-4 text-zinc-400 shrink-0" />
+                <p className="font-semibold text-zinc-900">{quote.customer_name}</p>
+              </div>
+              {quote.customer_phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="size-4 text-zinc-400 shrink-0" />
+                  <p className="text-zinc-700">{quote.customer_phone}</p>
+                </div>
+              )}
+              {quote.customer_email && (
+                <div className="flex items-center gap-3">
+                  <Mail className="size-4 text-zinc-400 shrink-0" />
+                  <p className="text-zinc-700">{quote.customer_email}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ── Delivery or Pickup ── */}
         {quote.delivery_address ? (
           <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
@@ -824,7 +852,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-zinc-500">Materials</span>
-              <span className="text-zinc-800">{fmt(quote.subtotal_cents - deliveryFeeCents)}</span>
+              <span className="text-zinc-800">{fmt(materialItems.reduce((s, i) => s + i.total_cents, 0))}</span>
             </div>
             {deliveryFeeCents > 0 && (
               <div className="flex justify-between">
