@@ -18,9 +18,17 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          echo "Key fingerprint:"
+          ssh-keygen -l -f ~/.ssh/deploy_key
+
       - name: Deploy to VPS
         env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,13 +47,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RINGCENTRAL_JWT: ${{ secrets.RINGCENTRAL_JWT }}
         run: |
-          echo "$VPS_SSH_KEY" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-
-          ssh -i /tmp/deploy_key \
+          ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=10 \
-            ${VPS_USER}@${VPS_HOST} bash << EOF
+            -o ConnectTimeout=15 \
+            -v \
+            ${VPS_USER}@${VPS_HOST} bash << ENDSSH
             set -e
             cd ${{ env.DEPLOY_PATH }}
 
@@ -101,6 +107,4 @@ jobs:
             fi
 
             docker image prune -f
-          EOF
-
-          rm /tmp/deploy_key
+          ENDSSH
