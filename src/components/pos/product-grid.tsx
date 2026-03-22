@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calculator, Plus, Search, X, Lock, LockOpen, GripVertical, Check } from "lucide-react";
+import { Calculator, FunnelPlus, Search, X, Lock, LockOpen, GripVertical, Check } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor,
@@ -143,11 +143,24 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
     <div className="flex h-full flex-col">
       {/* Edit mode banner */}
       {editMode && (
-        <div className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/40 px-3 py-2">
-          <span className="flex items-center gap-2 text-xs font-semibold text-amber-400">
+        <div className="flex items-center justify-between bg-amber-600/20 border-b border-amber-600/40 px-3 py-2 gap-3">
+          <span className="flex items-center gap-2 text-xs font-semibold text-amber-400 shrink-0">
             <LockOpen className="size-4" /> Drag tiles to reorder
           </span>
-          <div className="flex gap-2">
+          {/* Column count selector — only shown in edit mode */}
+          <div className="flex items-center gap-0.5">
+            {GRID_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => { setGridCols(n); localStorage.setItem("pos-grid-cols", String(n)); }}
+                className={`size-6 rounded text-[10px] font-bold ${gridCols === n ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-500 hover:text-amber-400"}`}
+                title={`${n} columns`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 shrink-0">
             <button onClick={saveOrder} disabled={saving} className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50">
               <Check className="size-3.5" /> {saving ? "Saving..." : "Save Order"}
             </button>
@@ -207,46 +220,13 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
           {onOpenNewLead && (
             <button
               onClick={onOpenNewLead}
-              className={`shrink-0 rounded-lg border ${border} ${input} p-1.5 transition-colors ${hover}`}
+              className={`shrink-0 rounded-lg border ${border} ${input} p-2 transition-colors ${hover}`}
               title="New Service Lead"
-              style={{ filter: "drop-shadow(0 0 3px #39ff1466)" }}
+              style={{ filter: "drop-shadow(0 0 4px #39ff14aa)" }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24">
-                <g fill="#39FF14" stroke="#39FF14">
-                  <circle cx="28" cy="14" r="6.5" stroke="none" />
-                  <path d="M 11 29 C 11 21, 21 19, 28 19 C 35 19, 45 21, 45 29 Z" stroke="none" />
-                  <circle cx="72" cy="14" r="6.5" stroke="none" />
-                  <path d="M 55 29 C 55 21, 65 19, 72 19 C 79 19, 89 21, 89 29 Z" stroke="none" />
-                  <g strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="8" y1="36" x2="92" y2="36" />
-                    <path d="M 14 36 L 41 63 L 41 76" />
-                    <path d="M 86 36 L 59 63 L 59 76" />
-                  </g>
-                  <g strokeWidth="3.5" fill="none">
-                    <ellipse cx="50" cy="84" rx="16" ry="6" />
-                    <path d="M 34 90 A 16 6 0 0 0 66 90" strokeLinecap="round" />
-                  </g>
-                  <g strokeWidth="1.5" fill="none" strokeLinecap="round">
-                    <line x1="50" y1="80" x2="50" y2="88" />
-                    <path d="M 52.5 81.5 C 52.5 80, 47.5 80, 47.5 82.5 C 47.5 85, 52.5 83, 52.5 85.5 C 52.5 88, 47.5 88, 47.5 86.5" />
-                  </g>
-                </g>
-              </svg>
+              <FunnelPlus className="size-5" style={{ color: "#39FF14" }} />
             </button>
           )}
-          {/* Grid column selector */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            {GRID_OPTIONS.map((n) => (
-              <button
-                key={n}
-                onClick={() => { setGridCols(n); localStorage.setItem("pos-grid-cols", String(n)); }}
-                className={`size-6 rounded text-[10px] font-bold ${gridCols === n ? "bg-amber-600 text-white" : `${card} ${muted} hover:text-amber-400`}`}
-                title={`${n} columns`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
