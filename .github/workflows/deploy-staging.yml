@@ -18,79 +18,89 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Deploy to VPS
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RINGCENTRAL_JWT: ${{ secrets.RINGCENTRAL_JWT }}
+        run: |
+          echo "$VPS_SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
 
-      - name: Copy files to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          source: "."
-          target: ${{ env.DEPLOY_PATH }}
-          overwrite: true
-
-      - name: Build and deploy on VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          command_timeout: 10m
-          script: |
+          ssh -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            ${VPS_USER}@${VPS_HOST} bash << EOF
+            set -e
             cd ${{ env.DEPLOY_PATH }}
+
+            echo "=== Pulling latest code ==="
+            git fetch "https://x-access-token:${GH_TOKEN}@github.com/afintech510/easternLM.git" main
+            git reset --hard FETCH_HEAD
 
             echo "=== Building Docker image ==="
             docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-              --build-arg SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+              --build-arg SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}" \
+              --build-arg STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
+              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}" \
               -t ${{ env.DOCKER_IMAGE }}:latest \
               -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
               .
 
-            echo "=== Stopping old container ==="
+            echo "=== Swapping container ==="
             docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
             docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
 
-            echo "=== Starting new container ==="
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network hosthampton_hampton_net \
               -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               -e NODE_ENV=production \
-              -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-              -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-              -e SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              -e STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              -e STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-              -e NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
-              -e GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
-              -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
-              -e RESEND_FROM_EMAIL=${{ secrets.RESEND_FROM_EMAIL }} \
-              -e TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }} \
-              -e TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }} \
-              -e TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }} \
-              -e ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
-              -e RINGCENTRAL_JWT=${{ secrets.RINGCENTRAL_JWT }} \
+              -e NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
+              -e NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+              -e SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}" \
+              -e STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY}" \
+              -e STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET}" \
+              -e NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}" \
+              -e GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_API_KEY}" \
+              -e RESEND_API_KEY="${RESEND_API_KEY}" \
+              -e RESEND_FROM_EMAIL="${RESEND_FROM_EMAIL}" \
+              -e TWILIO_ACCOUNT_SID="${TWILIO_ACCOUNT_SID}" \
+              -e TWILIO_AUTH_TOKEN="${TWILIO_AUTH_TOKEN}" \
+              -e TWILIO_PHONE_NUMBER="${TWILIO_PHONE_NUMBER}" \
+              -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+              -e RINGCENTRAL_JWT="${RINGCENTRAL_JWT}" \
               -e NEXT_PUBLIC_SITE_URL=https://staging.easternlm.com \
               ${{ env.DOCKER_IMAGE }}:latest
 
-            echo "=== Waiting for health check ==="
+            echo "=== Health check ==="
             sleep 5
             if curl -sf http://localhost:${{ env.HOST_PORT }} > /dev/null 2>&1; then
-              echo "Deployment successful! Site is responding."
+              echo "Deployment successful!"
             else
-              echo "Warning: Site not responding yet. Check container logs:"
               docker logs --tail 20 ${{ env.CONTAINER_NAME }}
               exit 1
             fi
 
-            echo "=== Cleaning up old images ==="
             docker image prune -f
+          EOF
+
+          rm /tmp/deploy_key
