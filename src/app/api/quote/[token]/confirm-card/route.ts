@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
- * POST /api/quote/[token]/confirm-cod
- * Customer confirms COD — creates order without payment.
+ * POST /api/quote/[token]/confirm-card
+ * Called after successful Stripe card payment on quote page.
+ * Creates an order from the quote with all delivery details preserved.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ token: string }> }
 ) {
   const { token } = await context.params;
+  const { paymentIntentId } = await request.json().catch(() => ({}));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseAdminClient() as any;
 
@@ -20,9 +22,11 @@ export async function POST(
     .maybeSingle();
 
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
-  if (["accepted", "converted"].includes(quote.status)) {
-    return NextResponse.json({ error: "Already accepted" }, { status: 400 });
+  if (["converted"].includes(quote.status)) {
+    return NextResponse.json({ ok: true, alreadyConverted: true });
   }
+
+  const ccSurcharge = Math.round(quote.total_cents * 0.03);
 
   // Update quote status
   await supabase.from("quotes").update({
@@ -32,13 +36,14 @@ export async function POST(
 
   // Create order with all delivery details
   const { data: order } = await supabase.from("orders").insert({
+    stripe_checkout_session_id: paymentIntentId || null,
     customer_name: quote.customer_name,
     customer_email: quote.customer_email || null,
     customer_phone: quote.customer_phone || null,
     customer_id: quote.customer_id || null,
     customer_address: quote.customer_address || null,
-    status: "confirmed",
-    payment_method: "cod",
+    status: "paid",
+    payment_method: "card_online",
     source: "quote",
     quote_id: quote.id,
     delivery_method: quote.delivery_address ? "delivery" : "pickup",
@@ -50,9 +55,9 @@ export async function POST(
     materials_subtotal_cents: quote.subtotal_cents,
     delivery_total_cents: quote.delivery_fee_cents || 0,
     tax_cents: quote.tax_cents,
-    cc_surcharge_cents: 0,
-    grand_total_cents: quote.total_cents,
-    metadata: { quote_id: quote.id, quote_number: quote.quote_number, source: "quote_cod" },
+    cc_surcharge_cents: ccSurcharge,
+    grand_total_cents: quote.total_cents + ccSurcharge,
+    metadata: { quote_id: quote.id, quote_number: quote.quote_number, source: "quote_card" },
   }).select("id").single();
 
   if (order) {
@@ -88,9 +93,9 @@ export async function POST(
     await resend.emails.send({
       from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com"}>`,
       to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
-      subject: `COD Order: ${quote.customer_name} — ${f(quote.total_cents)}`,
-      html: `<p>Quote ${quote.quote_number} accepted as COD.</p>
-        <p>${quote.customer_name} — ${f(quote.total_cents)}</p>
+      subject: `Card Order: ${quote.customer_name} — ${f(quote.total_cents + ccSurcharge)}`,
+      html: `<p>Quote ${quote.quote_number} paid by card.</p>
+        <p>${quote.customer_name} — ${f(quote.total_cents + ccSurcharge)}</p>
         <p>${quote.delivery_address ? `Delivery: ${quote.delivery_address}` : "Pickup"}</p>
         ${quote.delivery_date ? `<p>Date: ${quote.delivery_date}</p>` : ""}
         ${quote.delivery_time_window ? `<p>Time: ${quote.delivery_time_window}</p>` : ""}

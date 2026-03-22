@@ -165,6 +165,8 @@ export function CartPageClient() {
           deliveryFeeCents: deliveryMethod === "delivery" ? (calculation?.deliveryFeeCents ?? 0) : 0,
           deliveryDate: deliveryMethod === "delivery" ? deliveryDate : null,
           deliveryTimeWindow: deliveryMethod === "delivery" ? timeWindow : null,
+          deliveryNotes: deliveryMethod === "delivery" ? (accessConstraints.notes || null) : null,
+          accessConstraints: deliveryMethod === "delivery" ? accessConstraints : null,
           sendVia: custEmail ? (custPhone ? ["email", "sms"] : ["email"]) : custPhone ? ["sms"] : undefined,
         }),
       });
