@@ -104,7 +104,9 @@ Settings in `site_settings` table (admin-editable). 24 tests in `delivery.test.t
 
 ## Infrastructure
 
-- **VPS:** Hetzner (5.161.88.134), Docker, nginx, Let's Encrypt SSL
+- **VPS:** Hetzner (5.161.88.134), SSH alias `hampton-vps` (root@5.161.88.134)
+- **App directory on VPS:** `/opt/easternlm-web`
+- **Docker network:** `hosthampton_hampton_net`
 - **GitHub:** github.com/afintech510/easternLM (private)
 - **Supabase:** Project ref `qnwevkgrhdrjqvvabcit`, ACTIVE
 - **Resend:** API key configured, from: orders@easternlm.com
@@ -112,41 +114,44 @@ Settings in `site_settings` table (admin-editable). 24 tests in `delivery.test.t
 
 ## Deployment
 
-Two separate GitHub Actions workflows in `.github/workflows/`:
+Two GitHub Actions workflows in `.github/workflows/`. Both SSH into the VPS, `git pull` in `/opt/easternlm-web`, build Docker image on the VPS, and restart the container. No SCP — code lives on VPS via git. Env vars read from `/opt/easternlm-web/.env.local` on the VPS.
 
 ### Staging (`deploy-staging.yml`)
 - **Trigger:** Auto-deploys on push to `main` (also manual via workflow_dispatch)
 - **URL:** https://staging.easternlm.com
-- **Container:** `easternlm-web` on port **3100**→3000
-- **Deploy path:** `/opt/easternlm`
-- **Stripe:** Test keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
+- **Container:** `easternlm-staging` on port **3101**→3000
+- **Network:** `hosthampton_hampton_net`
 
 ### Production (`deploy-production.yml`)
 - **Trigger:** Manual only (Actions → "Deploy to Production" → type `deploy-production` to confirm)
 - **URL:** https://easternlm.com
-- **Container:** `easternlm-web-prod` on port **3101**→3000
-- **Deploy path:** `/opt/easternlm-prod`
-- **Stripe:** Live keys (`PROD_STRIPE_SECRET_KEY`, `PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `PROD_STRIPE_WEBHOOK_SECRET`)
+- **Container:** `easternlm-prod` on port **3100**→3000
+- **Network:** `hosthampton_hampton_net`
+- **Stripe:** Uses `PROD_STRIPE_*` vars from `.env.local`
 
 ### GitHub Secrets Required
-Shared: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_PORT`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
-Staging only: `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (test), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (test)
-Production only: `PROD_STRIPE_SECRET_KEY` (live), `PROD_STRIPE_WEBHOOK_SECRET` (live), `PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live)
+`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_PORT` — that's it. All app env vars live in `.env.local` on the VPS.
+
+### Manual deploy command (staging)
+```bash
+ssh hampton-vps 'cd /opt/easternlm-web && git pull && eval $(grep -v "^#" .env.local | sed "s/^/export /") && docker build --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" --build-arg SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" --build-arg STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" -t easternlm-web:latest . && docker stop easternlm-staging && docker rm easternlm-staging && docker run -d --name easternlm-staging --network hosthampton_hampton_net -p 3101:3000 --env-file /opt/easternlm-web/.env.local easternlm-web:latest'
+```
 
 ## Environment Variables
 
-All in `.env.local` (gitignored) and container env:
+All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PROJECT_REF, SUPABASE_ACCESS_TOKEN
 - STRIPE_SECRET_KEY (test), STRIPE_WEBHOOK_SECRET
 - GOOGLE_MAPS_API_KEY
 - RESEND_API_KEY, RESEND_FROM_EMAIL
-- NEXT_PUBLIC_SITE_URL (`NEXT_PUBLIC_` prefix = exposed to browser, required by Next.js for client-side vars)
+- NEXT_PUBLIC_SITE_URL
+- `NEXT_PUBLIC_` prefix = exposed to browser (Next.js bakes these into the JS bundle at build time, so they must be passed as `--build-arg`)
 
 ## Go-Live Blockers
 
-1. ~~Switch STRIPE_SECRET_KEY from test to live~~ ✅ PROD secrets set in GitHub
+1. ~~Switch STRIPE_SECRET_KEY from test to live~~ ✅ PROD secrets set in `.env.local`
 2. Point DNS (easternlm.com + www) to VPS IP
-3. Add nginx server block routing easternlm.com → port 3101
+3. Add nginx server block routing easternlm.com → port 3100
 4. Verify Resend sending domain (send.easternlm.com)
 5. Replace placeholder product images with real photography
