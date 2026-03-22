@@ -49,14 +49,15 @@ export function CheckoutPageClient() {
   const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
 
-  // Pre-fill from cart store (customer info persisted from cart page)
-  const [fullName, setFullName] = useState(customerInfo?.fullName || "");
-  const [email, setEmail] = useState(customerInfo?.email || "");
-  const [phone, setPhone] = useState(customerInfo?.phone || "");
+  // Read directly from store — no local useState so Zustand hydration timing never causes stale values
+  const fullName = customerInfo?.fullName ?? "";
+  const email = customerInfo?.email ?? "";
+  const phone = customerInfo?.phone ?? "";
+  const optInSms = customerInfo?.smsOptIn ?? false;
+
   const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [optInSms, setOptInSms] = useState(customerInfo?.smsOptIn ?? false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
@@ -71,10 +72,10 @@ export function CheckoutPageClient() {
     }
   }, [deliveryMethod, deliveryAddress, calculation, isCalculating, setDeliveryAddress]);
 
-  const persistName = useCallback((v: string) => { setFullName(v); setCustomerInfo({ fullName: v }); }, [setCustomerInfo]);
-  const persistEmail = useCallback((v: string) => { setEmail(v); setCustomerInfo({ email: v }); }, [setCustomerInfo]);
-  const persistPhone = useCallback((v: string) => { setPhone(v); setCustomerInfo({ phone: v }); }, [setCustomerInfo]);
-  const persistSmsOptIn = useCallback((v: boolean) => { setOptInSms(v); setCustomerInfo({ smsOptIn: v }); }, [setCustomerInfo]);
+  const persistName = useCallback((v: string) => setCustomerInfo({ fullName: v }), [setCustomerInfo]);
+  const persistEmail = useCallback((v: string) => setCustomerInfo({ email: v }), [setCustomerInfo]);
+  const persistPhone = useCallback((v: string) => setCustomerInfo({ phone: v }), [setCustomerInfo]);
+  const persistSmsOptIn = useCallback((v: boolean) => setCustomerInfo({ smsOptIn: v }), [setCustomerInfo]);
 
   const nameError = touched.name && fullName.trim().length < 2 ? "Name is required" : null;
   const emailError = touched.email && !isValidEmail(email) ? "Valid email required" : null;

@@ -27,7 +27,7 @@ const TIME_WINDOWS = [
   { value: "early", label: "Early Morning (7:30 AM – 9:00 AM)" },
   { value: "morning", label: "Morning (8:00 AM – 12:00 PM)" },
   { value: "afternoon", label: "Afternoon (12:00 PM – 5:00 PM)" },
-  { value: "flexible", label: "Flexible — anytime during business hours" },
+  { value: "flexible", label: "Flexible (7:30 AM – 5:00 PM)" },
 ];
 
 export function CartPageClient() {
@@ -58,15 +58,15 @@ export function CartPageClient() {
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
   const [timeWindow, setTimeWindow] = useState("flexible");
 
-  // Lead capture
-  const [custName, setCustNameLocal] = useState(storedCustomer?.fullName || "");
-  const [custPhone, setCustPhoneLocal] = useState(storedCustomer?.phone || "");
-  const [custEmail, setCustEmailLocal] = useState(storedCustomer?.email || "");
-  const setCustName = (v: string) => { setCustNameLocal(v); setCustomerInfo({ fullName: v }); };
-  const setCustPhone = (v: string) => { setCustPhoneLocal(v); setCustomerInfo({ phone: v }); };
-  const setCustEmail = (v: string) => { setCustEmailLocal(v); setCustomerInfo({ email: v }); };
-  const [smsOptIn, setSmsOptInLocal] = useState(storedCustomer?.smsOptIn ?? false);
-  const setSmsOptIn = (v: boolean) => { setSmsOptInLocal(v); setCustomerInfo({ smsOptIn: v }); };
+  // Lead capture — read directly from store (no local useState so hydration timing never matters)
+  const custName = storedCustomer?.fullName ?? "";
+  const custPhone = storedCustomer?.phone ?? "";
+  const custEmail = storedCustomer?.email ?? "";
+  const smsOptIn = storedCustomer?.smsOptIn ?? false;
+  const setCustName = (v: string) => setCustomerInfo({ fullName: v });
+  const setCustPhone = (v: string) => setCustomerInfo({ phone: v });
+  const setCustEmail = (v: string) => setCustomerInfo({ email: v });
+  const setSmsOptIn = (v: boolean) => setCustomerInfo({ smsOptIn: v });
   const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => { loadDeliveryConfig().catch(() => undefined); }, [loadDeliveryConfig]);
@@ -341,13 +341,15 @@ export function CartPageClient() {
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-sm font-medium">Delivery Address</label>
-                  <div className="flex gap-2">
-                    <AddressAutocomplete
-                      value={addressInput}
-                      onChange={setAddressInput}
-                      onSelect={handleAddressSelect}
-                      placeholder="Start typing an address..."
-                    />
+                  <div className="flex w-full gap-2">
+                    <div className="flex-1 min-w-0">
+                      <AddressAutocomplete
+                        value={addressInput}
+                        onChange={setAddressInput}
+                        onSelect={handleAddressSelect}
+                        placeholder="Start typing an address..."
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => { if (addressInput) handleAddressSelect(addressInput); }}
