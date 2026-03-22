@@ -169,6 +169,14 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               className="brightness-0 invert opacity-80"
             />
           </Link>
+          {/* Lock/unlock reorder */}
+          <button
+            onClick={() => editMode ? cancelEditMode() : startEditMode()}
+            className={`shrink-0 rounded-lg p-2 transition-colors ${editMode ? "bg-amber-500/20 text-amber-400" : `${card} ${muted} ${hover}`}`}
+            title={editMode ? "Editing tile order" : "Reorder tiles"}
+          >
+            {editMode ? <LockOpen className="size-5" /> : <Lock className="size-5" />}
+          </button>
           {/* Search */}
           <div className="relative flex-1">
           <Search className={`absolute left-3 top-1/2 size-4 -translate-y-1/2 ${muted}`} />
@@ -226,14 +234,6 @@ export function POSProductGrid({ products, categories, cartQtys, onAddProduct, o
               </svg>
             </button>
           )}
-          {/* Lock/unlock reorder */}
-          <button
-            onClick={() => editMode ? cancelEditMode() : startEditMode()}
-            className={`shrink-0 rounded-lg p-2 transition-colors ${editMode ? "bg-amber-500/20 text-amber-400" : `${card} ${muted} ${hover}`}`}
-            title={editMode ? "Editing tile order" : "Reorder tiles"}
-          >
-            {editMode ? <LockOpen className="size-5" /> : <Lock className="size-5" />}
-          </button>
           {/* Grid column selector */}
           <div className="flex items-center gap-0.5 shrink-0">
             {GRID_OPTIONS.map((n) => (
