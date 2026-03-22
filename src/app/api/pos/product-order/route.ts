@@ -11,12 +11,18 @@ export async function POST(request: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseAdminClient() as any;
 
-  // Batch update — gaps of 10 for future inserts
-  for (let i = 0; i < order.length; i++) {
-    await supabase
-      .from("products")
-      .update({ pos_sort_order: i * 10 })
-      .eq("id", order[i]);
+  // Batch update in parallel chunks — gaps of 10 for future inserts
+  const CHUNK_SIZE = 50;
+  for (let start = 0; start < order.length; start += CHUNK_SIZE) {
+    const chunk = order.slice(start, start + CHUNK_SIZE);
+    await Promise.all(
+      chunk.map((id: string, j: number) =>
+        supabase
+          .from("products")
+          .update({ pos_sort_order: (start + j) * 10 })
+          .eq("id", id)
+      )
+    );
   }
 
   return NextResponse.json({ ok: true, updated: order.length });
