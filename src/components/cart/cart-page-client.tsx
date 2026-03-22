@@ -153,6 +153,8 @@ export function CartPageClient() {
             unit: i.deliveryType === "bulk" ? "yard" : "each",
           })),
           customer: { name: custName, phone: custPhone, email: custEmail },
+          deliveryMethod,
+          deliveryAddress: deliveryMethod === "delivery" ? deliveryAddress?.fullAddress ?? null : null,
           deliveryFeeCents: deliveryMethod === "delivery" ? (calculation?.deliveryFeeCents ?? 0) : 0,
           sendVia: custEmail ? (custPhone ? ["email", "sms"] : ["email"]) : custPhone ? ["sms"] : undefined,
         }),

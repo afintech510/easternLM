@@ -84,6 +84,8 @@ export async function POST(request: Request) {
     items,
     customer,
     deliveryFeeCents,
+    deliveryMethod,
+    deliveryAddress,
     depositCents,
     note,
     validDays,
@@ -96,8 +98,8 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdminClient() as any;
 
-  // Build line items from cart
-  const lineItems = (items ?? []).map((item: any) => ({
+  // Build line items from cart (materials only — delivery is separate)
+  const materialItems = (items ?? []).map((item: any) => ({
     description: item.name ?? item.description ?? "Item",
     quantity: item.quantity ?? 1,
     unit: item.unit ?? "each",
@@ -105,20 +107,20 @@ export async function POST(request: Request) {
     total_cents: (item.quantity ?? 1) * (item.unitPriceCents ?? item.unit_price_cents ?? 0),
   }));
 
-  // Add delivery as line item if provided
-  if (deliveryFeeCents && deliveryFeeCents > 0) {
-    lineItems.push({
-      description: "Delivery",
-      quantity: 1,
-      unit: "trip",
-      unit_price_cents: deliveryFeeCents,
-      total_cents: deliveryFeeCents,
-    });
-  }
+  const deliveryItem = (deliveryFeeCents && deliveryFeeCents > 0) ? {
+    description: "Delivery",
+    quantity: 1,
+    unit: "trip",
+    unit_price_cents: deliveryFeeCents,
+    total_cents: deliveryFeeCents,
+  } : null;
 
-  const subtotalCents = lineItems.reduce((s: number, i: any) => s + i.total_cents, 0);
+  const lineItems = deliveryItem ? [...materialItems, deliveryItem] : materialItems;
+
+  // Tax applies to materials only, not delivery
+  const subtotalCents = materialItems.reduce((s: number, i: any) => s + i.total_cents, 0);
   const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const totalCents = subtotalCents + taxCents;
+  const totalCents = subtotalCents + (deliveryItem?.total_cents ?? 0) + taxCents;
 
   const validUntilDate = new Date();
   validUntilDate.setDate(validUntilDate.getDate() + (validDays ?? 30));
@@ -138,6 +140,7 @@ export async function POST(request: Request) {
       customer_email: customer?.email ?? null,
       customer_address: customer?.address ?? null,
       customer_id: customer?.id ?? null,
+      delivery_address: deliveryMethod === "delivery" ? (deliveryAddress ?? null) : null,
       title,
       description: note ?? null,
       line_items: lineItems,
