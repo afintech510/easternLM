@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     items, customer, delivery, notes, serviceInterest,
     send = false, sendVia = "email",
     accessConstraints,
+    routeInfo,
   } = body;
 
   if (!items?.length) {
@@ -142,6 +143,11 @@ export async function POST(request: Request) {
     customer_address: delivery?.address ?? null,
     delivery_address: delivery?.address ?? null,
     delivery_fee_cents: deliveryFeeCents,
+    delivery_date: delivery?.date ?? null,
+    delivery_time_window: delivery?.timeWindow ?? null,
+    delivery_notes: delivery?.notes ?? null,
+    access_constraints: accessConstraints ?? {},
+    route_info: routeInfo ?? null,
     title,
     type: leadType,
     line_items: lineItems,

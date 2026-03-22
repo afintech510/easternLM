@@ -1,17 +1,55 @@
 "use client";
 
-import { Suspense } from "react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import SignaturePad from "signature_pad";
-import { Loader2, CheckCircle, XCircle, Phone, Printer, MessageSquare, Lock, CreditCard, Truck, Shield } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import SignaturePad from "signature_pad";
+import {
+  Loader2, Phone, MessageSquare, Lock, Shield,
+  CheckCircle, XCircle, MapPin, Calendar, Clock,
+  Truck, AlertTriangle, FileText, Package,
+} from "lucide-react";
+
+// ─── Stripe ─────────────────────────────────────────────────────────────────
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) : null;
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
+
+const stripeAppearance = {
+  theme: "stripe" as const,
+  variables: {
+    colorPrimary: "#2d5016",
+    colorBackground: "#ffffff",
+    colorText: "#18181b",
+    colorDanger: "#dc2626",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+    borderRadius: "10px",
+    spacingUnit: "4px",
+  },
+  rules: {
+    ".Input": {
+      border: "1.5px solid #e4e4e7",
+      boxShadow: "none",
+      padding: "12px 14px",
+      fontSize: "16px",
+    },
+    ".Input:focus": {
+      border: "1.5px solid #2d5016",
+      boxShadow: "0 0 0 3px rgba(45,80,22,0.1)",
+    },
+    ".Label": { fontSize: "13px", fontWeight: "600", color: "#71717a" },
+  },
+};
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface LineItem {
   description: string;
@@ -39,309 +77,217 @@ interface Quote {
   valid_until: string | null;
   estimated_timeline: string | null;
   terms: string | null;
-  cc_surcharge_cents?: number;
-  delivery_fee_cents?: number;
-  delivery_address?: string;
-  type?: string;
   status: string;
   accepted_at: string | null;
   deposit_paid_at: string | null;
+  // Extended fields
+  type?: string;
+  cc_surcharge_cents?: number;
+  delivery_address?: string | null;
+  delivery_fee_cents?: number;
+  delivery_date?: string | null;
+  delivery_time_window?: string | null;
+  delivery_notes?: string | null;
+  access_constraints?: Record<string, boolean> | null;
+  route_info?: { roundTripMiles: number; roundTripMinutes: number } | null;
   photo_urls?: string[];
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmt = (c: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
 
-function PublicQuoteInner() {
-  const { token } = useParams<{ token: string }>();
-  const searchParams = useSearchParams();
-  const depositSuccess = searchParams.get("deposit") === "success";
-
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [step, setStep] = useState<"view" | "sign" | "done" | "declined">("view");
-  const [accepting, setAccepting] = useState(false);
-  const [declining, setDeclining] = useState(false);
-  const [declineReason, setDeclineReason] = useState("");
-  const [showDeclineForm, setShowDeclineForm] = useState(false);
-
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sigPadRef = useRef<SignaturePad | null>(null);
-
-  useEffect(() => {
-    fetch(`/api/quote/${token}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.quote) setQuote(d.quote);
-        else setError("Quote not found or has expired.");
-      })
-      .catch(() => setError("Failed to load quote."))
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  useEffect(() => {
-    if (step === "sign" && canvasRef.current) {
-      sigPadRef.current = new SignaturePad(canvasRef.current, {
-        backgroundColor: "rgba(255,255,255,0)",
-        penColor: "#1e3a5f",
-      });
-      const canvas = canvasRef.current;
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      const ctx = canvas.getContext("2d");
-      if (ctx) ctx.scale(ratio, ratio);
-      sigPadRef.current.clear();
-    }
-    return () => { sigPadRef.current?.off(); sigPadRef.current = null; };
-  }, [step]);
-
-  async function handleAccept() {
-    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
-      alert("Please sign before accepting.");
-      return;
-    }
-    setAccepting(true);
-    const signatureDataUrl = sigPadRef.current.toDataURL("image/png");
-    const r = await fetch(`/api/quote/${token}/accept`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signatureDataUrl }),
+function formatDeliveryDate(d: string): string {
+  try {
+    return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
+      weekday: "long", month: "long", day: "numeric", year: "numeric",
     });
-    const d = await r.json();
-    if (!r.ok) { alert(d.error ?? "Something went wrong"); setAccepting(false); return; }
-    if (d.needsDeposit && quote?.deposit_required_cents && quote.deposit_required_cents > 0) {
-      const dep = await fetch(`/api/quote/${token}/deposit`, { method: "POST" });
-      const depData = await dep.json();
-      if (depData.url) { window.location.href = depData.url; return; }
-    }
-    setStep("done");
-    setAccepting(false);
-  }
+  } catch { return d; }
+}
 
-  async function handleDecline() {
-    setDeclining(true);
-    await fetch(`/api/quote/${token}/decline`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: declineReason }),
-    });
-    setStep("declined");
-    setDeclining(false);
-  }
+function formatTimeWindow(tw: string): string {
+  const map: Record<string, string> = {
+    morning: "Morning (7 AM – 12 PM)",
+    midday: "Mid-day (10 AM – 1 PM)",
+    afternoon: "Afternoon (12 – 4 PM)",
+    flexible: "Flexible",
+  };
+  return map[tw] ?? tw;
+}
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="size-6 animate-spin text-gray-400" /></div>;
+const CONSTRAINT_LABELS: Record<string, string> = {
+  low_wires: "Low Wires", narrow_driveway: "Narrow Driveway",
+  soft_ground: "Soft Ground", gated: "Gated",
+  steep: "Steep Approach", backyard: "Backyard Access",
+};
 
-  if (error || !quote) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <XCircle className="size-12 text-red-500" />
-        <h1 className="text-xl font-semibold">Quote Not Found</h1>
-        <p className="text-gray-500">{error || "This quote link is invalid or has expired."}</p>
-        <a href="tel:6318746244" className="text-blue-600 hover:underline">(631) 874-6244</a>
-      </div>
-    );
-  }
+function getItemColors(desc: string, unit: string): { bg: string; text: string } {
+  const d = desc.toLowerCase();
+  if (d.includes("mulch")) return { bg: "bg-amber-100", text: "text-amber-700" };
+  if (d.includes("topsoil") || d.includes("soil") || d.includes("loam")) return { bg: "bg-green-100", text: "text-green-700" };
+  if (d.includes("gravel") || d.includes("stone") || d.includes("rock") || d.includes("bluestone") || d.includes("rca")) return { bg: "bg-slate-100", text: "text-slate-600" };
+  if (d.includes("sand")) return { bg: "bg-yellow-100", text: "text-yellow-700" };
+  if (d.includes("delivery") || unit === "trip") return { bg: "bg-blue-100", text: "text-blue-700" };
+  if (d.includes("labor") || d.includes("install") || d.includes("service") || d.includes("grading") || d.includes("prep")) return { bg: "bg-purple-100", text: "text-purple-700" };
+  return { bg: "bg-zinc-100", text: "text-zinc-500" };
+}
 
-  if (quote.status === "accepted" || step === "done" || depositSuccess) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <CheckCircle className="size-16 text-green-500" />
-        <h1 className="text-2xl font-bold">Quote Accepted!</h1>
-        <p className="text-gray-500 max-w-sm">
-          Thank you, {quote.customer_name}. We&apos;ve received your acceptance
-          {depositSuccess ? " and your deposit payment" : ""}.
-          We&apos;ll be in touch shortly to schedule your project.
-        </p>
-        {quote.estimated_timeline && <p className="text-sm font-medium">Timeline: {quote.estimated_timeline}</p>}
-        <div className="flex gap-3">
-          <a href="tel:6318746244"><Button variant="outline"><Phone className="mr-2 size-4" />Call</Button></a>
-          <a href="sms:6318746244"><Button variant="outline"><MessageSquare className="mr-2 size-4" />Text</Button></a>
-        </div>
-      </div>
-    );
-  }
+function getItemEmoji(desc: string, unit: string): string {
+  const d = desc.toLowerCase();
+  if (d.includes("mulch")) return "🪵";
+  if (d.includes("topsoil") || d.includes("soil") || d.includes("loam")) return "🌱";
+  if (d.includes("gravel") || d.includes("stone") || d.includes("rock") || d.includes("bluestone") || d.includes("rca")) return "🪨";
+  if (d.includes("sand")) return "⛱";
+  if (d.includes("delivery") || unit === "trip") return "🚚";
+  if (d.includes("labor") || d.includes("install") || d.includes("grading")) return "🔧";
+  return "📦";
+}
 
-  if (quote.status === "declined" || step === "declined") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <p className="text-gray-500 max-w-sm">We&apos;ve noted your decision. Please don&apos;t hesitate to reach out if circumstances change.</p>
-        <div className="flex gap-3">
-          <a href="tel:6318746244"><Button variant="outline"><Phone className="mr-2 size-4" />Call</Button></a>
-          <a href="sms:6318746244"><Button variant="outline"><MessageSquare className="mr-2 size-4" />Text</Button></a>
-        </div>
-      </div>
-    );
-  }
+// ─── Hero Header ─────────────────────────────────────────────────────────────
 
+function HeroHeader({ name, quoteNumber }: { name: string; quoteNumber: string }) {
   return (
-    <>
-      {/* Print-optimized styles */}
-      <style>{`
-        @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .no-print { display: none !important; }
-          .print-break { page-break-inside: avoid; }
-          @page { margin: 0.5in; size: letter; }
-        }
-      `}</style>
-
-      <div className="min-h-screen bg-gray-100 print:bg-white">
-        {/* Print / Save PDF button */}
-        <div className="no-print fixed right-4 top-4 z-50">
-          <Button variant="outline" size="sm" className="bg-white shadow-md" onClick={() => window.print()}>
-            <Printer className="size-4 mr-1.5" /> Save PDF
-          </Button>
-        </div>
-
-        <div className="mx-auto max-w-[700px] print:max-w-none">
-          {/* ── HEADER ── */}
-          <div className="bg-[#1a3a5c] px-8 py-6 text-white print:py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Image src="/logo-blue.png" alt="Eastern LM" width={140} height={37} className="brightness-0 invert" />
-              </div>
-              <div className="text-right text-[13px] leading-relaxed">
-                <p className="font-semibold">Eastern Landscape & Mason Supply</p>
-                <p>110 Frowein Road, Center Moriches, NY 11934</p>
-                <p>(631) 874-6244 &middot; sales@easternlm.com</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── QUOTE INFO BAR ── */}
-          <div className="bg-white border-b px-8 py-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Prepared For</p>
-                  <p className="text-lg font-bold text-gray-900">{quote.customer_name}</p>
-                  {quote.customer_address && <p className="text-sm text-gray-500">{quote.customer_address}</p>}
-                </div>
-              </div>
-              <div className="text-right space-y-2">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Quote Number</p>
-                  <p className="font-mono text-lg font-bold text-[#1a3a5c]">{quote.quote_number}</p>
-                </div>
-                <div className="flex gap-6 justify-end">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Date</p>
-                    <p className="text-sm">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-                  </div>
-                  {quote.valid_until && (
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Valid Until</p>
-                      <p className="text-sm">{quote.valid_until}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── BODY ── */}
-          <div className="bg-white px-8 py-6 space-y-6 print-break">
-            {/* Title & description */}
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{quote.title}</h1>
-              {quote.description && (
-                <p className="mt-2 text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">{quote.description}</p>
-              )}
-            </div>
-
-            {/* ── LINE ITEMS TABLE ── */}
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="pb-2.5 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 w-[50%]">Description</th>
-                  <th className="pb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 w-[12%]">Qty</th>
-                  <th className="pb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 w-[12%]">Unit</th>
-                  <th className="pb-2.5 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 w-[13%]">Rate</th>
-                  <th className="pb-2.5 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 w-[13%]">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {quote.line_items.map((item, i) => (
-                  <tr key={i} className="group">
-                    <td className="py-3 pr-3">
-                      <p className="font-medium text-gray-900">{item.description}</p>
-                      {item.notes && <p className="mt-0.5 text-xs text-gray-400 leading-relaxed">{item.notes}</p>}
-                    </td>
-                    <td className="py-3 text-center text-gray-700">{item.quantity}</td>
-                    <td className="py-3 text-center text-gray-500">{item.unit}</td>
-                    <td className="py-3 text-right text-gray-700">{fmt(item.unit_price_cents)}</td>
-                    <td className="py-3 text-right font-medium text-gray-900">{fmt(item.total_cents)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* ── TOTALS ── */}
-            <div className="flex justify-end">
-              <div className="w-64 space-y-1.5 text-sm">
-                <div className="flex justify-between text-gray-500">
-                  <span>Subtotal</span>
-                  <span>{fmt(quote.subtotal_cents)}</span>
-                </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Tax (8.75%)</span>
-                  <span>{fmt(quote.tax_cents)}</span>
-                </div>
-                <div className="flex justify-between border-t-2 border-gray-900 pt-2 text-lg font-bold text-gray-900">
-                  <span>Total</span>
-                  <span>{fmt(quote.total_cents)}</span>
-                </div>
-                {quote.deposit_required_cents > 0 && (
-                  <div className="flex justify-between rounded-md bg-amber-50 border border-amber-200 px-3 py-2 font-semibold text-amber-800">
-                    <span>Deposit Due</span>
-                    <span>{fmt(quote.deposit_required_cents)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Timeline */}
-            {quote.estimated_timeline && (
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm">
-                <span className="font-semibold text-blue-900">Estimated Timeline:</span>{" "}
-                <span className="text-blue-800">{quote.estimated_timeline}</span>
-              </div>
-            )}
-
-            {/* Terms */}
-            {quote.terms && (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 print-break">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">Terms & Conditions</p>
-                <p className="text-xs leading-relaxed text-gray-600 whitespace-pre-wrap">{quote.terms}</p>
-              </div>
-            )}
-          </div>
-
-          {/* ── ACTION SECTION (hidden on print) ── */}
-          <QuoteActions
-            quote={quote}
-            token={token}
-            onAccepted={() => setStep("done")}
-            onDeclined={() => setStep("declined")}
-          />
-
-          {/* ── FOOTER ── */}
-          <div className="bg-gray-50 print:bg-white border-t px-8 py-4 text-center text-xs text-gray-400">
-            <p>Questions? Call <a href="tel:6318746244" className="text-blue-600 font-medium">(631) 874-6244</a> or text <a href="sms:6318746244" className="text-blue-600 font-medium">(631) 874-6244</a></p>
-            <p className="mt-1">Eastern Landscape & Mason Supply &middot; 110 Frowein Road, Center Moriches, NY 11934</p>
-          </div>
-        </div>
+    <header
+      className="relative px-5 pt-10 pb-8 text-white text-center"
+      style={{ background: "linear-gradient(135deg, #1a2e0a 0%, #2d4a15 60%, #1f3a10 100%)" }}
+    >
+      {/* Subtle topo texture */}
+      <div
+        className="absolute inset-0 opacity-[0.06]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M0 100 Q50 60 100 100 Q150 140 200 100' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 70 Q50 30 100 70 Q150 110 200 70' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 130 Q50 90 100 130 Q150 170 200 130' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E")`,
+        }}
+      />
+      <div className="relative">
+        <Image
+          src="/logo-white.png"
+          alt="Eastern Landscape & Mason Supply"
+          width={160} height={42}
+          className="mx-auto mb-1 h-10 w-auto object-contain"
+        />
+        <p className="text-xs uppercase tracking-[0.2em] text-white/50 font-medium mb-7">
+          Landscape &amp; Mason Supply
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Quote for {name}</h1>
+        <p className="text-sm text-white/40 mt-1.5 font-mono">{quoteNumber}</p>
       </div>
-    </>
+    </header>
   );
 }
 
-/** Embedded payment form for quotes */
-function QuotePaymentForm({ amountCents, onSuccess, onError }: {
-  amountCents: number; onSuccess: () => void; onError: (msg: string) => void;
-}) {
+// ─── Confirmed View ───────────────────────────────────────────────────────────
+
+function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
+  const addr = quote.delivery_address || quote.customer_address;
+  return (
+    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+      <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
+      <div className="mx-auto max-w-md px-4 py-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="size-9 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-zinc-900 mb-1">
+            {byCard ? "Payment Received!" : "Order Confirmed!"}
+          </h2>
+          <p className="text-zinc-500 text-sm">
+            Thank you, {quote.customer_name.split(" ")[0]}. We&apos;ll be in touch shortly to confirm your{" "}
+            {(quote.deposit_required_cents ?? 0) > 0 ? "project schedule" : "delivery"}.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm mb-4 space-y-3 text-sm">
+          {quote.line_items.filter(i => i.unit !== "trip").slice(0, 3).map((item, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="text-xl">{getItemEmoji(item.description, item.unit)}</span>
+              <span className="text-zinc-700">{item.quantity} {item.unit} {item.description}</span>
+            </div>
+          ))}
+          {addr && (
+            <div className="flex items-center gap-3 pt-1 border-t border-zinc-100">
+              <MapPin className="size-4 text-zinc-400 shrink-0" />
+              <span className="text-zinc-600">{addr}</span>
+            </div>
+          )}
+          {quote.delivery_date && (
+            <div className="flex items-center gap-3">
+              <Calendar className="size-4 text-zinc-400 shrink-0" />
+              <span className="text-zinc-600">{formatDeliveryDate(quote.delivery_date)}</span>
+            </div>
+          )}
+          {quote.delivery_time_window && (
+            <div className="flex items-center gap-3">
+              <Clock className="size-4 text-zinc-400 shrink-0" />
+              <span className="text-zinc-600">{formatTimeWindow(quote.delivery_time_window)}</span>
+            </div>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-zinc-400 mb-5">
+          A confirmation has been sent to your phone{quote.customer_address ? " and email" : ""}.
+        </p>
+
+        <TrustFooter />
+      </div>
+    </div>
+  );
+}
+
+// ─── Declined View ────────────────────────────────────────────────────────────
+
+function DeclinedView({ quote }: { quote: Quote }) {
+  return (
+    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+      <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
+      <div className="mx-auto max-w-md px-4 py-8 text-center">
+        <XCircle className="size-12 text-zinc-300 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold text-zinc-700 mb-2">Quote Declined</h2>
+        <p className="text-sm text-zinc-500 max-w-xs mx-auto">
+          We&apos;ve noted your decision. If anything changes or you have questions, don&apos;t hesitate to reach out.
+        </p>
+        <div className="mt-8">
+          <TrustFooter />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Trust Footer ─────────────────────────────────────────────────────────────
+
+function TrustFooter() {
+  return (
+    <footer className="text-center py-6 space-y-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Questions?</p>
+      <div className="flex justify-center gap-3">
+        <a
+          href="tel:+16318746244"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl bg-green-700 text-white text-sm font-semibold active:bg-green-800"
+        >
+          <Phone className="size-4" /> (631) 874-6244
+        </a>
+        <a
+          href="sms:+16318746244"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl border border-zinc-300 bg-white text-zinc-700 text-sm font-semibold active:bg-zinc-50"
+        >
+          <MessageSquare className="size-4" /> Text Us
+        </a>
+      </div>
+      <div className="text-xs text-zinc-400 space-y-0.5 pt-2">
+        <p className="font-medium text-zinc-500">Eastern Landscape &amp; Mason Supply</p>
+        <p>110 Frowein Road · Center Moriches, NY 11934</p>
+        <p>Family-owned · easternlm.com</p>
+      </div>
+    </footer>
+  );
+}
+
+// ─── Stripe Payment Form ──────────────────────────────────────────────────────
+
+function StripePaymentForm({
+  amountCents, onSuccess, onError,
+}: { amountCents: number; onSuccess: () => void; onError: (msg: string) => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -362,53 +308,102 @@ function QuotePaymentForm({ amountCents, onSuccess, onError }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement options={{ layout: "tabs", wallets: { applePay: "auto", googlePay: "auto" } }} />
-      <button type="submit" disabled={!stripe || processing}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-700 py-3.5 text-base font-bold text-white hover:bg-green-600 disabled:opacity-50">
-        {processing ? <><Loader2 className="size-4 animate-spin" /> Processing...</> : <><Lock className="size-4" /> Pay {fmt(amountCents)}</>}
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-base font-bold text-white hover:bg-green-600 active:bg-green-800 disabled:opacity-50 transition-colors"
+      >
+        {processing
+          ? <><Loader2 className="size-4 animate-spin" /> Processing…</>
+          : <><Lock className="size-4" /> Pay {fmt(amountCents)}</>}
       </button>
-      <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400"><Shield className="size-3" /> Secured by Stripe · 256-bit encryption</p>
+      <p className="flex items-center justify-center gap-1.5 text-xs text-zinc-400">
+        <Shield className="size-3" /> Secured by Stripe · 256-bit encryption
+      </p>
     </form>
   );
 }
 
-/** Quote action section — payment choice, embedded checkout, COD, decline */
-function QuoteActions({ quote, token, onAccepted, onDeclined }: {
-  quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void;
-}) {
-  const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "decline">("choose");
+// ─── Payment Section ──────────────────────────────────────────────────────────
+
+function PaymentSection({
+  quote, token, onAccepted, onDeclined,
+}: { quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void }) {
+  const isService = (quote.deposit_required_cents ?? 0) > 0;
+  const baseAmount = isService ? (quote.deposit_required_cents ?? 0) : quote.total_cents;
+  const ccFee = Math.round(baseAmount * 0.03);
+  const cardTotal = baseAmount + ccFee;
+
+  const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "signing" | "decline">("choose");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [chargeAmount, setChargeAmount] = useState(0);
-  const [email, setEmail] = useState(quote.customer_address ? "" : "");
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
 
-  const isService = quote.type === "service" && quote.deposit_required_cents > 0;
-  const ccSurcharge = Math.round((isService ? quote.deposit_required_cents : quote.total_cents) * 0.03);
-  const cardTotal = (isService ? quote.deposit_required_cents : quote.total_cents) + ccSurcharge;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sigPadRef = useRef<SignaturePad | null>(null);
+
+  // Init signature pad when signing step is shown
+  useEffect(() => {
+    if (mode !== "signing" || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * ratio;
+    canvas.height = canvas.offsetHeight * ratio;
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.scale(ratio, ratio);
+    sigPadRef.current = new SignaturePad(canvas, {
+      backgroundColor: "rgba(255,255,255,0)",
+      penColor: "#1a2e0a",
+    });
+    return () => { sigPadRef.current?.off(); sigPadRef.current = null; };
+  }, [mode]);
 
   async function startCardPayment() {
     setProcessing(true); setError("");
     try {
       const res = await fetch(`/api/quote/${token}/payment-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
+      if (!res.ok) throw new Error(data.error ?? "Failed to initiate payment");
       setClientSecret(data.clientSecret);
       setChargeAmount(data.chargeAmountCents);
       setMode("card");
-    } catch (err) { setError(err instanceof Error ? err.message : "Failed"); }
-    finally { setProcessing(false); }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally { setProcessing(false); }
   }
 
   async function confirmCod() {
-    setProcessing(true);
+    setProcessing(true); setError("");
     const res = await fetch(`/api/quote/${token}/confirm-cod`, { method: "POST" });
-    if (res.ok) onAccepted();
-    else { const d = await res.json(); setError(d.error ?? "Failed"); }
-    setProcessing(false);
+    if (res.ok) { onAccepted(); }
+    else { const d = await res.json(); setError(d.error ?? "Failed to confirm order"); setProcessing(false); }
+  }
+
+  async function submitSignatureAndPay() {
+    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
+      setError("Please sign before proceeding."); return;
+    }
+    const dataUrl = sigPadRef.current.toDataURL("image/png");
+    setSigDataUrl(dataUrl);
+    setProcessing(true); setError("");
+    try {
+      const r = await fetch(`/api/quote/${token}/accept`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signatureDataUrl: dataUrl }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed to save signature");
+      // Now create payment intent for deposit
+      await startCardPayment();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setProcessing(false);
+    }
   }
 
   async function handleDecline(reason: string) {
@@ -422,108 +417,539 @@ function QuoteActions({ quote, token, onAccepted, onDeclined }: {
   }
 
   return (
-    <div className="no-print bg-white border-t px-8 py-6 space-y-4">
-      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>}
-
-      {mode === "choose" && (
-        <>
-          <p className="text-sm font-semibold text-gray-700 text-center">How would you like to pay?</p>
-
-          {/* Card payment */}
-          <button onClick={startCardPayment} disabled={processing}
-            className="flex w-full items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 transition-colors disabled:opacity-50">
-            <CreditCard className="size-8 text-green-700 shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold text-green-900">Pay by Card — {fmt(cardTotal)}</p>
-              <p className="text-xs text-green-700">Includes 3% processing fee · Secure checkout</p>
-            </div>
-            {processing && <Loader2 className="size-5 animate-spin text-green-600" />}
-          </button>
-
-          {/* COD option */}
-          <button onClick={() => setMode("cod-confirm")}
-            className="flex w-full items-center gap-4 rounded-xl border-2 border-gray-200 bg-gray-50 p-4 text-left hover:border-amber-300 transition-colors">
-            <Truck className="size-8 text-amber-700 shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold text-gray-900">Cash on Delivery — {fmt(quote.total_cents)}</p>
-              <p className="text-xs text-gray-500">Pay when materials arrive · No processing fee</p>
-            </div>
-          </button>
-
-          <button onClick={() => setMode("decline")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 pt-2">
-            Decline this quote
-          </button>
-        </>
+    <section className="bg-white rounded-2xl shadow-sm mb-4 overflow-hidden">
+      {error && (
+        <div className="mx-5 mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+          {error}
+        </div>
       )}
 
+      {/* ── Choose ── */}
+      {mode === "choose" && (
+        <div className="p-5 space-y-4">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            {isService ? "Accept & Pay Deposit" : "How would you like to pay?"}
+          </h2>
+
+          {/* Card option */}
+          {isService ? (
+            <button
+              onClick={() => setMode("signing")}
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 active:border-green-500 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center shrink-0">
+                <Lock className="size-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-green-900">Sign &amp; Pay Deposit</p>
+                <p className="text-xs text-green-700 mt-0.5">
+                  {fmt(cardTotal)} by card · Deposit secures your project
+                </p>
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={startCardPayment}
+              disabled={processing}
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-green-200 bg-green-50 p-4 text-left hover:border-green-400 active:border-green-500 transition-colors disabled:opacity-50"
+            >
+              <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center shrink-0">
+                {processing
+                  ? <Loader2 className="size-5 text-white animate-spin" />
+                  : <Lock className="size-5 text-white" />}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-green-900">Pay by Card — {fmt(cardTotal)}</p>
+                <p className="text-xs text-green-700 mt-0.5">Includes 3% processing fee · Secure checkout</p>
+              </div>
+            </button>
+          )}
+
+          {/* COD option — material quotes only */}
+          {!isService && (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-zinc-200" />
+                <span className="text-xs text-zinc-400 font-medium">or</span>
+                <div className="flex-1 h-px bg-zinc-200" />
+              </div>
+              <button
+                onClick={() => setMode("cod-confirm")}
+                className="w-full flex items-center gap-4 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 text-left hover:border-amber-300 active:border-amber-400 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center shrink-0">
+                  <Truck className="size-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-zinc-900">Cash on Delivery — {fmt(quote.total_cents)}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Pay when materials arrive · No processing fee</p>
+                </div>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => setMode("decline")}
+            className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600 pt-1"
+          >
+            Decline this quote
+          </button>
+        </div>
+      )}
+
+      {/* ── Signature (service quotes) ── */}
+      {mode === "signing" && (
+        <div className="p-5 space-y-4">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            Sign to Accept
+          </h2>
+          <p className="text-sm text-zinc-600">
+            Draw your signature below to accept the scope and terms of this quote.
+          </p>
+          <div className="border-2 border-zinc-200 rounded-xl overflow-hidden bg-white relative">
+            <canvas
+              ref={canvasRef}
+              className="w-full"
+              style={{ height: 140, touchAction: "none" }}
+            />
+            <p className="absolute bottom-2 right-3 text-[10px] text-zinc-300 pointer-events-none">
+              Sign here
+            </p>
+          </div>
+          <button
+            onClick={() => { sigPadRef.current?.clear(); setSigDataUrl(null); }}
+            className="text-xs text-zinc-400 hover:text-zinc-600"
+          >
+            Clear signature
+          </button>
+          <p className="text-[11px] text-zinc-400 leading-relaxed">
+            By signing, I accept the scope and terms of this quote. The deposit is non-refundable.
+          </p>
+          <button
+            onClick={submitSignatureAndPay}
+            disabled={processing}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 py-4 text-base font-bold text-white hover:bg-green-600 disabled:opacity-50 transition-colors"
+          >
+            {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment →</>}
+          </button>
+          <button
+            onClick={() => setMode("choose")}
+            className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600"
+          >
+            ← Back
+          </button>
+        </div>
+      )}
+
+      {/* ── Card payment (Stripe) ── */}
       {mode === "card" && clientSecret && stripePromise && (
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-center text-gray-700">Enter payment details</p>
-          <Elements stripe={stripePromise} options={{
-            clientSecret,
-            appearance: { theme: "stripe", variables: { colorPrimary: "#1e3a5f", borderRadius: "8px" } },
-          }}>
-            <QuotePaymentForm
+        <div className="p-5 space-y-4">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+            {isService ? `Pay ${fmt(chargeAmount)} Deposit` : "Payment Details"}
+          </h2>
+          <Elements
+            stripe={stripePromise}
+            options={{ clientSecret, appearance: stripeAppearance }}
+          >
+            <StripePaymentForm
               amountCents={chargeAmount}
-              onSuccess={async () => {
-                // Confirm server-side
-                try {
-                  await fetch("/api/checkout/confirm", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
-                  });
-                } catch {}
+              onSuccess={() => {
+                fetch("/api/checkout/confirm", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
+                }).catch(() => {});
                 onAccepted();
               }}
               onError={setError}
             />
           </Elements>
-          <button onClick={() => { setMode("choose"); setClientSecret(null); }} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
-            ← Back to payment options
-          </button>
+          {!isService && (
+            <button
+              onClick={() => { setMode("choose"); setClientSecret(null); }}
+              className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              ← Back to payment options
+            </button>
+          )}
         </div>
       )}
 
+      {/* ── COD confirm ── */}
       {mode === "cod-confirm" && (
-        <div className="space-y-4">
-          <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 text-center">
-            <p className="text-lg font-bold text-amber-900">Cash on Delivery</p>
-            <p className="text-3xl font-bold text-amber-800 mt-2">{fmt(quote.total_cents)}</p>
-            <p className="text-sm text-amber-700 mt-2">Due when your materials are delivered</p>
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-5 text-center">
+            <Truck className="size-8 text-amber-600 mx-auto mb-2" />
+            <p className="text-base font-bold text-amber-900">Cash on Delivery</p>
+            <p className="text-3xl font-bold text-amber-800 mt-1">{fmt(quote.total_cents)}</p>
+            <p className="text-sm text-amber-700 mt-1.5">Due when your materials arrive</p>
           </div>
-          <button onClick={confirmCod} disabled={processing}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-3.5 text-base font-bold text-white hover:bg-amber-500 disabled:opacity-50">
-            {processing ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-4" />}
-            Confirm COD Order
+          <button
+            onClick={confirmCod}
+            disabled={processing}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 text-base font-bold text-white hover:bg-amber-500 active:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {processing
+              ? <><Loader2 className="size-4 animate-spin" /> Confirming…</>
+              : <><Truck className="size-4" /> Confirm COD Order</>}
           </button>
-          <button onClick={() => setMode("choose")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
+          <button
+            onClick={() => setMode("choose")}
+            className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600"
+          >
             ← Back to payment options
           </button>
         </div>
       )}
 
+      {/* ── Decline ── */}
       {mode === "decline" && (
-        <div className="space-y-3">
-          <p className="font-medium text-sm">Why are you declining?</p>
-          {["Too expensive", "Going with someone else", "Timing doesn't work", "Other"].map((r) => (
-            <button key={r} onClick={() => handleDecline(r)} disabled={processing}
-              className="flex w-full items-center rounded-lg border px-4 py-3 text-sm hover:bg-gray-50 disabled:opacity-50">
-              {r}
+        <div className="p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-700">Why are you declining?</h2>
+          {["Too expensive", "Going with someone else", "Timing doesn't work", "Project on hold", "Other"].map(reason => (
+            <button
+              key={reason}
+              onClick={() => handleDecline(reason)}
+              disabled={processing}
+              className="flex w-full items-center rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 disabled:opacity-50 transition-colors"
+            >
+              {reason}
             </button>
           ))}
-          <button onClick={() => setMode("choose")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 pt-2">
+          <button
+            onClick={() => setMode("choose")}
+            className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600 pt-2"
+          >
             ← Back
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+// ─── Main Quote View ──────────────────────────────────────────────────────────
+
+function QuoteView({ quote, token, onAccepted, onDeclined }: {
+  quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void;
+}) {
+  const isService = (quote.deposit_required_cents ?? 0) > 0;
+  const deliveryFeeCents = quote.delivery_fee_cents ?? 0;
+  const ccSurchargeCents = quote.cc_surcharge_cents ?? Math.round(quote.total_cents * 0.03);
+  const cardTotal = quote.total_cents + ccSurchargeCents;
+
+  // Separate delivery line items from material items
+  const deliveryItem = quote.line_items.find(i => i.unit === "trip" || i.description.toLowerCase().startsWith("delivery"));
+  const materialItems = quote.line_items.filter(i => i !== deliveryItem);
+  const laborItems = materialItems.filter(i => {
+    const d = i.description.toLowerCase();
+    return d.includes("labor") || d.includes("install") || d.includes("service") ||
+      d.includes("grading") || d.includes("excavat") || d.includes("prep") || d.includes("spread");
+  });
+  const productItems = materialItems.filter(i => !laborItems.includes(i));
+
+  const activeConstraints = Object.entries(quote.access_constraints ?? {})
+    .filter(([, v]) => v)
+    .map(([k]) => CONSTRAINT_LABELS[k] ?? k);
+
+  return (
+    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+      <HeroHeader name={quote.customer_name.split(" ")[0]} quoteNumber={quote.quote_number} />
+
+      <div className="mx-auto max-w-md px-4 pt-5 pb-2">
+
+        {/* ── Project Scope (service only) ── */}
+        {isService && quote.description && (
+          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+              <FileText className="size-3.5" /> Project Scope
+            </h2>
+            <h3 className="text-base font-semibold text-zinc-900 mb-2">{quote.title}</h3>
+            <p className="text-sm text-zinc-600 leading-relaxed">{quote.description}</p>
+            {quote.photo_urls && quote.photo_urls.length > 0 && (
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+                {quote.photo_urls.map((url, i) => (
+                  <img
+                    key={i} src={url} alt={`Site photo ${i + 1}`}
+                    className="h-20 w-20 rounded-xl object-cover flex-shrink-0 cursor-pointer"
+                    onClick={() => window.open(url, "_blank")}
+                  />
+                ))}
+              </div>
+            )}
+            {quote.estimated_timeline && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+                <Clock className="size-3.5" />
+                <span>Estimated timeline: {quote.estimated_timeline}</span>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Materials ── */}
+        <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+          <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-4">
+            <Package className="size-3.5" /> {isService ? "Materials & Services" : "Your Materials"}
+          </h2>
+
+          <div className="space-y-4">
+            {/* Product line items */}
+            {productItems.map((item, i) => {
+              const { bg, text } = getItemColors(item.description, item.unit);
+              const emoji = getItemEmoji(item.description, item.unit);
+              return (
+                <div key={i} className="flex gap-3 items-start">
+                  <div className={`size-14 flex-shrink-0 rounded-xl ${bg} flex items-center justify-center text-2xl`}>
+                    {emoji}
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="font-semibold text-zinc-900 text-sm leading-snug">{item.description}</p>
+                    <p className={`text-xs mt-0.5 ${text}`}>
+                      {item.quantity} {item.unit}
+                      {item.unit_price_cents > 0 && ` · ${fmt(item.unit_price_cents)} / ${item.unit}`}
+                    </p>
+                  </div>
+                  <p className="font-bold text-zinc-900 text-sm whitespace-nowrap pt-0.5">
+                    {fmt(item.total_cents)}
+                  </p>
+                </div>
+              );
+            })}
+
+            {/* Labor/service line items */}
+            {laborItems.length > 0 && (
+              <>
+                <div className="border-t border-zinc-100 pt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+                    Labor &amp; Services
+                  </p>
+                  {laborItems.map((item, i) => (
+                    <div key={i} className="flex gap-3 items-start mb-3 last:mb-0">
+                      <div className="size-14 flex-shrink-0 rounded-xl bg-purple-100 flex items-center justify-center text-2xl">
+                        🔧
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className="font-semibold text-zinc-900 text-sm leading-snug">{item.description}</p>
+                        {item.notes && <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">{item.notes}</p>}
+                      </div>
+                      <p className="font-bold text-zinc-900 text-sm whitespace-nowrap pt-0.5">
+                        {fmt(item.total_cents)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ── Delivery or Pickup ── */}
+        {quote.delivery_address ? (
+          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+              <Truck className="size-3.5" /> Delivery
+            </h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-start gap-3">
+                <MapPin className="size-4 text-zinc-400 shrink-0 mt-0.5" />
+                <p className="font-semibold text-zinc-900 leading-snug">{quote.delivery_address}</p>
+              </div>
+              {quote.delivery_date && (
+                <div className="flex items-center gap-3">
+                  <Calendar className="size-4 text-zinc-400 shrink-0" />
+                  <p className="text-zinc-700">{formatDeliveryDate(quote.delivery_date)}</p>
+                </div>
+              )}
+              {quote.delivery_time_window && (
+                <div className="flex items-center gap-3">
+                  <Clock className="size-4 text-zinc-400 shrink-0" />
+                  <p className="text-zinc-700">{formatTimeWindow(quote.delivery_time_window)}</p>
+                </div>
+              )}
+              {quote.route_info && (
+                <div className="flex items-center gap-3">
+                  <Truck className="size-4 text-zinc-400 shrink-0" />
+                  <p className="text-zinc-500 text-xs">
+                    ~{quote.route_info.roundTripMinutes} min from yard · {quote.route_info.roundTripMiles} miles round trip
+                  </p>
+                </div>
+              )}
+              {activeConstraints.length > 0 && (
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-amber-700 text-xs font-medium">{activeConstraints.join(" · ")}</p>
+                </div>
+              )}
+              {quote.delivery_notes && (
+                <div className="flex items-start gap-3 pt-1 border-t border-zinc-100">
+                  <FileText className="size-4 text-zinc-400 shrink-0 mt-0.5" />
+                  <p className="text-zinc-600 italic text-xs">{quote.delivery_notes}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : (
+          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+              <Truck className="size-3.5" /> Pickup at Yard
+            </h2>
+            <div className="space-y-1.5 text-sm">
+              <p className="font-semibold text-zinc-900">110 Frowein Road</p>
+              <p className="text-zinc-500">Center Moriches, NY 11934</p>
+              <p className="text-zinc-400 text-xs mt-1">Mon–Sat 7 AM – 4 PM</p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Order Total ── */}
+        <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+            {isService ? "Project Total" : "Order Total"}
+          </h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Materials</span>
+              <span className="text-zinc-800">{fmt(quote.subtotal_cents - deliveryFeeCents)}</span>
+            </div>
+            {deliveryFeeCents > 0 && (
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Delivery</span>
+                <span className="text-zinc-800">{fmt(deliveryFeeCents)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Tax (8.75%)</span>
+              <span className="text-zinc-800">{fmt(quote.tax_cents)}</span>
+            </div>
+
+            <div className="border-t border-zinc-200 pt-2 mt-1 space-y-1.5">
+              {isService ? (
+                <>
+                  <div className="flex justify-between font-bold text-base">
+                    <span className="text-zinc-900">Project Total</span>
+                    <span className="text-zinc-900">{fmt(quote.total_cents)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-green-700">
+                    <span>Deposit Required</span>
+                    <span>{fmt(quote.deposit_required_cents)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400 text-xs">
+                    <span>Balance due on completion</span>
+                    <span>{fmt(quote.total_cents - quote.deposit_required_cents)}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between font-bold text-base">
+                    <span className="text-zinc-900">Cash / COD</span>
+                    <span className="text-amber-700">{fmt(quote.total_cents)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400 text-xs">
+                    <span>Card (incl. 3% fee)</span>
+                    <span>{fmt(cardTotal)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Payment ── */}
+        <PaymentSection
+          quote={quote}
+          token={token}
+          onAccepted={onAccepted}
+          onDeclined={onDeclined}
+        />
+
+        {/* ── Terms ── */}
+        {quote.terms && (
+          <section className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">Terms</p>
+            <p className="text-xs text-zinc-500 leading-relaxed">{quote.terms}</p>
+          </section>
+        )}
+
+        {/* ── Trust Footer ── */}
+        <TrustFooter />
+      </div>
     </div>
   );
 }
 
+// ─── Inner: data fetching + state ─────────────────────────────────────────────
+
+function PublicQuoteInner() {
+  const { token } = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
+  const depositSuccess = searchParams.get("deposit") === "success";
+
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+  const [outcome, setOutcome] = useState<"accepted" | "declined" | null>(null);
+  const [byCard, setByCard] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/quote/${token}`)
+      .then(r => r.json())
+      .then(d => { if (d.quote) setQuote(d.quote); else setFetchError("Quote not found or has expired."); })
+      .catch(() => setFetchError("Failed to load quote."))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "#f4f2ec" }}>
+        <Loader2 className="size-7 animate-spin text-zinc-400" />
+      </div>
+    );
+  }
+
+  if (fetchError || !quote) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center" style={{ background: "#f4f2ec" }}>
+        <XCircle className="size-12 text-zinc-300" />
+        <h1 className="text-lg font-semibold text-zinc-700">Quote Not Found</h1>
+        <p className="text-sm text-zinc-500 max-w-xs">
+          {fetchError || "This quote link is invalid or has expired."}
+        </p>
+        <a href="tel:+16318746244" className="text-sm text-green-700 font-semibold hover:underline mt-2">
+          Call (631) 874-6244
+        </a>
+      </div>
+    );
+  }
+
+  // Already-accepted / already-declined states (server-side or just completed)
+  const isAccepted = quote.status === "accepted" || quote.status === "converted" ||
+    outcome === "accepted" || depositSuccess;
+  const isDeclined = quote.status === "declined" || outcome === "declined";
+
+  if (isAccepted) return <ConfirmedView quote={quote} byCard={byCard || depositSuccess} />;
+  if (isDeclined) return <DeclinedView quote={quote} />;
+
+  return (
+    <QuoteView
+      quote={quote}
+      token={token}
+      onAccepted={() => { setOutcome("accepted"); setByCard(true); }}
+      onDeclined={() => setOutcome("declined")}
+    />
+  );
+}
+
+// ─── Page export ──────────────────────────────────────────────────────────────
+
 export default function PublicQuotePage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-400">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center" style={{ background: "#f4f2ec" }}>
+          <Loader2 className="size-7 animate-spin text-zinc-400" />
+        </div>
+      }
+    >
       <PublicQuoteInner />
     </Suspense>
   );
