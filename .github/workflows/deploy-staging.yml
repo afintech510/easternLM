@@ -7,9 +7,11 @@ on:
 
 env:
   DOCKER_IMAGE: easternlm-web
-  CONTAINER_NAME: easternlm-web
-  HOST_PORT: 3100
+  CONTAINER_NAME: easternlm-staging
+  HOST_PORT: 3101
   CONTAINER_PORT: 3000
+  DEPLOY_PATH: /opt/easternlm-web
+  DOCKER_NETWORK: hosthampton_hampton_net
 
 jobs:
   build-and-deploy:
@@ -20,17 +22,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Copy files to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          source: "."
-          target: /opt/easternlm
-          overwrite: true
-
       - name: Build and deploy on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -40,15 +31,21 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 10m
           script: |
-            cd /opt/easternlm
+            cd ${{ env.DEPLOY_PATH }}
+
+            echo "=== Pulling latest code ==="
+            git pull
+
+            echo "=== Loading env vars ==="
+            eval $(grep -v "^#" .env.local | sed 's/^/export /')
 
             echo "=== Building Docker image ==="
             docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-              --build-arg SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              --build-arg STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+              --build-arg SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+              --build-arg STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" \
+              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" \
               -t ${{ env.DOCKER_IMAGE }}:latest \
               -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
               .
@@ -60,19 +57,10 @@ jobs:
             echo "=== Starting new container ==="
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
+              --network ${{ env.DOCKER_NETWORK }} \
               --restart unless-stopped \
               -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-              -e NODE_ENV=production \
-              -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-              -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-              -e SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
-              -e STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-              -e STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-              -e NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }} \
-              -e GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
-              -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
-              -e RESEND_FROM_EMAIL=${{ secrets.RESEND_FROM_EMAIL }} \
-              -e NEXT_PUBLIC_SITE_URL=https://staging.easternlm.com \
+              --env-file ${{ env.DEPLOY_PATH }}/.env.local \
               ${{ env.DOCKER_IMAGE }}:latest
 
             echo "=== Waiting for health check ==="
