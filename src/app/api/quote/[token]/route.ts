@@ -12,7 +12,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const { data, error } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, public_token, customer_name, customer_address, title, description, line_items, subtotal_cents, tax_cents, total_cents, deposit_required_cents, deposit_paid_cents, valid_until, estimated_timeline, terms, status, accepted_at, declined_at, customer_signature_url, deposit_paid_at",
+      "id, quote_number, public_token, customer_name, customer_address, title, description, line_items, subtotal_cents, tax_cents, total_cents, deposit_required_cents, deposit_paid_cents, valid_until, estimated_timeline, terms, status, accepted_at, declined_at, customer_signature_url, deposit_paid_at, type, cc_surcharge_cents, delivery_address, delivery_fee_cents, delivery_loads, delivery_date, delivery_time_window, delivery_notes, access_constraints, route_info, photo_urls",
     )
     .eq("public_token", token)
     .single();

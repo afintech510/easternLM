@@ -272,6 +272,7 @@ export function QuoteBuilder({
             notes: delivery.notes,
           } : null,
           accessConstraints: delivery.constraints,
+          routeInfo: delivery.routeInfo,
           notes: callNotes,
           serviceInterest,
           send,

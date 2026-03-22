@@ -7,8 +7,9 @@ import { Footer } from "./footer";
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPOS = pathname.startsWith("/pos") || pathname.startsWith("/yard");
+  const isQuote = pathname.startsWith("/quote/") || pathname.startsWith("/q/");
 
-  if (isPOS) return <>{children}</>;
+  if (isPOS || isQuote) return <>{children}</>;
 
   return (
     <div className="flex min-h-screen flex-col">
