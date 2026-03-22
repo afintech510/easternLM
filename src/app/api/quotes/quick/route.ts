@@ -119,10 +119,11 @@ export async function POST(request: Request) {
 
   const lineItems = deliveryItem ? [...materialItems, deliveryItem] : materialItems;
 
-  // Tax applies to materials only, not delivery
+  // Tax applies to materials + delivery (NY state)
   const subtotalCents = materialItems.reduce((s: number, i: any) => s + i.total_cents, 0);
-  const taxCents = Math.round(subtotalCents * TAX_RATE);
-  const totalCents = subtotalCents + (deliveryItem?.total_cents ?? 0) + taxCents;
+  const taxableCents = subtotalCents + (deliveryItem?.total_cents ?? 0);
+  const taxCents = Math.round(taxableCents * TAX_RATE);
+  const totalCents = taxableCents + taxCents;
 
   const validUntilDate = new Date();
   validUntilDate.setDate(validUntilDate.getDate() + (validDays ?? 30));
