@@ -10,12 +10,11 @@ on:
         type: string
 
 env:
-  DOCKER_IMAGE: easternlm-web
+  DOCKER_IMAGE: easternlm-web-prod
   CONTAINER_NAME: easternlm-prod
   HOST_PORT: 3100
   CONTAINER_PORT: 3000
   DEPLOY_PATH: /opt/easternlm-web
-  DOCKER_NETWORK: hosthampton_hampton_net
 
 jobs:
   build-and-deploy:
@@ -24,60 +23,69 @@ jobs:
     if: github.event.inputs.confirm == 'deploy-production'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 5.161.88.134 >> ~/.ssh/known_hosts 2>/dev/null
+          echo "Key fingerprint:"
+          ssh-keygen -l -f ~/.ssh/deploy_key
 
-      - name: Build and deploy on VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          command_timeout: 10m
-          script: |
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: "5.161.88.134"
+          VPS_USER: "root"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=15 \
+            ${VPS_USER}@${VPS_HOST} bash << ENDSSH
+            set -e
             cd ${{ env.DEPLOY_PATH }}
 
             echo "=== Pulling latest code ==="
-            git pull
+            git fetch "https://x-access-token:${GH_TOKEN}@github.com/afintech510/easternLM.git" main
+            git reset --hard FETCH_HEAD
 
-            echo "=== Loading env vars ==="
-            eval $(grep -v "^#" .env.local | sed 's/^/export /')
+            echo "=== Loading build env from .env.local ==="
+            set -a
+            source /opt/easternlm-web/.env.local
+            set +a
 
-            echo "=== Building Docker image (production) ==="
+            echo "=== Building Docker image (production — live Stripe) ==="
             docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-              --build-arg SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-              --build-arg STRIPE_SECRET_KEY="$PROD_STRIPE_SECRET_KEY" \
-              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" \
-              -t ${{ env.DOCKER_IMAGE }}-prod:latest \
-              -t ${{ env.DOCKER_IMAGE }}-prod:${{ github.sha }} \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="\${NEXT_PUBLIC_SUPABASE_URL}" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+              --build-arg SUPABASE_SERVICE_ROLE_KEY="\${SUPABASE_SERVICE_ROLE_KEY}" \
+              --build-arg STRIPE_SECRET_KEY="\${PROD_STRIPE_SECRET_KEY}" \
+              --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="\${PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}" \
+              -t ${{ env.DOCKER_IMAGE }}:latest \
               .
 
-            echo "=== Stopping old container ==="
+            echo "=== Swapping container ==="
             docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
             docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
 
-            echo "=== Starting new container ==="
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
-              --network ${{ env.DOCKER_NETWORK }} \
               --restart unless-stopped \
+              --network hosthampton_hampton_net \
               -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-              --env-file ${{ env.DEPLOY_PATH }}/.env.local \
+              --env-file /opt/easternlm-web/.env.local \
+              -e NODE_ENV=production \
               -e NEXT_PUBLIC_SITE_URL=https://easternlm.com \
-              ${{ env.DOCKER_IMAGE }}-prod:latest
+              ${{ env.DOCKER_IMAGE }}:latest
 
-            echo "=== Waiting for health check ==="
+            echo "=== Health check ==="
             sleep 5
             if curl -sf http://localhost:${{ env.HOST_PORT }} > /dev/null 2>&1; then
-              echo "Production deployment successful! Site is responding."
+              echo "Production deployment successful!"
             else
-              echo "Warning: Site not responding yet. Check container logs:"
               docker logs --tail 20 ${{ env.CONTAINER_NAME }}
               exit 1
             fi
 
-            echo "=== Cleaning up old images ==="
             docker image prune -f
+          ENDSSH
