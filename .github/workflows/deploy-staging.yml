@@ -7,9 +7,10 @@ on:
 
 env:
   DOCKER_IMAGE: easternlm-web
-  CONTAINER_NAME: easternlm-web
-  HOST_PORT: 3100
+  CONTAINER_NAME: easternlm-staging
+  HOST_PORT: 3101
   CONTAINER_PORT: 3000
+  DEPLOY_PATH: /opt/easternlm-web
 
 jobs:
   build-and-deploy:
@@ -28,7 +29,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           source: "."
-          target: /opt/easternlm
+          target: ${{ env.DEPLOY_PATH }}
           overwrite: true
 
       - name: Build and deploy on VPS
@@ -40,7 +41,7 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 10m
           script: |
-            cd /opt/easternlm
+            cd ${{ env.DEPLOY_PATH }}
 
             echo "=== Building Docker image ==="
             docker build \
@@ -61,6 +62,7 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
+              --network hosthampton_hampton_net \
               -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               -e NODE_ENV=production \
               -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
@@ -72,6 +74,11 @@ jobs:
               -e GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
               -e RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
               -e RESEND_FROM_EMAIL=${{ secrets.RESEND_FROM_EMAIL }} \
+              -e TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }} \
+              -e TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }} \
+              -e TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }} \
+              -e ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }} \
+              -e RINGCENTRAL_JWT=${{ secrets.RINGCENTRAL_JWT }} \
               -e NEXT_PUBLIC_SITE_URL=https://staging.easternlm.com \
               ${{ env.DOCKER_IMAGE }}:latest
 
