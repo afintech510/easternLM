@@ -151,8 +151,7 @@ function getItemEmoji(desc: string, unit: string): string {
 function HeroHeader({ name, quoteNumber }: { name: string; quoteNumber: string }) {
   return (
     <header
-      className="relative px-5 pt-10 pb-8 text-white text-center"
-      style={{ background: "linear-gradient(135deg, #001f30 0%, #002e44 60%, #003d5c 100%)" }}
+      className="relative px-5 pt-10 pb-8 text-white text-center bg-primary"
     >
       {/* Subtle topo texture */}
       <div
@@ -183,12 +182,12 @@ function HeroHeader({ name, quoteNumber }: { name: string; quoteNumber: string }
 function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
   const addr = quote.delivery_address || quote.customer_address;
   return (
-    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
       <div className="mx-auto max-w-md px-4 py-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
-          <div className="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="size-9 text-[#002e44]" />
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="size-9 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-zinc-900 mb-1">
             {byCard ? "Payment Received!" : "Order Confirmed!"}
@@ -240,7 +239,7 @@ function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
 
 function DeclinedView({ quote }: { quote: Quote }) {
   return (
-    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
       <div className="mx-auto max-w-md px-4 py-8 text-center">
         <XCircle className="size-12 text-zinc-300 mx-auto mb-4" />
@@ -265,13 +264,13 @@ function TrustFooter() {
       <div className="flex justify-center gap-3">
         <a
           href="tel:+16318746244"
-          className="flex items-center gap-2 h-12 px-5 rounded-xl bg-[#d58300] text-white text-sm font-semibold active:bg-[#b87000]"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl bg-accent text-white text-sm font-semibold active:bg-accent/80"
         >
           <Phone className="size-4" /> (631) 874-6244
         </a>
         <a
           href="sms:+16318746244"
-          className="flex items-center gap-2 h-12 px-5 rounded-xl border border-[#002e44] bg-white text-[#002e44] text-sm font-semibold active:bg-sky-50"
+          className="flex items-center gap-2 h-12 px-5 rounded-xl border border-primary bg-white text-primary text-sm font-semibold active:bg-primary/5"
         >
           <MessageSquare className="size-4" /> Text Us
         </a>
@@ -320,7 +319,7 @@ function StripePaymentForm({
       <button
         type="submit"
         disabled={!stripe || processing}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d58300] py-4 text-base font-bold text-white hover:bg-[#c07600] active:bg-[#b87000] disabled:opacity-50 transition-colors"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-4 text-base font-bold text-white hover:bg-accent/90 active:bg-accent/80 disabled:opacity-50 transition-colors"
       >
         {processing
           ? <><Loader2 className="size-4 animate-spin" /> Processing…</>
@@ -444,14 +443,14 @@ function PaymentSection({
           {isService ? (
             <button
               onClick={() => setMode("signing")}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-[#d58300]/30 bg-[#d58300]/5 p-4 text-left hover:border-[#d58300]/60 active:border-[#d58300] transition-colors"
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-[#d58300] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
                 <Lock className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-zinc-900">Sign &amp; Pay Deposit</p>
-                <p className="text-xs text-[#b87000] mt-0.5">
+                <p className="text-xs text-accent mt-0.5">
                   {fmt(cardTotal)} by card · Deposit secures your project
                 </p>
               </div>
@@ -460,16 +459,16 @@ function PaymentSection({
             <button
               onClick={startCardPayment}
               disabled={processing}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-[#d58300]/30 bg-[#d58300]/5 p-4 text-left hover:border-[#d58300]/60 active:border-[#d58300] transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-full bg-[#d58300] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
                 {processing
                   ? <Loader2 className="size-5 text-white animate-spin" />
                   : <Lock className="size-5 text-white" />}
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-zinc-900">Pay by Card — {fmt(cardTotal)}</p>
-                <p className="text-xs text-[#b87000] mt-0.5">
+                <p className="text-xs text-accent mt-0.5">
                   Card · Apple Pay · Klarna · Affirm · Afterpay
                 </p>
               </div>
@@ -539,7 +538,7 @@ function PaymentSection({
           <button
             onClick={submitSignatureAndPay}
             disabled={processing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#d58300] py-4 text-base font-bold text-white hover:bg-[#c07600] disabled:opacity-50 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-4 text-base font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
           >
             {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment →</>}
           </button>
@@ -669,7 +668,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
     .map(([k]) => CONSTRAINT_LABELS[k] ?? k);
 
   return (
-    <div className="min-h-screen" style={{ background: "#f4f2ec" }}>
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name.split(" ")[0]} quoteNumber={quote.quote_number} />
 
       <div className="mx-auto max-w-md px-4 pt-5 pb-2">
@@ -882,7 +881,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                     <span className="text-zinc-900">Project Total</span>
                     <span className="text-zinc-900">{fmt(quote.total_cents)}</span>
                   </div>
-                  <div className="flex justify-between font-semibold text-[#d58300]">
+                  <div className="flex justify-between font-semibold text-accent">
                     <span>Deposit Required</span>
                     <span>{fmt(quote.deposit_required_cents)}</span>
                   </div>
@@ -953,7 +952,7 @@ function PublicQuoteInner() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "#f4f2ec" }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--background)" }}>
         <Loader2 className="size-7 animate-spin text-zinc-400" />
       </div>
     );
@@ -961,13 +960,13 @@ function PublicQuoteInner() {
 
   if (fetchError || !quote) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center" style={{ background: "#f4f2ec" }}>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center" style={{ background: "var(--background)" }}>
         <XCircle className="size-12 text-zinc-300" />
         <h1 className="text-lg font-semibold text-zinc-700">Quote Not Found</h1>
         <p className="text-sm text-zinc-500 max-w-xs">
           {fetchError || "This quote link is invalid or has expired."}
         </p>
-        <a href="tel:+16318746244" className="text-sm text-[#002e44] font-semibold hover:underline mt-2">
+        <a href="tel:+16318746244" className="text-sm text-accent font-semibold hover:underline mt-2">
           Call (631) 874-6244
         </a>
       </div>
@@ -998,7 +997,7 @@ export default function PublicQuotePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center" style={{ background: "#f4f2ec" }}>
+        <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--background)" }}>
           <Loader2 className="size-7 animate-spin text-zinc-400" />
         </div>
       }

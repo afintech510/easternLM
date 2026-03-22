@@ -222,14 +222,17 @@ accounts, audience_segments, calculator_events, campaign_sends, campaigns, categ
 
 ---
 
-## 7. Color Theme Issue
+## 7. Color Theme — FIXED
 
-The quote page (`/quote/[token]`) uses a **green theme** (`#1a2e0a`, `bg-green-700`, etc.) which does NOT match the site's **navy blue + warm amber** theme:
-- Site primary: `oklch(0.28 0.07 230)` = **#002e44** (deep navy)
-- Site accent: `oklch(0.68 0.16 70)` = **#d58300** (warm amber)
-- Quote page currently: `#1a2e0a` / `#2d4a15` / `bg-green-700` (forest green)
-
-**Needs update** — Part 2 of this session.
+The quote page (`/quote/[token]`) was updated from green to match the site's navy blue + warm amber theme:
+- Hero header: `bg-primary` (navy, matches site header)
+- All CTAs: `bg-accent` (amber, matches site buttons)
+- Payment option cards: `border-accent/30 bg-accent/5`
+- Stripe PaymentElement: `colorPrimary: "#d58300"` (amber)
+- Trust footer: call = `bg-accent`, text = `border-primary text-primary`
+- Page backgrounds: `var(--background)` (warm off-white from CSS vars)
+- Success checkmark: kept `bg-green-100 text-green-600` (universal success color)
+- Zero hardcoded hex in classNames — all use Tailwind CSS variables
 
 ---
 
