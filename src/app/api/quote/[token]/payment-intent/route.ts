@@ -42,7 +42,7 @@ export async function POST(
   const paymentIntent = await stripe.paymentIntents.create({
     amount: chargeAmount,
     currency: "usd",
-    automatic_payment_methods: { enabled: true },
+    automatic_payment_methods: { enabled: true, allow_redirects: "always" },
     receipt_email: customerEmail || quote.customer_email || undefined,
     metadata: {
       type: "quote_payment",

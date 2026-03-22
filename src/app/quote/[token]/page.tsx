@@ -296,9 +296,11 @@ function StripePaymentForm({
     e.preventDefault();
     if (!stripe || !elements) return;
     setProcessing(true);
+    // Clean return URL — strip existing query params so ?deposit=success lands cleanly
+    const returnUrl = `${window.location.origin}${window.location.pathname}?deposit=success`;
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: window.location.href + "?deposit=success" },
+      confirmParams: { return_url: returnUrl },
       redirect: "if_required",
     });
     if (error) { onError(error.message ?? "Payment failed."); setProcessing(false); }
@@ -307,7 +309,12 @@ function StripePaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{ layout: "tabs", wallets: { applePay: "auto", googlePay: "auto" } }} />
+      <PaymentElement
+        options={{
+          layout: { type: "accordion", defaultCollapsed: false, radios: false, spacedAccordionItems: true },
+          wallets: { applePay: "auto", googlePay: "auto" },
+        }}
+      />
       <button
         type="submit"
         disabled={!stripe || processing}
@@ -460,7 +467,9 @@ function PaymentSection({
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-green-900">Pay by Card — {fmt(cardTotal)}</p>
-                <p className="text-xs text-green-700 mt-0.5">Includes 3% processing fee · Secure checkout</p>
+                <p className="text-xs text-green-700 mt-0.5">
+                  Card · Apple Pay · Klarna · Affirm · Afterpay
+                </p>
               </div>
             </button>
           )}
@@ -542,28 +551,34 @@ function PaymentSection({
       )}
 
       {/* ── Card payment (Stripe) ── */}
-      {mode === "card" && clientSecret && stripePromise && (
+      {mode === "card" && clientSecret && (
         <div className="p-5 space-y-4">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
             {isService ? `Pay ${fmt(chargeAmount)} Deposit` : "Payment Details"}
           </h2>
-          <Elements
-            stripe={stripePromise}
-            options={{ clientSecret, appearance: stripeAppearance }}
-          >
-            <StripePaymentForm
-              amountCents={chargeAmount}
-              onSuccess={() => {
-                fetch("/api/checkout/confirm", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
-                }).catch(() => {});
-                onAccepted();
-              }}
-              onError={setError}
-            />
-          </Elements>
+          {!stripePromise ? (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              Payment unavailable — please call (631) 874-6244 to complete your order.
+            </p>
+          ) : (
+            <Elements
+              stripe={stripePromise}
+              options={{ clientSecret, appearance: stripeAppearance }}
+            >
+              <StripePaymentForm
+                amountCents={chargeAmount}
+                onSuccess={() => {
+                  fetch("/api/checkout/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
+                  }).catch(() => {});
+                  onAccepted();
+                }}
+                onError={setError}
+              />
+            </Elements>
+          )}
           {!isService && (
             <button
               onClick={() => { setMode("choose"); setClientSecret(null); }}
