@@ -76,6 +76,7 @@ jobs:
               --env-file /opt/easternlm-web/.env.local \
               -e NODE_ENV=production \
               -e NEXT_PUBLIC_SITE_URL=https://easternlm.com \
+              -e STRIPE_SECRET_KEY="\${PROD_STRIPE_SECRET_KEY}" \
               ${{ env.DOCKER_IMAGE }}:latest
 
             echo "=== Health check ==="
