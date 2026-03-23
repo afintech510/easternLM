@@ -14,6 +14,7 @@ import {
   Loader2, Phone, Mail, MessageSquare, Lock, Shield, User,
   CheckCircle, XCircle, MapPin, Calendar, Clock,
   Truck, AlertTriangle, FileText, Package, ShieldCheck,
+  TreePine, Mountain, Droplets, Wrench, Box,
 } from "lucide-react";
 
 // ─── Stripe ─────────────────────────────────────────────────────────────────
@@ -134,15 +135,15 @@ function getItemColors(desc: string, unit: string): { bg: string; text: string }
   return { bg: "bg-zinc-100", text: "text-zinc-500" };
 }
 
-function getItemEmoji(desc: string, unit: string): string {
+function getItemIcon(desc: string, unit: string) {
   const d = desc.toLowerCase();
-  if (d.includes("mulch")) return "🪵";
-  if (d.includes("topsoil") || d.includes("soil") || d.includes("loam")) return "🌱";
-  if (d.includes("gravel") || d.includes("stone") || d.includes("rock") || d.includes("bluestone") || d.includes("rca")) return "🪨";
-  if (d.includes("sand")) return "⛱";
-  if (d.includes("delivery") || unit === "trip") return "🚚";
-  if (d.includes("labor") || d.includes("install") || d.includes("grading")) return "🔧";
-  return "📦";
+  if (d.includes("mulch")) return <TreePine className="size-6" />;
+  if (d.includes("topsoil") || d.includes("soil") || d.includes("loam")) return <TreePine className="size-6" />;
+  if (d.includes("gravel") || d.includes("stone") || d.includes("rock") || d.includes("bluestone") || d.includes("rca")) return <Mountain className="size-6" />;
+  if (d.includes("sand")) return <Droplets className="size-6" />;
+  if (d.includes("delivery") || unit === "trip") return <Truck className="size-6" />;
+  if (d.includes("labor") || d.includes("install") || d.includes("grading") || d.includes("spread") || d.includes("excavat")) return <Wrench className="size-6" />;
+  return <Box className="size-6" />;
 }
 
 // ─── Hero Header ─────────────────────────────────────────────────────────────
@@ -227,7 +228,7 @@ function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-4 space-y-3 text-sm">
           {quote.line_items.filter(i => i.unit !== "trip").slice(0, 3).map((item, i) => (
             <div key={i} className="flex items-center gap-3">
-              <span className="text-xl">{getItemEmoji(item.description, item.unit)}</span>
+              <span className="text-xl">{getItemIcon(item.description, item.unit)}</span>
               <span className="text-zinc-700">{item.quantity} {item.unit} {item.description}</span>
             </div>
           ))}
@@ -808,11 +809,10 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
             {/* Product line items */}
             {productItems.map((item, i) => {
               const { bg, text } = getItemColors(item.description, item.unit);
-              const emoji = getItemEmoji(item.description, item.unit);
               return (
                 <div key={i} className="flex gap-3 items-start">
-                  <div className={`size-14 flex-shrink-0 rounded-xl ${bg} flex items-center justify-center text-2xl`}>
-                    {emoji}
+                  <div className={`size-14 flex-shrink-0 rounded-xl ${bg} ${text} flex items-center justify-center`}>
+                    {getItemIcon(item.description, item.unit)}
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className="font-semibold text-zinc-900 text-sm leading-snug">{item.description}</p>
