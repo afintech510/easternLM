@@ -6,53 +6,35 @@ type RouteContext = { params: Promise<{ token: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
   const { token } = await context.params;
-  const { signatureDataUrl } = await request.json();
+  const body = await request.json();
+  const { typedName, ip, location, smsVerified } = body;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseAdminClient() as any;
 
   const { data: quote, error } = await supabase
     .from("quotes")
-    .select("id, status, customer_name, deposit_required_cents")
+    .select("id, status, customer_name, customer_phone, deposit_required_cents")
     .eq("public_token", token)
     .single();
 
   if (error || !quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
-  if (!["sent", "viewed"].includes(quote.status)) {
+  if (["accepted", "converted", "declined", "expired"].includes(quote.status)) {
     return NextResponse.json({ error: "Quote cannot be accepted in current status" }, { status: 400 });
-  }
-
-  // Save signature image to Supabase Storage
-  let signatureUrl: string | null = null;
-  if (signatureDataUrl) {
-    try {
-      // Ensure bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = (buckets ?? []).some((b: { name: string }) => b.name === "quote-signatures");
-      if (!bucketExists) {
-        await supabase.storage.createBucket("quote-signatures", { public: false });
-      }
-
-      // Convert data URL to buffer
-      const base64 = signatureDataUrl.replace(/^data:image\/png;base64,/, "");
-      const buffer = Buffer.from(base64, "base64");
-      const path = `${quote.id}/${Date.now()}.png`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from("quote-signatures")
-        .upload(path, buffer, { contentType: "image/png", upsert: true });
-
-      if (!uploadErr) signatureUrl = path;
-    } catch {
-      // Non-fatal — proceed without signature URL
-    }
   }
 
   const updates: Record<string, unknown> = {
     status: "accepted",
     accepted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    acceptance_metadata: {
+      typed_name: typedName ?? null,
+      ip: ip ?? null,
+      location: location ?? null,
+      sms_verified: smsVerified ?? false,
+      accepted_at: new Date().toISOString(),
+      user_agent: request.headers.get("user-agent") ?? null,
+    },
   };
-  if (signatureUrl) updates.customer_signature_url = signatureUrl;
 
   await supabase.from("quotes").update(updates).eq("public_token", token);
 
@@ -68,7 +50,7 @@ export async function POST(request: Request, context: RouteContext) {
   if (sid && authToken && from && staffPhone) {
     const fmt = (c: number) =>
       new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-    const msg = `✅ Quote accepted! ${quote.customer_name} accepted their quote. Deposit: ${fmt(quote.deposit_required_cents)}. Check /admin/quotes for details.`;
+    const msg = `Quote accepted! ${quote.customer_name} accepted their quote. Deposit: ${fmt(quote.deposit_required_cents)}. Check /admin/quotes for details.`;
     await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: {
