@@ -149,30 +149,57 @@ function getItemEmoji(desc: string, unit: string): string {
 
 function HeroHeader({ name, quoteNumber }: { name: string; quoteNumber: string }) {
   return (
-    <header
-      className="relative px-5 pt-10 pb-8 text-white text-center bg-primary"
-    >
-      {/* Subtle topo texture */}
-      <div
-        className="absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M0 100 Q50 60 100 100 Q150 140 200 100' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 70 Q50 30 100 70 Q150 110 200 70' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 130 Q50 90 100 130 Q150 170 200 130' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E")`,
-        }}
-      />
-      <div className="relative">
-        <Image
-          src="/logo-white.png"
-          alt="Eastern Landscape & Mason Supply"
-          width={160} height={42}
-          className="mx-auto mb-1 h-10 w-auto object-contain"
-        />
-        <p className="text-xs uppercase tracking-[0.2em] text-white/50 font-medium mb-7">
-          Landscape &amp; Mason Supply
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight">Quote for {name}</h1>
-        <p className="text-sm text-white/40 mt-1.5 font-mono">{quoteNumber}</p>
+    <>
+      {/* ── Print header (hidden on screen, visible on print) ── */}
+      <div className="hidden print:block px-6 pt-6 pb-4 border-b border-zinc-200">
+        <div className="flex items-start justify-between">
+          <div>
+            <Image
+              src="/logo-blue.png"
+              alt="Eastern Landscape & Mason Supply"
+              width={180} height={48}
+              className="h-12 w-auto object-contain"
+            />
+            <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Landscape &amp; Mason Supply</p>
+          </div>
+          <div className="text-right text-xs text-zinc-600 leading-relaxed">
+            <p className="font-semibold text-zinc-900">Eastern Landscape &amp; Mason Supply</p>
+            <p>110 Frowein Road, Center Moriches, NY 11934</p>
+            <p>(631) 874-6244 · easternlm.com</p>
+          </div>
+        </div>
+        <div className="mt-4 pt-3 border-t border-zinc-100">
+          <h1 className="text-lg font-bold text-zinc-900">Quote for {name}</h1>
+          <p className="text-sm text-zinc-500 font-mono">{quoteNumber}</p>
+        </div>
       </div>
-    </header>
+
+      {/* ── Screen header (hidden on print) ── */}
+      <header
+        className="relative px-5 pt-10 pb-8 text-white text-center bg-primary print:hidden"
+      >
+        {/* Subtle topo texture */}
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M0 100 Q50 60 100 100 Q150 140 200 100' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 70 Q50 30 100 70 Q150 110 200 70' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M0 130 Q50 90 100 130 Q150 170 200 130' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E")`,
+          }}
+        />
+        <div className="relative">
+          <Image
+            src="/logo-white.png"
+            alt="Eastern Landscape & Mason Supply"
+            width={160} height={42}
+            className="mx-auto mb-1 h-10 w-auto object-contain"
+          />
+          <p className="text-xs uppercase tracking-[0.2em] text-white/50 font-medium mb-7">
+            Landscape &amp; Mason Supply
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Quote for {name}</h1>
+          <p className="text-sm text-white/40 mt-1.5 font-mono">{quoteNumber}</p>
+        </div>
+      </header>
+    </>
   );
 }
 
@@ -976,13 +1003,15 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
           </div>
         </section>
 
-        {/* ── Payment ── */}
-        <PaymentSection
-          quote={quote}
-          token={token}
-          onAccepted={onAccepted}
-          onDeclined={onDeclined}
-        />
+        {/* ── Payment (hidden on print) ── */}
+        <div className="print:hidden">
+          <PaymentSection
+            quote={quote}
+            token={token}
+            onAccepted={onAccepted}
+            onDeclined={onDeclined}
+          />
+        </div>
 
         {/* ── Terms ── */}
         {quote.terms && (
@@ -992,8 +1021,10 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
           </section>
         )}
 
-        {/* ── Trust Footer ── */}
-        <TrustFooter />
+        {/* ── Trust Footer (hidden on print) ── */}
+        <div className="print:hidden">
+          <TrustFooter />
+        </div>
       </div>
     </div>
   );
