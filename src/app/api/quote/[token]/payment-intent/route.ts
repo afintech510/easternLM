@@ -26,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   }
 
-  if (["accepted", "converted", "expired", "declined"].includes(quote.status)) {
+  if (["converted", "expired", "declined"].includes(quote.status)) {
     return NextResponse.json({ error: `Quote is ${quote.status}` }, { status: 400 });
   }
 
