@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Loader2, Send, Printer, ExternalLink, Plus, X, DollarSign,
   CheckCircle, Eye, Clock, XCircle, AlertCircle, Sparkles, Copy, Upload,
-  ImageIcon, ArrowRight, Trash2,
+  ImageIcon, ArrowRight, Trash2, Truck, Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,11 @@ interface Quote {
   ai_generated: boolean;
   photo_urls: string[];
   converted_order_id: string | null;
+  delivery_address: string | null;
+  delivery_fee_cents: number;
+  delivery_date: string | null;
+  delivery_time_window: string | null;
+  delivery_notes: string | null;
 }
 
 const TAX_RATE = 0.0875;
@@ -91,6 +96,12 @@ export default function QuoteDetailPage() {
   const [timeline, setTimeline] = useState("");
   const [terms, setTerms] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">("pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryFeeCents, setDeliveryFeeCents] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [deliveryTimeWindow, setDeliveryTimeWindow] = useState("flexible");
+  const [deliveryNotes, setDeliveryNotes] = useState("");
 
   async function loadQuote() {
     setLoading(true);
@@ -111,6 +122,12 @@ export default function QuoteDetailPage() {
       setTimeline(q.estimated_timeline ?? "");
       setTerms(q.terms ?? "");
       setInternalNotes(q.internal_notes ?? "");
+      setDeliveryMethod(q.delivery_address ? "delivery" : "pickup");
+      setDeliveryAddress(q.delivery_address ?? "");
+      setDeliveryFeeCents(centsToStr(q.delivery_fee_cents ?? 0));
+      setDeliveryDate(q.delivery_date ?? "");
+      setDeliveryTimeWindow(q.delivery_time_window ?? "flexible");
+      setDeliveryNotes(q.delivery_notes ?? "");
       setPhotoUrls(q.photo_urls ?? []);
     }
     setLoading(false);
@@ -167,6 +184,11 @@ export default function QuoteDetailPage() {
       estimated_timeline: timeline || null,
       terms: terms || null,
       internal_notes: internalNotes || null,
+      delivery_address: deliveryMethod === "delivery" ? (deliveryAddress || null) : null,
+      delivery_fee_cents: deliveryMethod === "delivery" ? strToCents(deliveryFeeCents) : 0,
+      delivery_date: deliveryMethod === "delivery" ? (deliveryDate || null) : null,
+      delivery_time_window: deliveryMethod === "delivery" ? (deliveryTimeWindow || null) : null,
+      delivery_notes: deliveryMethod === "delivery" ? (deliveryNotes || null) : null,
       photo_urls: photoUrls,
     };
     const r = await fetch(`/api/admin/quotes/${id}`, {
@@ -415,6 +437,65 @@ export default function QuoteDetailPage() {
                 <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={isReadOnly} />
               </div>
             </div>
+          </div>
+
+          {/* Delivery / Pickup */}
+          <div className="rounded-lg border bg-card p-5 space-y-3">
+            <h3 className="font-semibold">Delivery</h3>
+            <div className="flex gap-2">
+              {(["pickup", "delivery"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => !isReadOnly && setDeliveryMethod(m)}
+                  disabled={isReadOnly}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                    deliveryMethod === m
+                      ? "border-accent bg-accent/10 text-accent-foreground"
+                      : "border-border text-muted-foreground hover:border-accent/40"
+                  } disabled:opacity-60`}
+                >
+                  {m === "pickup" ? <Store className="size-4" /> : <Truck className="size-4" />}
+                  {m === "pickup" ? "Pickup at Yard" : "Delivery"}
+                </button>
+              ))}
+            </div>
+            {deliveryMethod === "delivery" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">Delivery Address</label>
+                  <Input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} disabled={isReadOnly} placeholder="Full delivery address" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Delivery Fee</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                    <Input className="pl-7" value={deliveryFeeCents} onChange={(e) => setDeliveryFeeCents(e.target.value)} disabled={isReadOnly} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Delivery Date</label>
+                  <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Time Window</label>
+                  <select
+                    value={deliveryTimeWindow}
+                    onChange={(e) => setDeliveryTimeWindow(e.target.value)}
+                    disabled={isReadOnly}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
+                  >
+                    <option value="early">Early Morning (7:30 AM – 9:00 AM)</option>
+                    <option value="morning">Morning (8:00 AM – 12:00 PM)</option>
+                    <option value="afternoon">Afternoon (12:00 PM – 5:00 PM)</option>
+                    <option value="flexible">Flexible (7:30 AM – 5:00 PM)</option>
+                  </select>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs text-muted-foreground">Delivery Notes</label>
+                  <Input value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} disabled={isReadOnly} placeholder="Gate code, driveway instructions..." />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Line Items */}
