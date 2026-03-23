@@ -10,11 +10,10 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import SignaturePad from "signature_pad";
 import {
   Loader2, Phone, Mail, MessageSquare, Lock, Shield, User,
   CheckCircle, XCircle, MapPin, Calendar, Clock,
-  Truck, AlertTriangle, FileText, Package,
+  Truck, AlertTriangle, FileText, Package, ShieldCheck,
 } from "lucide-react";
 
 // ─── Stripe ─────────────────────────────────────────────────────────────────
@@ -184,7 +183,7 @@ function ConfirmedView({ quote, byCard }: { quote: Quote; byCard?: boolean }) {
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
-      <div className="mx-auto max-w-md px-4 py-6">
+      <div className="mx-auto max-w-md md:max-w-2xl px-4 py-6">
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="size-9 text-green-600" />
@@ -241,7 +240,7 @@ function DeclinedView({ quote }: { quote: Quote }) {
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
-      <div className="mx-auto max-w-md px-4 py-8 text-center">
+      <div className="mx-auto max-w-md md:max-w-2xl px-4 py-8 text-center">
         <XCircle className="size-12 text-zinc-300 mx-auto mb-4" />
         <h2 className="text-lg font-semibold text-zinc-700 mb-2">Quote Declined</h2>
         <p className="text-sm text-zinc-500 max-w-xs mx-auto">
@@ -342,31 +341,18 @@ function PaymentSection({
   const ccFee = Math.round(baseAmount * 0.03);
   const cardTotal = baseAmount + ccFee;
 
-  const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "signing" | "decline">("choose");
+  const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "accept-verify" | "decline">("choose");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [chargeAmount, setChargeAmount] = useState(0);
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sigPadRef = useRef<SignaturePad | null>(null);
-
-  // Init signature pad when signing step is shown
-  useEffect(() => {
-    if (mode !== "signing" || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * ratio;
-    canvas.height = canvas.offsetHeight * ratio;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(ratio, ratio);
-    sigPadRef.current = new SignaturePad(canvas, {
-      backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#002e44",
-    });
-    return () => { sigPadRef.current?.off(); sigPadRef.current = null; };
-  }, [mode]);
+  // Accept verification state
+  const [typedName, setTypedName] = useState("");
+  const [smsCode, setSmsCode] = useState("");
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsVerified, setSmsVerified] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
 
   async function startCardPayment() {
     setProcessing(true); setError("");
@@ -392,20 +378,56 @@ function PaymentSection({
     else { const d = await res.json(); setError(d.error ?? "Failed to confirm order"); setProcessing(false); }
   }
 
-  async function submitSignatureAndPay() {
-    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
-      setError("Please sign before proceeding."); return;
-    }
-    const dataUrl = sigPadRef.current.toDataURL("image/png");
-    setSigDataUrl(dataUrl);
-    setProcessing(true); setError("");
+  async function sendSmsCode() {
+    setSendingSms(true); setError("");
     try {
-      const r = await fetch(`/api/quote/${token}/accept`, {
+      const r = await fetch(`/api/quote/${token}/verify-sms`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureDataUrl: dataUrl }),
+        body: JSON.stringify({ action: "send" }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed to save signature");
+      if (!r.ok) throw new Error(d.error ?? "Failed to send code");
+      setSmsSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send verification code");
+    } finally { setSendingSms(false); }
+  }
+
+  async function verifySmsCode() {
+    setProcessing(true); setError("");
+    try {
+      const r = await fetch(`/api/quote/${token}/verify-sms`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", code: smsCode }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Invalid code");
+      setSmsVerified(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+    } finally { setProcessing(false); }
+  }
+
+  async function submitAcceptAndPay() {
+    if (!typedName.trim()) { setError("Please type your full name."); return; }
+    if (!smsVerified) { setError("Please verify your phone number first."); return; }
+    setProcessing(true); setError("");
+    try {
+      // Get IP/location for audit trail
+      let ip = "";
+      let location = "";
+      try {
+        const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
+        ip = geo.ip ?? "";
+        location = [geo.city, geo.region, geo.country_name].filter(Boolean).join(", ");
+      } catch { /* non-fatal */ }
+
+      const r = await fetch(`/api/quote/${token}/accept`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typedName: typedName.trim(), ip, location, smsVerified: true }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed to accept quote");
       // Now create payment intent for deposit
       await startCardPayment();
     } catch (err) {
@@ -442,14 +464,14 @@ function PaymentSection({
           {/* Card option */}
           {isService ? (
             <button
-              onClick={() => setMode("signing")}
+              onClick={() => setMode("accept-verify")}
               className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
             >
               <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
                 <Lock className="size-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-zinc-900">Sign &amp; Pay Deposit</p>
+                <p className="font-semibold text-zinc-900">Accept &amp; Pay Deposit</p>
                 <p className="text-xs text-accent mt-0.5">
                   {fmt(cardTotal)} by card · Deposit secures your project
                 </p>
@@ -507,37 +529,85 @@ function PaymentSection({
         </div>
       )}
 
-      {/* ── Signature (service quotes) ── */}
-      {mode === "signing" && (
-        <div className="p-5 space-y-4">
+      {/* ── Accept & Verify (service quotes) ── */}
+      {mode === "accept-verify" && (
+        <div className="p-5 space-y-5">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            Sign to Accept
+            Accept Quote
           </h2>
-          <p className="text-sm text-zinc-600">
-            Draw your signature below to accept the scope and terms of this quote.
-          </p>
-          <div className="border-2 border-zinc-200 rounded-xl overflow-hidden bg-white relative">
-            <canvas
-              ref={canvasRef}
-              className="w-full"
-              style={{ height: 140, touchAction: "none" }}
+
+          {/* Step 1: Type full name */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+              Type your full legal name to accept
+            </label>
+            <input
+              type="text"
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              placeholder={quote.customer_name || "Full Name"}
+              className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-accent focus:ring-1 focus:ring-accent outline-none"
             />
-            <p className="absolute bottom-2 right-3 text-[10px] text-zinc-300 pointer-events-none">
-              Sign here
-            </p>
           </div>
-          <button
-            onClick={() => { sigPadRef.current?.clear(); setSigDataUrl(null); }}
-            className="text-xs text-zinc-400 hover:text-zinc-600"
-          >
-            Clear signature
-          </button>
+
+          {/* Step 2: SMS verification */}
+          <div className="rounded-xl border border-zinc-200 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+              <ShieldCheck className="size-4 text-zinc-400" />
+              Phone Verification
+            </div>
+            {!smsSent ? (
+              <button
+                onClick={sendSmsCode}
+                disabled={sendingSms}
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
+              >
+                {sendingSms
+                  ? <><Loader2 className="size-4 animate-spin" /> Sending…</>
+                  : <><MessageSquare className="size-4" /> Send code to {quote.customer_phone}</>}
+              </button>
+            ) : !smsVerified ? (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-500">
+                  Enter the 6-digit code sent to {quote.customer_phone}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={smsCode}
+                    onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-center text-lg font-mono tracking-[0.3em] focus:border-accent focus:ring-1 focus:ring-accent outline-none"
+                  />
+                  <button
+                    onClick={verifySmsCode}
+                    disabled={smsCode.length !== 6 || processing}
+                    className="rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                  >
+                    {processing ? <Loader2 className="size-4 animate-spin" /> : "Verify"}
+                  </button>
+                </div>
+                <button onClick={sendSmsCode} disabled={sendingSms} className="text-xs text-zinc-400 hover:text-zinc-600">
+                  {sendingSms ? "Sending…" : "Resend code"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                <CheckCircle className="size-4" /> Phone verified
+              </div>
+            )}
+          </div>
+
           <p className="text-[11px] text-zinc-400 leading-relaxed">
-            By signing, I accept the scope and terms of this quote. The deposit is non-refundable.
+            By typing your name and verifying your phone, you accept the scope and terms of this quote.
+            {isService ? " The deposit is non-refundable." : ""}
           </p>
+
           <button
-            onClick={submitSignatureAndPay}
-            disabled={processing}
+            onClick={submitAcceptAndPay}
+            disabled={processing || !typedName.trim() || !smsVerified}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-4 text-base font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
           >
             {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment →</>}
@@ -671,7 +741,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <HeroHeader name={quote.customer_name.split(" ")[0]} quoteNumber={quote.quote_number} />
 
-      <div className="mx-auto max-w-md px-4 pt-5 pb-2">
+      <div className="mx-auto max-w-md md:max-w-2xl px-4 pt-5 pb-2">
 
         {/* ── Project Scope (service only) ── */}
         {isService && quote.description && (
