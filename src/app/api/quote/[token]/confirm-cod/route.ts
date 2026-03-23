@@ -80,6 +80,12 @@ export async function POST(
     }
   }
 
+  // Send confirmation email to customer
+  try {
+    const { sendQuoteConfirmationEmail } = await import("@/lib/email/quote-confirmation");
+    await sendQuoteConfirmationEmail(quote, { paymentMethod: "cod" });
+  } catch (err) { console.error("[confirm-cod] Customer email error:", err); }
+
   // Notify office
   try {
     const { Resend } = await import("resend");

@@ -85,6 +85,12 @@ export async function POST(
     }
   }
 
+  // Send confirmation email to customer
+  try {
+    const { sendQuoteConfirmationEmail } = await import("@/lib/email/quote-confirmation");
+    await sendQuoteConfirmationEmail(quote, { depositAmountCents: quote.deposit_required_cents > 0 ? (quote.deposit_required_cents + Math.round(quote.deposit_required_cents * 0.03)) : (quote.total_cents + ccSurcharge), paymentMethod: "card" });
+  } catch (err) { console.error("[confirm-card] Customer email error:", err); }
+
   // Notify office
   try {
     const { Resend } = await import("resend");
