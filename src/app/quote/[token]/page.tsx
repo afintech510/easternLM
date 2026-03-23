@@ -856,31 +856,35 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
         </section>
 
         {/* ── Customer Info ── */}
-        {(quote.customer_phone || quote.customer_email) && (
-          <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
-            <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
-              <User className="size-3.5" /> Your Info
-            </h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-3">
-                <User className="size-4 text-zinc-400 shrink-0" />
-                <p className="font-semibold text-zinc-900">{quote.customer_name}</p>
-              </div>
-              {quote.customer_phone && (
-                <div className="flex items-center gap-3">
-                  <Phone className="size-4 text-zinc-400 shrink-0" />
-                  <p className="text-zinc-700">{quote.customer_phone}</p>
-                </div>
-              )}
-              {quote.customer_email && (
-                <div className="flex items-center gap-3">
-                  <Mail className="size-4 text-zinc-400 shrink-0" />
-                  <p className="text-zinc-700">{quote.customer_email}</p>
-                </div>
-              )}
+        <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+          <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
+            <User className="size-3.5" /> Your Info
+          </h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-3">
+              <User className="size-4 text-zinc-400 shrink-0" />
+              <p className="font-semibold text-zinc-900">{quote.customer_name}</p>
             </div>
-          </section>
-        )}
+            {quote.customer_phone && (
+              <div className="flex items-center gap-3">
+                <Phone className="size-4 text-zinc-400 shrink-0" />
+                <p className="text-zinc-700">{quote.customer_phone}</p>
+              </div>
+            )}
+            {quote.customer_email && (
+              <div className="flex items-center gap-3">
+                <Mail className="size-4 text-zinc-400 shrink-0" />
+                <p className="text-zinc-700">{quote.customer_email}</p>
+              </div>
+            )}
+            {quote.customer_address && (
+              <div className="flex items-center gap-3">
+                <MapPin className="size-4 text-zinc-400 shrink-0" />
+                <p className="text-zinc-700">{quote.customer_address}</p>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* ── Order Notes (material quotes) ── */}
         {!isService && quote.description && (
