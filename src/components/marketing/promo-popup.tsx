@@ -1,24 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
 const STORAGE_KEY = "elm_popup_dismissed";
 
 export function PromoPopup() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    // Don't show if already dismissed
     if (typeof window === "undefined") return;
     if (localStorage.getItem(STORAGE_KEY)) return;
+    // Only show on homepage
+    if (pathname !== "/") return;
 
     const timer = setTimeout(() => setShow(true), 30000); // 30 seconds
     return () => clearTimeout(timer);
-  }, []);
+  }, [pathname]);
 
   function dismiss() {
     setShow(false);
