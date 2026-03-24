@@ -52,6 +52,8 @@ export function CartPageClient() {
   const swapItems = useCartStore((s) => s.swapItems);
   const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
   const storedCustomer = useCartStore((s) => s.customerInfo);
+  const timeWindow = useCartStore((s) => s.deliveryTimeWindow);
+  const setTimeWindow = useCartStore((s) => s.setDeliveryTimeWindow);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   // Sync address input when Zustand hydrates from localStorage (avoids blank field on refresh)
@@ -63,7 +65,6 @@ export function CartPageClient() {
   }, [deliveryAddress?.fullAddress]);
   const [promoInput, setPromoInput] = useState(promoCode);
   const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
-  const [timeWindow, setTimeWindow] = useState("flexible");
 
   // Lead capture — read directly from store (no local useState so hydration timing never matters)
   const custName = storedCustomer?.fullName ?? "";

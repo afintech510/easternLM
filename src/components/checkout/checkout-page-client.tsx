@@ -43,6 +43,7 @@ export function CheckoutPageClient() {
   const combineLoads = useCartStore((s) => s.combineLoads);
   const promoCode = useCartStore((s) => s.promoCode);
   const accessConstraints = useCartStore((s) => s.accessConstraints);
+  const deliveryTimeWindow = useCartStore((s) => s.deliveryTimeWindow);
   const customerInfo = useCartStore((s) => s.customerInfo);
   const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
   const isCalculating = useCartStore((s) => s.isCalculating);
@@ -139,6 +140,7 @@ export function CheckoutPageClient() {
           promoCode,
           accessConstraints,
           deliveryDate,
+          deliveryTimeWindow,
           clientGrandTotalCents: calculation!.grandTotalCents,
           customer: { fullName, email, phone, optInSms },
           deliverySequence: bulkItems.map((item, i) => ({
