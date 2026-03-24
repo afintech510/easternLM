@@ -293,6 +293,8 @@ async function ensureOrderFromSession(input: {
       total_delivery_days: Math.max(totalDeliveryDays, 0),
       access_constraints: parseAccessConstraints(metadata.accessConstraints),
       delivery_schedule: deliverySchedule as Json,
+      delivery_date: metadata.deliveryDate || null,
+      source: "web",
       metadata: {
         stripePaymentIntent: normalizeStripeReference(input.session.payment_intent),
         stripeCustomerId: normalizeStripeReference(input.session.customer),
