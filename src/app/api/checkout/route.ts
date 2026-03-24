@@ -467,6 +467,8 @@ export async function POST(request: Request) {
           total_delivery_days: calculation.totalDeliveryDays,
           access_constraints: (payload.accessConstraints ?? {}) as Json,
           delivery_schedule: deliverySchedule as Json,
+          delivery_date: payload.deliveryDate || null,
+          source: "web",
           metadata: {
             promoCode: payload.promoCode ?? "",
             createAccount: Boolean(payload.createAccount),

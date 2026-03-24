@@ -12,15 +12,20 @@ export async function GET(_req: Request, ctx: Ctx) {
   const supabase = getSupabaseAdminClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: order, error } = await supabase.from("orders").select("*").eq("id", id).single() as { data: any; error: any };
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("*, order_items(id, product_name, quantity, unit, unit_price_cents, line_subtotal_cents, delivery_type, material_class, load_number, delivery_day)")
+    .eq("id", id)
+    .single() as { data: any; error: any };
+
   if (error || !order) return NextResponse.json({ error: error?.message || "Not found" }, { status: 404 });
 
   // Get customer history if linked
   let customerHistory = null;
   if (order.customer_id) {
     const [custRes, ordersRes] = await Promise.all([
-      supabase.from("customers").select("first_name, last_name, phone, total_orders, total_spent_cents, tags").eq("id", order.customer_id).single(),
-      supabase.from("orders").select("id, created_at, items, grand_total_cents, status").eq("customer_id", order.customer_id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("customers").select("first_name, last_name, phone, email, total_orders, total_spent_cents, tags").eq("id", order.customer_id).single(),
+      supabase.from("orders").select("id, created_at, grand_total_cents, status").eq("customer_id", order.customer_id).order("created_at", { ascending: false }).limit(10),
     ]);
     customerHistory = { customer: custRes.data, recentOrders: ordersRes.data };
   }
