@@ -13,6 +13,7 @@ import {
   Package,
   Plus,
   Search,
+  Printer,
   Trash2,
   Truck,
   UserPlus,
@@ -27,6 +28,7 @@ declare global {
   }
 }
 import { formatUsd } from "@/lib/format";
+import { formatShortDateTime, formatDeliveryDate, formatShortDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod } from "@/lib/format-date";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
@@ -225,6 +227,10 @@ export default function PosRegisterPage() {
     customer_email: string | null;
     delivery_address: string | null;
     delivery_method: string;
+    delivery_date: string | null;
+    delivery_time_window: string | null;
+    delivery_notes: string | null;
+    access_constraints: Record<string, unknown> | null;
     grand_total_cents: number;
     materials_subtotal_cents: number;
     delivery_total_cents: number;
@@ -234,7 +240,7 @@ export default function PosRegisterPage() {
     payment_method: string;
     source: string;
     metadata: Record<string, unknown>;
-    items: Array<{ product_name: string; quantity: number; unit_price_cents: number; line_subtotal_cents: number }>;
+    items: Array<{ product_name: string; quantity: number; unit: string; unit_price_cents: number; line_subtotal_cents: number }>;
   } | null>(null);
   const txnFetchRef = useRef(0);
 
@@ -596,7 +602,7 @@ export default function PosRegisterPage() {
     const res = await fetch(`/api/admin/operations/${orderId}`);
     if (res.ok) {
       const data = await res.json();
-      setTxnDetail({ ...data.order, items: data.items || [] });
+      setTxnDetail({ ...data.order, items: data.order.order_items || data.items || [] });
       setSelectedTxn(orderId);
     }
   }
@@ -887,43 +893,93 @@ export default function PosRegisterPage() {
   // ── Receipt printing ────────────────────────────────────────────
 
   function printReceipt(orderData: Record<string, unknown>, method: string) {
-    const w = window.open("", "_blank", "width=300,height=600");
+    const w = window.open("", "_blank", "width=380,height=700");
     if (!w) return;
-    const receiptItems = orderData.items as Array<{ product_name: string; quantity: number; unit_price_cents: number; line_total_cents: number }>;
-    w.document.write(`
-      <html><head><title>Receipt</title>
-      <style>
-        body { font-family: monospace; width: 280px; margin: 0 auto; padding: 10px; font-size: 12px; }
-        .center { text-align: center; }
-        .bold { font-weight: bold; }
-        .line { border-top: 1px dashed #000; margin: 6px 0; }
-        .row { display: flex; justify-content: space-between; }
-        @media print { body { width: 80mm; } }
-      </style></head><body>
-      <div class="center bold">EASTERN LANDSCAPE & MASON SUPPLY</div>
-      <div class="center">110 Frowein Road</div>
-      <div class="center">Center Moriches, NY 11934</div>
+    const receiptItems = (orderData.items as Array<{ product_name: string; quantity: number; unit?: string; unit_price_cents: number; line_total_cents: number }>).filter(i => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"));
+    const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const delDate = orderData.delivery_date as string | null;
+    const delTimeWindow = orderData.delivery_time_window as string | null;
+    const delAddr = orderData.delivery_address as string | null;
+    const delNotes = orderData.delivery_notes as string | null;
+    const custPhone = orderData.customer_phone as string | null;
+    w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
+      <style>body{font-family:monospace;max-width:380px;margin:0 auto;padding:20px;font-size:12px;}
+      .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:1px dashed #000;margin:8px 0;}
+      .row{display:flex;justify-content:space-between;} .mt{margin-top:6px;}
+      @media print{body{width:80mm;}}</style></head><body>
+      <div class="center bold" style="font-size:14px;">EASTERN LANDSCAPE & MASON SUPPLY</div>
+      <div class="center">110 Frowein Road · Center Moriches, NY 11934</div>
       <div class="center">(631) 874-6244</div>
       <div class="line"></div>
-      <div>Date: ${new Date().toLocaleString()}</div>
+      <div>Date: ${new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} ${new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>
       <div>Customer: ${orderData.customer_name || "Walk-in"}</div>
+      ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
       <div class="line"></div>
-      ${receiptItems.map(i => `<div class="row"><span>${i.quantity} x ${i.product_name}</span><span>$${(i.line_total_cents / 100).toFixed(2)}</span></div>`).join("")}
+      <div class="bold">ITEMS</div>
+      ${receiptItems.map(i => `<div class="mt"><div>${i.product_name}</div><div class="row"><span>${i.quantity} ${i.unit || "unit"} × ${fmt(i.unit_price_cents)}</span><span>${fmt(i.line_total_cents)}</span></div></div>`).join("")}
       <div class="line"></div>
-      <div class="row"><span>Subtotal</span><span>$${((orderData.subtotal_cents as number) / 100).toFixed(2)}</span></div>
-      ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-$${((orderData.discount_amount_cents as number) / 100).toFixed(2)}</span></div>` : ""}
-      <div class="row"><span>Tax</span><span>$${((orderData.tax_cents as number) / 100).toFixed(2)}</span></div>
-      ${(orderData.delivery_fee_cents as number) > 0 ? `<div class="row"><span>Delivery</span><span>$${((orderData.delivery_fee_cents as number) / 100).toFixed(2)}</span></div>` : ""}
-      ${method === "card" ? `<div class="row"><span>CC Fee (3%)</span><span>$${((orderData.cc_fee_cents as number) / 100).toFixed(2)}</span></div>` : ""}
+      <div class="row"><span>Subtotal</span><span>${fmt(orderData.subtotal_cents as number)}</span></div>
+      ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-${fmt(orderData.discount_amount_cents as number)}</span></div>` : ""}
+      ${(orderData.delivery_fee_cents as number) > 0 ? `<div class="row"><span>Delivery</span><span>${fmt(orderData.delivery_fee_cents as number)}</span></div>` : ""}
+      <div class="row"><span>Tax (8.75%)</span><span>${fmt(orderData.tax_cents as number)}</span></div>
+      ${method === "card" && (orderData.cc_fee_cents as number) > 0 ? `<div class="row"><span>CC Fee (3%)</span><span>${fmt(orderData.cc_fee_cents as number)}</span></div>` : ""}
       <div class="line"></div>
-      <div class="row bold"><span>TOTAL</span><span>$${((orderData.grand_total_cents as number) / 100).toFixed(2)}</span></div>
-      <div>Payment: ${method === "card" ? "Card" : method === "cod" ? "CASH ON DELIVERY" : "Cash"}</div>
-      ${method === "cod" ? '<div class="bold">AMOUNT DUE ON DELIVERY: $' + ((orderData.grand_total_cents as number) / 100).toFixed(2) + '</div>' : ""}
+      <div class="row bold" style="font-size:14px;"><span>TOTAL</span><span>${fmt(orderData.grand_total_cents as number)}</span></div>
+      <div class="mt">Payment: ${method === "card" ? "Card" : method === "cod" ? "CASH ON DELIVERY" : method === "cash" ? "Cash" : method}</div>
+      ${method === "cod" ? `<div class="bold mt">AMOUNT DUE ON DELIVERY: ${fmt(orderData.grand_total_cents as number)}</div>` : ""}
+      ${delAddr ? `
+        <div class="line"></div>
+        <div class="bold">DELIVERY</div>
+        <div>${delAddr}</div>
+        ${delDate ? `<div>Date: ${formatShortDeliveryDate(delDate)}</div>` : ""}
+        ${delTimeWindow ? `<div>Time: ${formatTimeWindow(delTimeWindow)}</div>` : ""}
+        ${delNotes ? `<div>Notes: ${delNotes}</div>` : ""}
+      ` : ""}
       <div class="line"></div>
       <div class="center">Thank you for your business!</div>
       <div class="center">easternlm.com</div>
-      </body></html>
-    `);
+      </body></html>`);
+    w.document.close();
+    setTimeout(() => { w.print(); w.close(); }, 500);
+  }
+
+  function printDeliveryTicket(data: Record<string, unknown>) {
+    const items = (data.items as Array<{ product_name: string; quantity: number; unit?: string }>);
+    const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const constraints = data.access_constraints as Record<string, unknown> | null;
+    const flags = constraints ? Object.entries(constraints).filter(([k, v]) => v === true && k !== "notes").map(([k]) => k) : [];
+    const cNotes = constraints && typeof constraints.notes === "string" ? constraints.notes : null;
+    const w = window.open("", "_blank", "width=380,height=700");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Delivery Ticket</title>
+      <style>body{font-family:monospace;max-width:380px;margin:0 auto;padding:20px;font-size:12px;}
+      .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:2px solid #000;margin:8px 0;}
+      .dashed{border-top:1px dashed #000;margin:8px 0;} .row{display:flex;justify-content:space-between;}
+      .big{font-size:16px;} .mt{margin-top:6px;} .warn{background:#fff3cd;padding:6px;border:1px solid #ffc107;margin:4px 0;}</style></head><body>
+      <div class="line"></div>
+      <div class="center bold big">DELIVERY TICKET</div>
+      <div class="center">EASTERN LANDSCAPE & MASON SUPPLY</div>
+      <div class="line"></div>
+      <div class="bold">CUSTOMER: ${data.customer_name || "Walk-in"}</div>
+      ${data.customer_phone ? `<div class="bold">PHONE: ${formatPhone(data.customer_phone as string)} — CALL IF ISSUES</div>` : ""}
+      <div class="line"></div>
+      <div class="bold big">DELIVER TO:</div>
+      <div class="bold" style="font-size:14px;">${data.delivery_address || "NO ADDRESS"}</div>
+      ${data.delivery_date ? `<div class="mt bold">DATE: ${formatDeliveryDate(data.delivery_date as string)}</div>` : ""}
+      ${data.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(data.delivery_time_window as string)}</div>` : ""}
+      ${flags.length > 0 || cNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, cNotes].filter(Boolean).join(" · ")}</div>` : ""}
+      ${data.delivery_notes ? `<div class="mt">NOTES: ${data.delivery_notes}</div>` : ""}
+      <div class="line"></div>
+      <div class="bold big">MATERIAL TO LOAD:</div>
+      ${items.map(i => `<div class="mt bold">${i.product_name}<br/>${i.quantity} ${i.unit || "unit"}</div><div class="row mt"><span>☐ LOADED</span><span>☐ DELIVERED</span></div>`).join('<div class="dashed"></div>')}
+      <div class="line"></div>
+      <div class="row bold"><span>ORDER TOTAL:</span><span>${fmt(data.grand_total_cents as number)}</span></div>
+      <div class="bold mt">PAYMENT: ${formatPaymentMethod(data.payment_method as string).toUpperCase()}${(data.payment_method as string)?.includes("card") ? " (PAID — no collection needed)" : ""}</div>
+      <div class="line"></div>
+      <div class="mt">Driver signature: ___________________</div>
+      <div class="mt">Date completed: ___________________</div>
+      <div class="line"></div>
+      </body></html>`);
     w.document.close();
     setTimeout(() => { w.print(); w.close(); }, 500);
   }
@@ -1675,7 +1731,7 @@ export default function PosRegisterPage() {
                         <span className="font-semibold text-amber-400">{formatUsd(txn.grand_total_cents)}</span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-zinc-500">
-                        <span>{new Date(txn.placed_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                        <span>{formatShortDateTime(txn.placed_at)}</span>
                         <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
                           txn.status === "paid" ? "bg-green-900/30 text-green-400" :
                           txn.status === "confirmed" ? "bg-blue-900/30 text-blue-400" :
@@ -1716,29 +1772,73 @@ export default function PosRegisterPage() {
                     <div className="flex justify-between font-semibold text-amber-400"><span>Total</span><span>{formatUsd(txnDetail.grand_total_cents)}</span></div>
                   </div>
 
+                  {/* Customer */}
+                  <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
+                    <p className="font-medium text-zinc-300">{txnDetail.customer_name || "Walk-in"}</p>
+                    {txnDetail.customer_phone && (
+                      <a href={`tel:${txnDetail.customer_phone}`} className="text-amber-400 hover:underline">{formatPhone(txnDetail.customer_phone)}</a>
+                    )}
+                    {txnDetail.customer_email && <p className="text-zinc-500">{txnDetail.customer_email}</p>}
+                  </div>
+
+                  {/* Delivery */}
+                  {txnDetail.delivery_method === "delivery" && (
+                    <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
+                      <p className="font-medium text-zinc-300">Delivery</p>
+                      {txnDetail.delivery_address && <p className="text-zinc-400">{txnDetail.delivery_address}</p>}
+                      {(() => {
+                        const dd = txnDetail.delivery_date || String((txnDetail.metadata as Record<string, unknown>)?.deliveryDate ?? "");
+                        return dd ? <p className="text-zinc-400">{formatDeliveryDate(dd)}</p> : null;
+                      })()}
+                      {txnDetail.delivery_time_window && <p className="text-zinc-400">{formatTimeWindow(txnDetail.delivery_time_window)}</p>}
+                      {txnDetail.delivery_notes && <p className="text-zinc-500">Notes: {txnDetail.delivery_notes}</p>}
+                    </div>
+                  )}
+
                   <div className="border-t border-zinc-800 pt-2 text-xs text-zinc-500 space-y-0.5">
-                    <p>Customer: {txnDetail.customer_name} {txnDetail.customer_phone ? `\u00b7 ${txnDetail.customer_phone}` : ""}</p>
-                    <p>Payment: {txnDetail.payment_method} \u00b7 Status: {txnDetail.status}</p>
-                    {txnDetail.delivery_address && <p>Delivery: {txnDetail.delivery_address}</p>}
-                    <p>{new Date(txnDetail.placed_at).toLocaleString()}</p>
+                    <p>{formatPaymentMethod(txnDetail.payment_method)} · {txnDetail.status}</p>
+                    <p>{formatShortDateTime(txnDetail.placed_at)}</p>
                   </div>
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => {
                       printReceipt({
-                        items: txnDetail.items.map(i => ({ product_name: i.product_name, quantity: i.quantity, unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents })),
+                        items: txnDetail.items.map(i => ({ product_name: i.product_name, quantity: i.quantity, unit: i.unit, unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents })),
                         subtotal_cents: txnDetail.materials_subtotal_cents,
                         tax_cents: txnDetail.tax_cents,
                         delivery_fee_cents: txnDetail.delivery_total_cents,
                         cc_fee_cents: txnDetail.cc_surcharge_cents,
                         grand_total_cents: txnDetail.grand_total_cents,
                         customer_name: txnDetail.customer_name,
+                        customer_phone: txnDetail.customer_phone,
+                        delivery_address: txnDetail.delivery_address,
+                        delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
+                        delivery_time_window: txnDetail.delivery_time_window,
+                        delivery_notes: txnDetail.delivery_notes,
                         discount_amount_cents: 0,
                       }, txnDetail.payment_method.includes("card") ? "card" : txnDetail.payment_method);
-                    }} className="rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700">
-                      Reprint Receipt
+                    }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
+                      <Printer className="w-3.5 h-3.5" /> Receipt
                     </button>
+                    {txnDetail.delivery_method === "delivery" && (
+                      <button onClick={() => {
+                        printDeliveryTicket({
+                          items: txnDetail.items.filter(i => !i.product_name?.startsWith("Delivery Load")),
+                          customer_name: txnDetail.customer_name,
+                          customer_phone: txnDetail.customer_phone,
+                          delivery_address: txnDetail.delivery_address,
+                          delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
+                          delivery_time_window: txnDetail.delivery_time_window,
+                          delivery_notes: txnDetail.delivery_notes,
+                          access_constraints: txnDetail.access_constraints,
+                          grand_total_cents: txnDetail.grand_total_cents,
+                          payment_method: txnDetail.payment_method,
+                        });
+                      }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5" /> Delivery Ticket
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatUsd } from "@/lib/format";
+import { formatShortDateTime, formatOrderDateTime, formatDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod, formatShortDeliveryDate } from "@/lib/format-date";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   ArrowRight,
@@ -116,12 +117,12 @@ function printOrderReceipt(order: Order) {
     <div class="center bold" style="font-size:14px;">EASTERN LANDSCAPE<br/>& MASON SUPPLY</div>
     <div class="center" style="font-size:11px;">110 Frowein Road<br/>Center Moriches, NY 11934<br/>(631) 874-6244</div>
     <div class="line"></div>
-    <div class="row"><span>Date:</span><span>${new Date(order.created_at).toLocaleString()}</span></div>
+    <div class="row"><span>Date:</span><span>${formatOrderDateTime(order.created_at)}</span></div>
     <div class="row"><span>Source:</span><span>${(order.source || "web").toUpperCase()}</span></div>
     <div class="line"></div>
     <div class="bold">CUSTOMER</div>
     <div>${order.customer_name || "Walk-in"}</div>
-    ${order.customer_phone ? `<div>Phone: ${order.customer_phone}</div>` : ""}
+    ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
     ${order.customer_email ? `<div>Email: ${order.customer_email}</div>` : ""}
     <div class="line"></div>
     <div class="bold">ITEMS</div>
@@ -138,8 +139,8 @@ function printOrderReceipt(order: Order) {
       <div class="line"></div>
       <div class="bold">DELIVERY</div>
       <div>${order.delivery_address || ""}</div>
-      ${deliveryDate ? `<div>Date: ${deliveryDate}</div>` : ""}
-      ${order.delivery_time_window ? `<div>Time: ${order.delivery_time_window}</div>` : ""}
+      ${deliveryDate ? `<div>Date: ${formatShortDeliveryDate(String(deliveryDate))}</div>` : ""}
+      ${order.delivery_time_window ? `<div>Time: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
       ${order.delivery_notes ? `<div>Notes: ${order.delivery_notes}</div>` : ""}
     ` : ""}
     <div class="line"></div>
@@ -168,16 +169,16 @@ function printDeliveryTicket(order: Order) {
     <div class="center bold big">DELIVERY TICKET</div>
     <div class="center">EASTERN LANDSCAPE & MASON SUPPLY</div>
     <div class="line"></div>
-    <div class="row"><span>Date:</span><span>${new Date(order.created_at).toLocaleDateString()}</span></div>
+    <div class="row"><span>Date:</span><span>${formatShortDeliveryDate(order.created_at)}</span></div>
     <div class="row"><span>Source:</span><span>${(order.source || "web").toUpperCase()} ORDER</span></div>
     <div class="dashed"></div>
     <div class="bold">CUSTOMER: ${order.customer_name || "Walk-in"}</div>
-    ${order.customer_phone ? `<div class="bold">PHONE: ${order.customer_phone} ← CALL IF ISSUES</div>` : ""}
+    ${order.customer_phone ? `<div class="bold">PHONE: ${formatPhone(order.customer_phone)} — CALL IF ISSUES</div>` : ""}
     <div class="line"></div>
     <div class="bold big">DELIVER TO:</div>
     <div class="bold" style="font-size:14px;">${order.delivery_address || "NO ADDRESS"}</div>
-    ${deliveryDate ? `<div class="mt bold">DATE: ${deliveryDate}</div>` : ""}
-    ${order.delivery_time_window ? `<div class="bold">TIME: ${order.delivery_time_window}</div>` : ""}
+    ${deliveryDate ? `<div class="mt bold">DATE: ${formatDeliveryDate(String(deliveryDate))}</div>` : ""}
+    ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
     ${flags.length > 0 || notes ? `<div class="warn"><strong>⚠ ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}
     ${order.delivery_notes ? `<div class="mt">NOTES: ${order.delivery_notes}</div>` : ""}
     <div class="line"></div>
@@ -333,7 +334,7 @@ export default function AdminOperationsPage() {
               ) : orders.map((order) => (
                 <tr key={order.id} onClick={() => openDetail(order.id)} className="border-b cursor-pointer hover:bg-muted/30 transition-colors">
                   <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(order.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    {formatShortDateTime(order.created_at)}
                   </td>
                   <td className="px-3 py-2">
                     <Badge className={`text-[10px] ${SOURCE_COLORS[order.source] || ""}`}>
@@ -388,7 +389,7 @@ export default function AdminOperationsPage() {
                 {/* Order header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">{new Date(detail.order.created_at).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(detail.order.created_at)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge className={`text-[10px] ${SOURCE_COLORS[detail.order.source] || ""}`}>
                         {SOURCE_LABELS[detail.order.source] || detail.order.source}
@@ -407,7 +408,7 @@ export default function AdminOperationsPage() {
                   <p className="text-sm font-semibold">{detail.order.customer_name || "Walk-in"}</p>
                   {detail.order.customer_phone && (
                     <a href={`tel:${detail.order.customer_phone}`} className="flex items-center gap-1.5 text-sm text-primary hover:underline">
-                      <Phone className="h-3.5 w-3.5" /> {detail.order.customer_phone}
+                      <Phone className="h-3.5 w-3.5" /> {formatPhone(detail.order.customer_phone)}
                     </a>
                   )}
                   {detail.order.customer_email && (
@@ -454,10 +455,16 @@ export default function AdminOperationsPage() {
                       return dd ? (
                         <div className="flex items-center gap-1.5 text-sm">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{dd}</span>
+                          <span>{formatDeliveryDate(dd)}</span>
                         </div>
                       ) : null;
                     })()}
+                    {detail.order.delivery_time_window && (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{formatTimeWindow(detail.order.delivery_time_window)}</span>
+                      </div>
+                    )}
                     {detail.order.delivery_time_window && (
                       <div className="flex items-center gap-1.5 text-sm">
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -501,7 +508,7 @@ export default function AdminOperationsPage() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    Payment: {(detail.order.payment_method ?? "card").replace(/_/g, " ")}
+                    Payment: {formatPaymentMethod(detail.order.payment_method)}
                     {detail.order.stripe_checkout_session_id && (
                       <span className="ml-1 font-mono text-[10px]">({detail.order.stripe_checkout_session_id.slice(0, 15)}…)</span>
                     )}
@@ -552,7 +559,7 @@ export default function AdminOperationsPage() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Recent Orders</p>
                     {detail.customerHistory.recentOrders.slice(0, 5).map((o) => (
                       <div key={o.id} className="flex justify-between text-xs py-1 text-muted-foreground">
-                        <span>{new Date(o.created_at).toLocaleDateString()}</span>
+                        <span>{new Date(o.created_at).toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" })}</span>
                         <span>{formatUsd(o.grand_total_cents)}</span>
                         <Badge className={`text-[10px] ${STATUS_COLORS[o.status] || ""}`}>{o.status}</Badge>
                       </div>
