@@ -294,6 +294,7 @@ async function ensureOrderFromSession(input: {
       access_constraints: parseAccessConstraints(metadata.accessConstraints),
       delivery_schedule: deliverySchedule as Json,
       delivery_date: metadata.deliveryDate || null,
+      delivery_time_window: metadata.deliveryTimeWindow || null,
       source: "web",
       metadata: {
         stripePaymentIntent: normalizeStripeReference(input.session.payment_intent),

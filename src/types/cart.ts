@@ -41,6 +41,7 @@ export type CartStoreState = {
   truckTypes: TruckType[];
   distanceResult: DistanceMatrixResult | null;
   accessConstraints: DeliveryAccessInfo;
+  deliveryTimeWindow: string;
   isCalculating: boolean;
   isConfigLoading: boolean;
   error: string | null;

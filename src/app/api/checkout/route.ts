@@ -37,6 +37,7 @@ const requestSchema = z.object({
   promoCode: z.string().optional(),
   accessConstraints: z.record(z.string(), z.unknown()).optional(),
   deliveryDate: z.string().optional(),
+  deliveryTimeWindow: z.string().optional(),
   clientGrandTotalCents: z.number().int().nonnegative(),
   customer: z.object({
     fullName: z.string().min(2),
@@ -390,6 +391,7 @@ export async function POST(request: Request) {
       promoCode: payload.promoCode ?? "",
       accessConstraints: JSON.stringify(payload.accessConstraints ?? {}),
       deliveryDate: payload.deliveryDate ?? "",
+      deliveryTimeWindow: payload.deliveryTimeWindow ?? "flexible",
       createAccount: String(Boolean(payload.createAccount)),
       serverGrandTotalCents: String(calculation.grandTotalCents),
       materialsSubtotalCents: String(calculation.discountedSubtotalCents),
@@ -468,6 +470,7 @@ export async function POST(request: Request) {
           access_constraints: (payload.accessConstraints ?? {}) as Json,
           delivery_schedule: deliverySchedule as Json,
           delivery_date: payload.deliveryDate || null,
+          delivery_time_window: payload.deliveryTimeWindow || null,
           source: "web",
           metadata: {
             promoCode: payload.promoCode ?? "",
