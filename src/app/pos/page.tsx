@@ -142,7 +142,7 @@ export default function PosRegisterPage() {
   const [delEmail, setDelEmail] = useState("");
   const [delPhone, setDelPhone] = useState("");
   const [delAddress, setDelAddress] = useState("");
-  const [delDate, setDelDate] = useState("");
+  const [delDate, setDelDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [delTimeWindow, setDelTimeWindow] = useState("flexible");
   const [delNotes, setDelNotes] = useState("");
   const [delCustomerId, setDelCustomerId] = useState<string | null>(null);
@@ -492,13 +492,23 @@ export default function PosRegisterPage() {
       const r = await fetch(`/api/pos/customers/lookup?phone=${encodeURIComponent(digits)}`);
       const d = await r.json();
       if (d.customer) {
-        setDelName(`${d.customer.first_name ?? ""} ${d.customer.last_name ?? ""}`.trim());
-        setDelEmail(d.customer.email ?? "");
-        if (d.customer.address && !delAddress) setDelAddress(d.customer.address);
+        const foundName = `${d.customer.first_name ?? ""} ${d.customer.last_name ?? ""}`.trim();
+        // Only fill name if empty AND not a phone-based placeholder
+        const isValidName = foundName && !foundName.startsWith("SMS:") && !foundName.startsWith("+1") && !/^\d{10,}$/.test(foundName);
+        if (isValidName && !delName.trim()) {
+          setDelName(foundName);
+          setCustomerName(foundName);
+        }
+        // Only fill email if empty
+        if (d.customer.email && !delEmail.trim()) {
+          setDelEmail(d.customer.email);
+        }
+        // Only fill address if empty
+        if (d.customer.address && !delAddress.trim()) {
+          setDelAddress(d.customer.address);
+        }
         setDelCustomerId(d.customer.id);
         setDelCustomerStatus("found");
-        // Also set the main customer state
-        setCustomerName(`${d.customer.first_name ?? ""} ${d.customer.last_name ?? ""}`.trim());
         setCustomerPhone(digits);
         setSelectedCustomer(d.customer);
       } else {
@@ -723,12 +733,12 @@ export default function PosRegisterPage() {
   }
 
   async function afterSale(method: "card" | "cash" | "account", orderPayload: Record<string, unknown>) {
-    // Print receipt
+    // Print receipt via thermal printer
     if (autoPrint) {
       const receiptItems = (orderPayload.items as Array<Record<string, unknown>>).map((i) => ({
         productName: i.product_name as string,
         quantity: i.quantity as number,
-        unit: "ea",
+        unit: (i.delivery_type === "bulk" ? "cu. yards" : (i.unit as string) || "ea"),
         unitPriceCents: i.unit_price_cents as number,
         lineTotalCents: i.line_total_cents as number,
       }));
@@ -749,6 +759,30 @@ export default function PosRegisterPage() {
         deliveryAddress: orderPayload.delivery_address as string | undefined,
         notes: orderPayload.notes as string | undefined,
       });
+    } else {
+      // Fallback: browser popup receipt
+      printReceipt(orderPayload, method);
+    }
+
+    // Print delivery tickets for delivery orders (2 copies: driver + dispatch)
+    if (orderPayload.delivery_address && deliveryMethod === "delivery") {
+      const ticketData = {
+        items: (orderPayload.items as Array<Record<string, unknown>>).filter((i) => !(i.product_name as string)?.startsWith("Delivery Load")),
+        customer_name: orderPayload.customer_name,
+        customer_phone: orderPayload.customer_phone || customerPhone,
+        delivery_address: orderPayload.delivery_address,
+        delivery_date: orderPayload.delivery_date || delDate,
+        delivery_time_window: orderPayload.delivery_time_window || delTimeWindow,
+        delivery_notes: orderPayload.delivery_notes || delNotes,
+        access_constraints: orderPayload.access_constraints || null,
+        grand_total_cents: orderPayload.grand_total_cents,
+        payment_method: method === "card" ? "card_terminal" : method,
+      };
+      // Driver copy + dispatch copy
+      await new Promise(r => setTimeout(r, 800));
+      printDeliveryTicket(ticketData);
+      await new Promise(r => setTimeout(r, 800));
+      printDeliveryTicket(ticketData);
     }
 
     // Open cash drawer on cash sales
@@ -867,7 +901,7 @@ export default function PosRegisterPage() {
 
         if (result.success) {
           setCardPaymentStatus("Payment approved!");
-          printReceipt(orderPayload, method);
+          if (!autoPrint) printReceipt(orderPayload, method);
           await afterSale(method, orderPayload);
           setTimeout(resetRegister, 1500);
         } else {
@@ -875,13 +909,11 @@ export default function PosRegisterPage() {
           setTimeout(() => setCardPaymentStatus(null), 3000);
         }
       } else if (method === "cod") {
-        // COD — just print receipt and reset
-        printReceipt(orderPayload, method);
+        if (!autoPrint) printReceipt(orderPayload, method);
         await afterSale("cash", orderPayload);
         resetRegister();
       } else {
-        // Cash — sale already recorded
-        printReceipt(orderPayload, method);
+        if (!autoPrint) printReceipt(orderPayload, method);
         await afterSale(method, orderPayload);
         resetRegister();
       }
@@ -916,7 +948,7 @@ export default function PosRegisterPage() {
       ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
       <div class="line"></div>
       <div class="bold">ITEMS</div>
-      ${receiptItems.map(i => `<div class="mt"><div>${i.product_name}</div><div class="row"><span>${i.quantity} ${i.unit || "unit"} × ${fmt(i.unit_price_cents)}</span><span>${fmt(i.line_total_cents)}</span></div></div>`).join("")}
+      ${receiptItems.map(i => { const u = (i.unit === "unit" || !i.unit) ? (i.quantity > 1 ? "cu. yards" : "cu. yard") : i.unit; return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${i.product_name}</div><div class="row"><span>@ ${fmt(i.unit_price_cents)} per ${u.replace(/s$/, "")}</span><span>${fmt(i.line_total_cents)}</span></div></div>`; }).join("")}
       <div class="line"></div>
       <div class="row"><span>Subtotal</span><span>${fmt(orderData.subtotal_cents as number)}</span></div>
       ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-${fmt(orderData.discount_amount_cents as number)}</span></div>` : ""}
@@ -930,7 +962,7 @@ export default function PosRegisterPage() {
       ${delAddr ? `
         <div class="line"></div>
         <div class="bold">DELIVERY</div>
-        <div>${delAddr}</div>
+        <div style="font-size:14px;font-weight:bold;">${delAddr?.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
         ${delDate ? `<div>Date: ${formatShortDeliveryDate(delDate)}</div>` : ""}
         ${delTimeWindow ? `<div>Time: ${formatTimeWindow(delTimeWindow)}</div>` : ""}
         ${delNotes ? `<div>Notes: ${delNotes}</div>` : ""}
@@ -961,23 +993,23 @@ export default function PosRegisterPage() {
       <div class="center">EASTERN LANDSCAPE & MASON SUPPLY</div>
       <div class="line"></div>
       <div class="bold">CUSTOMER: ${data.customer_name || "Walk-in"}</div>
-      ${data.customer_phone ? `<div class="bold">PHONE: ${formatPhone(data.customer_phone as string)} — CALL IF ISSUES</div>` : ""}
+      ${data.customer_phone ? `<div>Phone: ${formatPhone(data.customer_phone as string)}</div>` : ""}
       <div class="line"></div>
       <div class="bold big">DELIVER TO:</div>
-      <div class="bold" style="font-size:14px;">${data.delivery_address || "NO ADDRESS"}</div>
-      ${data.delivery_date ? `<div class="mt bold">DATE: ${formatDeliveryDate(data.delivery_date as string)}</div>` : ""}
-      ${data.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(data.delivery_time_window as string)}</div>` : ""}
+      <div class="bold" style="font-size:16px;">${(data.delivery_address as string || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
+      ${data.delivery_date ? `<div class="mt">Date: ${formatDeliveryDate(data.delivery_date as string)}</div>` : ""}
+      ${data.delivery_time_window ? `<div>Time: ${formatTimeWindow(data.delivery_time_window as string)}</div>` : ""}
       ${flags.length > 0 || cNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, cNotes].filter(Boolean).join(" · ")}</div>` : ""}
       ${data.delivery_notes ? `<div class="mt">NOTES: ${data.delivery_notes}</div>` : ""}
       <div class="line"></div>
       <div class="bold big">MATERIAL TO LOAD:</div>
-      ${items.map(i => `<div class="mt bold">${i.product_name}<br/>${i.quantity} ${i.unit || "unit"}</div><div class="row mt"><span>☐ LOADED</span><span>☐ DELIVERED</span></div>`).join('<div class="dashed"></div>')}
+      ${items.map(i => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${u}<br/>${i.product_name}</div>`; }).join('<div class="dashed"></div>')}
       <div class="line"></div>
-      <div class="row bold"><span>ORDER TOTAL:</span><span>${fmt(data.grand_total_cents as number)}</span></div>
-      <div class="bold mt">PAYMENT: ${formatPaymentMethod(data.payment_method as string).toUpperCase()}${(data.payment_method as string)?.includes("card") ? " (PAID — no collection needed)" : ""}</div>
-      <div class="line"></div>
-      <div class="mt">Driver signature: ___________________</div>
-      <div class="mt">Date completed: ___________________</div>
+      ${(data.payment_method as string) === "cod" ? `
+        <div class="center bold" style="font-size:18px;border:2px solid #000;padding:8px;margin:8px 0;">COLLECT ON DELIVERY<br/>${fmt(data.grand_total_cents as number)}</div>
+      ` : `
+        <div class="bold big center">PAID</div>
+      `}
       <div class="line"></div>
       </body></html>`);
     w.document.close();
