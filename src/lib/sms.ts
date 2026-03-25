@@ -6,7 +6,15 @@
 const RC_CLIENT_ID = "aCtUW9yyeLhdl5lTGj019d";
 const RC_CLIENT_SECRET = "REDACTED_RINGCENTRAL_SECRET";
 const RC_SERVER = "https://platform.ringcentral.com";
-const RC_DEFAULT_FROM = "+13153625323"; // RingCentral SMS-enabled number
+const RC_DEFAULT_FROM = "+16318746244"; // main business line (ext 102)
+
+// Map from-numbers to their RingCentral extension IDs
+const RC_EXTENSION_MAP: Record<string, string> = {
+  "+16318746244": "63390330004", // POS Desk (ext 102)
+  "+13153625323": "63383649004", // Adam Larkin (ext 101 — JWT owner)
+  "+16313951661": "63390331004", // Megan B (ext 103)
+  "+16313668524": "63390330004", // shared on POS Desk (ext 102)
+};
 
 // ─── Public API ──────────────────────────────────────────────────
 
@@ -61,7 +69,9 @@ async function sendViaRingCentral(
   try {
     const token = await getRcAccessToken(jwt);
 
-    const res = await fetch(`${RC_SERVER}/restapi/v1.0/account/~/extension/~/sms`, {
+    // Try the requested from-number's extension first
+    const extensionId = RC_EXTENSION_MAP[from] ?? "~";
+    let res = await fetch(`${RC_SERVER}/restapi/v1.0/account/~/extension/${extensionId}/sms`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -73,6 +83,23 @@ async function sendViaRingCentral(
         text: body,
       }),
     });
+
+    // If cross-extension permission denied, fall back to JWT owner's extension
+    if (res.status === 403 && extensionId !== "~") {
+      console.warn(`[SMS:RC] Permission denied for ext ${extensionId}, falling back to default extension`);
+      res = await fetch(`${RC_SERVER}/restapi/v1.0/account/~/extension/~/sms`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: { phoneNumber: "+13153625323" }, // JWT owner's SMS number
+          to: [{ phoneNumber: to }],
+          text: body,
+        }),
+      });
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

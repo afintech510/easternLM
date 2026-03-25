@@ -176,7 +176,12 @@ function printDeliveryTicket(order: Order) {
     ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
     <div class="line"></div>
     <div class="bold big">DELIVER TO:</div>
-    <div class="bold" style="font-size:16px;">${(order.delivery_address || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
+    ${(() => {
+      const addr = (order.delivery_address || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "");
+      const zip = addr.match(/\b(\d{5})\b/)?.[1] || "";
+      const cleanAddr = addr.replace(/,?\s*NY\s*,?/i, " ").replace(/\s+/g, " ").trim();
+      return `<div class="bold" style="font-size:16px;">${cleanAddr}</div>${zip ? `<div class="bold" style="font-size:16px;">ZIP: ${zip}</div>` : ""}`;
+    })()}
     ${deliveryDate ? `<div class="mt bold">DATE: ${formatDeliveryDate(String(deliveryDate))}</div>` : ""}
     ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
     ${flags.length > 0 || notes ? `<div class="warn"><strong>⚠ ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}

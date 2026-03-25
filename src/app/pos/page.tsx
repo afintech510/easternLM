@@ -996,7 +996,12 @@ export default function PosRegisterPage() {
       ${data.customer_phone ? `<div>Phone: ${formatPhone(data.customer_phone as string)}</div>` : ""}
       <div class="line"></div>
       <div class="bold big">DELIVER TO:</div>
-      <div class="bold" style="font-size:16px;">${(data.delivery_address as string || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
+      ${(() => {
+        const addr = (data.delivery_address as string || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "");
+        const zip = (data as Record<string, unknown>).delivery_zip as string || addr.match(/\b(\d{5})\b/)?.[1] || "";
+        const cleanAddr = addr.replace(/,?\s*NY\s*,?/i, " ").replace(/\s+/g, " ").trim();
+        return `<div class="bold" style="font-size:16px;">${cleanAddr}</div>${zip ? `<div class="bold" style="font-size:16px;">ZIP: ${zip}</div>` : ""}`;
+      })()}
       ${data.delivery_date ? `<div class="mt">Date: ${formatDeliveryDate(data.delivery_date as string)}</div>` : ""}
       ${data.delivery_time_window ? `<div>Time: ${formatTimeWindow(data.delivery_time_window as string)}</div>` : ""}
       ${flags.length > 0 || cNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, cNotes].filter(Boolean).join(" · ")}</div>` : ""}
