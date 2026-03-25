@@ -24,10 +24,10 @@ function getDefaultDeliveryDate() {
 }
 
 const TIME_WINDOWS = [
-  { value: "early", label: "Early Morning (7:30 AM – 9:00 AM)" },
-  { value: "morning", label: "Morning (8:00 AM – 12:00 PM)" },
-  { value: "afternoon", label: "Afternoon (12:00 PM – 5:00 PM)" },
-  { value: "flexible", label: "Flexible (7:30 AM – 5:00 PM)" },
+  { value: "morning", label: "Morning (7 AM – 10 AM)" },
+  { value: "midday", label: "Midday (10 AM – 1 PM)" },
+  { value: "afternoon", label: "Afternoon (1 PM – 5 PM)" },
+  { value: "flexible", label: "Flexible (7 AM – 5 PM)" },
 ];
 
 export function CartPageClient() {

@@ -110,10 +110,11 @@ function formatDeliveryDate(d: string): string {
 
 function formatTimeWindow(tw: string): string {
   const map: Record<string, string> = {
-    early: "Early Morning (7:30 AM – 9:00 AM)",
-    morning: "Morning (8:00 AM – 12:00 PM)",
-    afternoon: "Afternoon (12:00 PM – 5:00 PM)",
-    flexible: "Flexible (7:30 AM – 5:00 PM)",
+    early: "Morning (7:00 AM – 10:00 AM)",
+    morning: "Morning (7:00 AM – 10:00 AM)",
+    midday: "Midday (10:00 AM – 1:00 PM)",
+    afternoon: "Afternoon (1:00 PM – 5:00 PM)",
+    flexible: "Flexible (7:00 AM – 5:00 PM)",
   };
   return map[tw] ?? tw;
 }

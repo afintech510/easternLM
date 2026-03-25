@@ -484,10 +484,10 @@ export default function QuoteDetailPage() {
                     disabled={isReadOnly}
                     className="w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
                   >
-                    <option value="early">Early Morning (7:30 AM – 9:00 AM)</option>
-                    <option value="morning">Morning (8:00 AM – 12:00 PM)</option>
-                    <option value="afternoon">Afternoon (12:00 PM – 5:00 PM)</option>
-                    <option value="flexible">Flexible (7:30 AM – 5:00 PM)</option>
+                    <option value="morning">Morning (7 AM – 10 AM)</option>
+                    <option value="midday">Midday (10 AM – 1 PM)</option>
+                    <option value="afternoon">Afternoon (1 PM – 5 PM)</option>
+                    <option value="flexible">Flexible (7 AM – 5 PM)</option>
                   </select>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
