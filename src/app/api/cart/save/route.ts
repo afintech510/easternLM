@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendSms } from "@/lib/sms";
 
 // POST — save current cart and return a shareable link
 export async function POST(request: Request) {
@@ -63,25 +64,7 @@ export async function POST(request: Request) {
   // Send via SMS if phone provided
   if (customerPhone) {
     try {
-      const sid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const from = process.env.TWILIO_PHONE_NUMBER;
-      if (sid && authToken && from) {
-        const cleanPhone = customerPhone.replace(/\D/g, "");
-        const toPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-          method: "POST",
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            To: toPhone,
-            From: from,
-            Body: `Your cart at Eastern LM is saved! ${items.length} item${items.length > 1 ? "s" : ""} waiting for you:\n${link}\n\nReply STOP to opt out.`,
-          }),
-        });
-      }
+      await sendSms(customerPhone, `Your cart at Eastern LM is saved! ${items.length} item${items.length > 1 ? "s" : ""} waiting for you:\n${link}\n\nReply STOP to opt out.`).catch(() => {});
     } catch {
       // Non-critical
     }

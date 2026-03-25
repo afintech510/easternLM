@@ -4,6 +4,7 @@ import { ensureCustomerForOrder, linkCustomerToOrder, normalizePhone } from "@/l
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 import { createProjectFromPOSOrder } from "@/lib/projects/auto-create";
+import { sendSms } from "@/lib/sms";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -177,10 +178,6 @@ export async function POST(request: Request) {
   if (delivery_method === "delivery" && customer_phone) {
     try {
       const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
-      const phone = customer_phone;
-      const digits = phone.replace(/\D/g, "");
-      const to = digits.startsWith("1") ? `+${digits}` : `+1${digits}`;
-
       const itemLines = (items as any[])
         ?.map((i: any) => i.delivery_type === "bulk"
           ? `${i.quantity} cu. yards of ${i.product_name}`
@@ -216,16 +213,7 @@ export async function POST(request: Request) {
         "Questions? (631) 874-6244",
       ].filter(Boolean).join("\n");
 
-      const sid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const fromPhone = process.env.TWILIO_PHONE_NUMBER;
-      if (sid && authToken && fromPhone) {
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-          method: "POST",
-          headers: { Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ To: to, From: fromPhone, Body: smsBody }),
-        }).catch(() => {});
-      }
+      await sendSms(customer_phone, smsBody).catch(() => {});
     } catch (err) { console.error("Customer delivery SMS failed:", err); }
   }
 

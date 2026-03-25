@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { cancelQuoteFollowUps } from "@/lib/quotes/follow-ups";
+import { sendSms } from "@/lib/sms";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -32,22 +33,10 @@ export async function POST(request: Request, context: RouteContext) {
   if (quote.id) cancelQuoteFollowUps(quote.id).catch(() => {});
 
   // Notify staff
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
   const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
-
-  if (sid && authToken && from && staffPhone) {
-    const msg = `❌ Quote declined. ${quote.customer_name} declined their quote${reason ? `: "${reason}"` : ""}. Check /admin/quotes.`;
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
-    }).catch(() => {});
-  }
+    if (staffPhone) {
+      // SMS handled by sendSms
+    }
 
   return NextResponse.json({ ok: true });
 }

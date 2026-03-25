@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { cancelQuoteFollowUps } from "@/lib/quotes/follow-ups";
+import { sendSms } from "@/lib/sms";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -42,23 +43,12 @@ export async function POST(request: Request, context: RouteContext) {
   if (quote.id) cancelQuoteFollowUps(quote.id).catch(() => {});
 
   // Notify staff via SMS if configured
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
   const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
-
-  if (sid && authToken && from && staffPhone) {
+  if (staffPhone) {
     const fmt = (c: number) =>
       new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
     const msg = `Quote accepted! ${quote.customer_name} accepted their quote. Deposit: ${fmt(quote.deposit_required_cents)}. Check /admin/quotes for details.`;
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
-    }).catch(() => {});
+    await sendSms(staffPhone, msg).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, needsDeposit: quote.deposit_required_cents > 0 });

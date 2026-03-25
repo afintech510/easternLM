@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendSms } from "@/lib/sms";
 
 const TAX_RATE = 0.0875;
 const CC_RATE = 0.03;
@@ -242,28 +243,9 @@ export async function POST(request: Request) {
 
     if ((sendVia === "sms" || sendVia === "both") && customer?.phone) {
       try {
-        const sid = process.env.TWILIO_ACCOUNT_SID;
-        const token = process.env.TWILIO_AUTH_TOKEN;
-        const from = process.env.TWILIO_PHONE_NUMBER;
-        if (sid && token && from) {
-          const digits = customer.phone.replace(/\D/g, "");
-          const to = digits.startsWith("1") ? `+${digits}` : `+1${digits}`;
-          const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
-          const itemSummary = items.slice(0, 3).map((i: any) => `${i.quantity} ${i.unit ?? "yd"} ${i.name}`).join(", ");
-
-          await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              To: to, From: from,
-              Body: `Eastern LM — Quote for ${customer.name}:\n${itemSummary}\nTotal: ${fmt(cashTotal)} (cash) / ${fmt(cardTotal)} (card)\nReview & pay: ${quoteUrl}\n\nCall: (631) 874-6244`,
-            }),
-          });
-          sent.push("sms");
-        }
+        const f = (c: number) => `$${(c / 100).toFixed(2)}`;
+        const summary = lineItems.map((i: any) => `${i.quantity} ${i.unit} ${i.description}`).join(", ");
+        await sendSms(customer.phone, `Eastern LM — Quote for ${customer.name}:\n${summary}\nTotal: ${f(cashTotal)} (cash) / ${f(cardTotal)} (card)\nReview & pay: ${quoteUrl}\n\nCall: (631) 874-6244`).catch(() => {});
       } catch (err) {
         console.error("[save-quote] SMS failed:", err);
       }
