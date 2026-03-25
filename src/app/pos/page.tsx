@@ -80,10 +80,10 @@ const TAX_RATE = 0.0875;
 const CC_SURCHARGE = 0.03;
 
 const TIME_WINDOWS = [
-  { value: "morning", label: "Morning (7 AM - 10 AM)" },
-  { value: "midday", label: "Mid-day (10 AM - 1 PM)" },
-  { value: "afternoon", label: "Afternoon (1 PM - 4 PM)" },
-  { value: "flexible", label: "Flexible" },
+  { value: "morning", label: "Morning (7 AM – 10 AM)" },
+  { value: "midday", label: "Midday (10 AM – 1 PM)" },
+  { value: "afternoon", label: "Afternoon (1 PM – 5 PM)" },
+  { value: "flexible", label: "Flexible (7 AM – 5 PM)" },
 ];
 
 // ─── Component ────────────────────────────────────────────────────
@@ -823,6 +823,17 @@ export default function PosRegisterPage() {
   }
 
   async function completeSale(method: "card" | "cash" | "cod" | "account") {
+    // Validate delivery orders have required fields
+    if (deliveryMethod === "delivery") {
+      const missing: string[] = [];
+      if (!(delName || customerName) || (delName || customerName) === "Walk-in") missing.push("customer name");
+      if (!(delAddress || deliveryAddress)) missing.push("delivery address");
+      if (!(delPhone || customerPhone)) missing.push("phone number");
+      if (missing.length > 0) {
+        alert(`Delivery order requires: ${missing.join(", ")}`);
+        return;
+      }
+    }
     setProcessing(true);
     try {
       // Determine totals based on method
