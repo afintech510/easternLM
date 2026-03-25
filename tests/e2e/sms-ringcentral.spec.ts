@@ -19,7 +19,7 @@ test.describe("RingCentral SMS Integration", () => {
   test("SMS sends from main business number", async ({ request }) => {
     const res = await request.get("/api/health/sms");
     const data = await res.json();
-    expect(data.fromNumber).toBe("+16318746244");
+    expect(data.fromNumber).toBe("+13153625323");
   });
 
   test("Twilio is configured as fallback only", async ({ request }) => {

@@ -12,7 +12,7 @@ export async function GET() {
     provider: rcConfigured ? "ringcentral" : twilioConfigured ? "twilio" : "none",
     configured: rcConfigured || twilioConfigured,
     hasJwtToken: !!process.env.RINGCENTRAL_JWT,
-    fromNumber: "+16318746244",
+    fromNumber: "+13153625323",
     marketingFromNumber: process.env.RINGCENTRAL_SMS_MARKETING_FROM ?? null,
     fallbackProvider: twilioConfigured ? "twilio" : "none",
     twilioConfigured,
