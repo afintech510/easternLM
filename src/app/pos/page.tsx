@@ -756,7 +756,14 @@ export default function PosRegisterPage() {
           ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
           : undefined,
         customerName: orderPayload.customer_name as string,
+        customerPhone: (orderPayload.customer_phone as string) || customerPhone || undefined,
+        customerEmail: (orderPayload.customer_email as string) || delEmail || undefined,
+        deliveryMethod: orderPayload.delivery_method as string | undefined,
         deliveryAddress: orderPayload.delivery_address as string | undefined,
+        deliveryDate: (orderPayload.delivery_date as string) || delDate || undefined,
+        deliveryTimeWindow: (orderPayload.delivery_time_window as string) || (deliveryMethod === "delivery" ? delTimeWindow : undefined),
+        deliveryNotes: (orderPayload.delivery_notes as string) || delNotes || undefined,
+        accessConstraints: orderPayload.access_constraints as Record<string, boolean> | undefined,
         notes: orderPayload.notes as string | undefined,
       });
     } else {
@@ -959,7 +966,17 @@ export default function PosRegisterPage() {
       ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
       <div class="line"></div>
       <div class="bold">ITEMS</div>
-      ${receiptItems.map(i => { const u = (i.unit === "unit" || !i.unit) ? (i.quantity > 1 ? "cu. yards" : "cu. yard") : i.unit; return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${i.product_name}</div><div class="row"><span>@ ${fmt(i.unit_price_cents)} per ${u.replace(/s$/, "")}</span><span>${fmt(i.line_total_cents)}</span></div></div>`; }).join("")}
+      ${receiptItems.map(i => { const isBulk = (i.unit === "unit" || i.unit === "cu. yard" || !i.unit); const u = isBulk ? "cu yds" : i.unit; const uSingle = isBulk ? "cu yd" : (i.unit || "ea"); return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${isBulk ? "of " : ""}${i.product_name}</div><div class="row"><span>@ ${fmt(i.unit_price_cents)} per ${uSingle}</span><span>${fmt(i.line_total_cents)}</span></div></div>`; }).join("")}
+      ${delAddr ? `
+        <div class="line"></div>
+        <div class="bold">DELIVERY</div>
+        ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
+        ${(orderData.customer_email as string) ? `<div>Email: ${orderData.customer_email}</div>` : ""}
+        <div class="mt" style="font-size:14px;font-weight:bold;">${delAddr.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
+        ${delDate ? `<div>Date: ${formatShortDeliveryDate(delDate)}</div>` : ""}
+        ${delTimeWindow ? `<div>Time: ${formatTimeWindow(delTimeWindow)}</div>` : ""}
+        ${delNotes ? `<div>Notes: ${delNotes}</div>` : ""}
+      ` : ""}
       <div class="line"></div>
       <div class="row"><span>Subtotal</span><span>${fmt(orderData.subtotal_cents as number)}</span></div>
       ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-${fmt(orderData.discount_amount_cents as number)}</span></div>` : ""}
@@ -970,14 +987,6 @@ export default function PosRegisterPage() {
       <div class="row bold" style="font-size:14px;"><span>TOTAL</span><span>${fmt(orderData.grand_total_cents as number)}</span></div>
       <div class="mt">Payment: ${method === "card" ? "Card" : method === "cod" ? "CASH ON DELIVERY" : method === "cash" ? "Cash" : method}</div>
       ${method === "cod" ? `<div class="bold mt">AMOUNT DUE ON DELIVERY: ${fmt(orderData.grand_total_cents as number)}</div>` : ""}
-      ${delAddr ? `
-        <div class="line"></div>
-        <div class="bold">DELIVERY</div>
-        <div style="font-size:14px;font-weight:bold;">${delAddr?.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
-        ${delDate ? `<div>Date: ${formatShortDeliveryDate(delDate)}</div>` : ""}
-        ${delTimeWindow ? `<div>Time: ${formatTimeWindow(delTimeWindow)}</div>` : ""}
-        ${delNotes ? `<div>Notes: ${delNotes}</div>` : ""}
-      ` : ""}
       <div class="line"></div>
       <div class="center">Thank you for your business!</div>
       <div class="center">easternlm.com</div>

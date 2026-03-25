@@ -175,7 +175,7 @@ export class ReceiptPrinter {
     this.align(c, "L");
     if (o.orderNumber) this.txt(c, `Order: #${o.orderNumber}`);
     const dt = new Date(o.createdAt);
-    this.txt(c, `Date:  ${dt.toLocaleDateString()} ${dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    this.txt(c, `Date:  ${dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} ${dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`);
     if (o.staffName) this.txt(c, `Staff: ${o.staffName}`);
     this.txt(c, "");
     // Customer name — clean up raw phone / SMS prefix
@@ -234,9 +234,14 @@ export class ReceiptPrinter {
       this.txt(c, div());
       this.bold(c, true); this.txt(c, "DELIVERY"); this.bold(c, false);
       this.txt(c, div());
-      this.txt(c, `Address: ${o.deliveryAddress.substring(0, W - 9)}`);
-      if (o.deliveryDate) this.txt(c, `Date:    ${o.deliveryDate}`);
-      if (o.deliveryTimeWindow) this.txt(c, `Window:  ${o.deliveryTimeWindow}`);
+      const cleanAddr = o.deliveryAddress.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ");
+      this.txt(c, cleanAddr.substring(0, W));
+      if (o.deliveryDate) {
+        const dd = new Date(o.deliveryDate + (o.deliveryDate.includes("T") ? "" : "T12:00:00"));
+        this.txt(c, `Date:    ${dd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`);
+      }
+      const twMap: Record<string, string> = { morning: "Morning (7 AM-10 AM)", midday: "Midday (10 AM-1 PM)", afternoon: "Afternoon (1 PM-5 PM)", flexible: "Flexible (7 AM-5 PM)" };
+      if (o.deliveryTimeWindow) this.txt(c, `Time:    ${twMap[o.deliveryTimeWindow] ?? o.deliveryTimeWindow}`);
       const ac = this.getActiveConstraints(o);
       if (ac.length > 0) this.txt(c, `Access:  ${ac.join(", ")}`);
       if (o.deliveryNotes) this.txt(c, `Notes:   ${o.deliveryNotes.substring(0, W - 9)}`);
