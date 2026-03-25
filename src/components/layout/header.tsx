@@ -61,8 +61,9 @@ export function Header() {
             <Image
               src="/logo-elm-blue.webp"
               alt="Eastern Landscape & Mason Supply"
-              width={200}
-              height={57}
+              width={240}
+              height={68}
+              className="h-auto w-[200px] md:w-[240px]"
               priority
             />
           </Link>
