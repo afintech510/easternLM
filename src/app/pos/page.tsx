@@ -1135,9 +1135,49 @@ export default function PosRegisterPage() {
           customerPhone={delPhone || customerPhone}
           customerEmail={delEmail}
           onClose={() => setShowPhoneOrder(false)}
-          onSuccess={(piId) => {
+          onSuccess={async (piId) => {
             setShowPhoneOrder(false);
-            clearSale();
+            try {
+              const orderPayload: Record<string, unknown> = {
+                items: items.map((i) => ({
+                  product_id: i.product.id,
+                  product_name: i.product.name,
+                  product_slug: i.product.slug,
+                  quantity: i.quantity,
+                  unit_price_cents: i.price_cents,
+                  line_total_cents: i.price_cents * i.quantity,
+                  delivery_type: i.product.delivery_type,
+                })),
+                subtotal_cents: subtotalCents,
+                tax_cents: taxCents,
+                cc_fee_cents: Math.round(cashTotalCents * 0.03),
+                delivery_fee_cents: deliveryFeeCents,
+                grand_total_cents: cashTotalCents + Math.round(cashTotalCents * 0.03),
+                payment_method: "card_online",
+                customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
+                delivery_method: deliveryMethod,
+                delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
+                customer_name: delName || customerName,
+                customer_phone: delPhone || customerPhone || null,
+                customer_email: delEmail || null,
+                delivery_date: delDate || null,
+                delivery_time_window: deliveryMethod === "delivery" ? delTimeWindow : null,
+                delivery_notes: delNotes || null,
+                access_constraints: accessConstraints,
+                stripe_payment_intent_id: piId,
+              };
+              const orderRes = await fetch("/api/pos/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(orderPayload),
+              });
+              if (orderRes.ok) {
+                await afterSale("card", orderPayload);
+              }
+            } catch (err) {
+              console.error("Phone order: failed to create order after payment:", err);
+            }
+            resetRegister();
           }}
         />
       )}
@@ -1838,7 +1878,7 @@ export default function PosRegisterPage() {
                         <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                       </button>
                     )}
-                    {(txnDetail.status === "paid" || txnDetail.status === "delivered") && txnDetail.payment_method?.includes("card") && (
+                    {(txnDetail.status === "paid" || txnDetail.status === "delivered" || txnDetail.status === "confirmed") && (
                       <button onClick={() => setShowRefund(txnDetail)} className="flex-1 rounded bg-red-900/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/50 flex items-center justify-center gap-1.5 border border-red-500/20">
                         Refund
                       </button>
