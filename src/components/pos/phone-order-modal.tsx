@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Loader2, CreditCard, Lock } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { formatUsd } from "@/lib/format";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -19,8 +19,9 @@ interface Props {
   onSuccess: (paymentIntentId: string) => void;
 }
 
-function PhonePaymentForm({ amountCents, onSuccess, onError }: {
+function PhonePaymentForm({ amountCents, clientSecret, onSuccess, onError }: {
   amountCents: number;
+  clientSecret: string;
   onSuccess: (piId: string) => void;
   onError: (msg: string) => void;
 }) {
@@ -31,19 +32,19 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
+    const card = elements.getElement(CardElement);
+    if (!card) { onError("Card element not ready"); return; }
+
     setProcessing(true);
 
-    // 30-second timeout to prevent infinite hang
     const timeout = setTimeout(() => {
       setProcessing(false);
       onError("Payment timed out. Check Stripe dashboard for status.");
     }, 30000);
 
     try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: { return_url: window.location.href },
-        redirect: "if_required",
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card },
       });
 
       clearTimeout(timeout);
@@ -51,10 +52,10 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
       if (error) {
         onError(error.message ?? "Payment failed.");
         setProcessing(false);
-      } else if (paymentIntent) {
+      } else if (paymentIntent?.status === "succeeded") {
         onSuccess(paymentIntent.id);
       } else {
-        onError("No response from Stripe. Check dashboard.");
+        onError(`Payment status: ${paymentIntent?.status ?? "unknown"}. Check Stripe dashboard.`);
         setProcessing(false);
       }
     } catch (err) {
@@ -66,11 +67,20 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{
-        layout: "tabs",
-        wallets: { applePay: "never", googlePay: "never" },
-        fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },
-      }} />
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
+        <CardElement options={{
+          style: {
+            base: {
+              fontSize: "16px",
+              color: "#e4e4e7",
+              "::placeholder": { color: "#71717a" },
+              iconColor: "#d97706",
+            },
+            invalid: { color: "#ef4444", iconColor: "#ef4444" },
+          },
+          hidePostalCode: false,
+        }} />
+      </div>
       <div className="flex gap-2">
         <button
           type="submit"
@@ -194,6 +204,7 @@ export function PhoneOrderModal({ amountCents, customerName, customerPhone, cust
             }}>
               <PhonePaymentForm
                 amountCents={amountCents}
+                clientSecret={clientSecret}
                 onSuccess={(piId) => { setDone(true); onSuccess(piId); }}
                 onError={setError}
               />
@@ -203,8 +214,7 @@ export function PhoneOrderModal({ amountCents, customerName, customerPhone, cust
           )}
 
           <p className="text-[10px] text-zinc-600 text-center">
-            Read card number, expiry, and CVC from the customer over the phone.
-            This is PCI-compliant via Stripe Elements.
+            Enter card number, expiry, and CVC. No Link or wallet options.
           </p>
         </div>
       </div>
