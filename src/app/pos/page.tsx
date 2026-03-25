@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Calculator,
   Calendar,
   ClipboardList,
   CreditCard,
   Edit3,
-  LogOut,
   MapPin,
   Minus,
   Package,
@@ -1201,6 +1201,15 @@ export default function PosRegisterPage() {
         />
       )}
 
+      {/* Refund Modal */}
+      {showRefund && (
+        <RefundModal
+          order={showRefund}
+          onClose={() => setShowRefund(null)}
+          onRefund={() => { setShowRefund(null); fetchTransactions(); if (selectedTxn) fetchTxnDetail(selectedTxn); }}
+        />
+      )}
+
       {/* Material Calculator Modal */}
       {showMaterialCalc && (
         <MaterialCalculator
@@ -1635,54 +1644,7 @@ export default function PosRegisterPage() {
                 </div>
               )}
 
-              {/* Divider */}
-              <div className="border-t border-zinc-800 pt-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Service Lead</p>
-              </div>
-
-              {/* Service lead */}
-              {!showLeadForm ? (
-                <button
-                  onClick={() => setShowLeadForm(true)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700"
-                >
-                  <Package className="h-4 w-4 text-amber-400" />
-                  Create Service Lead
-                </button>
-              ) : (
-                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                  <select value={leadServiceType} onChange={(e) => setLeadServiceType(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500">
-                    <option value="">Select service type *</option>
-                    <option value="gravel-driveway-new">Gravel driveway — new</option>
-                    <option value="gravel-driveway-resurface">Gravel driveway — resurface</option>
-                    <option value="paver-driveway">Paver driveway</option>
-                    <option value="driveway-edging">Driveway edging</option>
-                    <option value="landscaping-design">Landscaping — design &amp; install</option>
-                    <option value="landscaping-grading">Landscaping — grading &amp; drainage</option>
-                    <option value="landscaping-sod">Landscaping — sod / lawn</option>
-                    <option value="landscaping-retaining-wall">Landscaping — retaining wall</option>
-                    <option value="masonry-patio">Masonry — patio</option>
-                    <option value="masonry-walkway">Masonry — walkway</option>
-                    <option value="masonry-fireplace">Masonry — fireplace / outdoor kitchen</option>
-                    <option value="masonry-veneer">Masonry — stone veneer / steps</option>
-                    <option value="property-maintenance">Property maintenance</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <select value={leadTimeline} onChange={(e) => setLeadTimeline(e.target.value)} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none">
-                    <option value="asap">ASAP / this week</option>
-                    <option value="within-2-weeks">Within 2 weeks</option>
-                    <option value="within-a-month">Within a month</option>
-                    <option value="just-planning">Just getting quotes</option>
-                  </select>
-                  <textarea value={leadDescription} onChange={(e) => setLeadDescription(e.target.value)} placeholder="Project details..." rows={2} className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                  <div className="flex gap-2">
-                    <button onClick={saveServiceLead} disabled={!leadServiceType || leadSaving} className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-30">
-                      {leadSaving ? "Saving..." : "Save Lead"}
-                    </button>
-                    <button onClick={() => setShowLeadForm(false)} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm text-zinc-400 hover:bg-zinc-700">Cancel</button>
-                  </div>
-                </div>
-              )}
+              {/* Service leads are created via the FunnelPlus button in the product grid header */}
             </div>
           )}
 
@@ -1839,6 +1801,11 @@ export default function PosRegisterPage() {
                         <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                       </button>
                     )}
+                    {(txnDetail.status === "paid" || txnDetail.status === "delivered") && txnDetail.payment_method?.includes("card") && (
+                      <button onClick={() => setShowRefund(txnDetail)} className="flex-1 rounded bg-red-900/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/50 flex items-center justify-center gap-1.5 border border-red-500/20">
+                        Refund
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -1880,8 +1847,8 @@ export default function PosRegisterPage() {
                 <X className="h-4 w-4" />
               </button>
             )}
-            <button onClick={() => window.location.href = "/pos/login"} className="text-zinc-500 hover:text-zinc-300" title="Sign out">
-              <LogOut className="h-4 w-4" />
+            <button onClick={() => window.location.href = "/yard/login"} className="flex items-center gap-1 text-zinc-500 hover:text-zinc-300 ml-2" title="Sign out">
+              <ArrowLeft className="h-4 w-4" />
             </button>
           </div>
         </div>
