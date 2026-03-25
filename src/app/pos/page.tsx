@@ -2120,7 +2120,19 @@ export default function PosRegisterPage() {
           <div className="border-t border-zinc-800 px-3 py-2">
             <div className="flex items-center gap-2 rounded-lg bg-amber-900/30 px-3 py-2 text-sm text-amber-300">
               <CreditCard className="h-4 w-4 animate-pulse" />
-              {cardPaymentStatus}
+              <span className="flex-1">{cardPaymentStatus}</span>
+              {terminalRef.current.isPolling && (
+                <button
+                  onClick={async () => {
+                    await terminalRef.current.cancelPayment();
+                    setCardPaymentStatus(null);
+                    setProcessing(false);
+                  }}
+                  className="rounded px-2 py-0.5 text-xs text-red-400 border border-red-500/30 hover:bg-red-500/10"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -2133,6 +2145,17 @@ export default function PosRegisterPage() {
               <Wifi className={`h-3 w-3 ${terminalStatus === "disconnected" ? "text-red-500" : "text-green-500"}`} />
               {terminalStatus === "simulated" ? "Sim Reader" : terminalStatus === "connected" ? "Reader OK" : "No Reader"}
             </span>
+            {terminalStatus === "connected" && (
+              <button
+                onClick={async () => {
+                  await terminalRef.current.cancelPayment();
+                  setCardPaymentStatus(null);
+                }}
+                className="text-zinc-600 hover:text-zinc-300 text-[10px]"
+              >
+                Reset
+              </button>
+            )}
             {!isOnline && (
               <span className="flex items-center gap-1 font-semibold text-amber-400">
                 <span className="size-2 rounded-full bg-amber-400 animate-pulse" /> OFFLINE

@@ -9,14 +9,22 @@ export async function POST(request: Request) {
 
     // Status check mode — poll a PaymentIntent's status
     if (body.checkStatus && body.paymentIntentId) {
-      const pi = await stripe.paymentIntents.retrieve(body.paymentIntentId, {
+      let pi = await stripe.paymentIntents.retrieve(body.paymentIntentId, {
         expand: ["latest_charge"],
       });
+
+      // Auto-confirm if reader has captured the card
+      if (pi.status === "requires_confirmation") {
+        pi = await stripe.paymentIntents.confirm(body.paymentIntentId);
+      }
+
       const charge = pi.latest_charge as Stripe.Charge | null;
+      const cardDetails = (charge?.payment_method_details as any)?.card_present;
       return NextResponse.json({
         status: pi.status,
         paymentIntentId: pi.id,
-        last4: (charge?.payment_method_details as any)?.card_present?.last4 ?? null,
+        last4: cardDetails?.last4 ?? null,
+        cardBrand: cardDetails?.brand ?? null,
       });
     }
 
