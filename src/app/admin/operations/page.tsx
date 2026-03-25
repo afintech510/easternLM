@@ -197,10 +197,20 @@ function printDeliveryTicket(order: Order) {
       <div class="bold big center">PAID</div>
     `}
     <div class="line"></div>
+    <div class="center" style="margin:8px 0;">
+      <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
+      <img id="qr" style="width:150px;height:150px;margin:0 auto;" />
+    </div>
     <div class="line"></div>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
+    <script>
+      QRCode.toDataURL('${typeof window !== "undefined" ? window.location.origin : "https://easternlm.com"}/delivery/confirm/${order.id}', {width:150,margin:1}, function(err,url){
+        if(url) document.getElementById('qr').src = url;
+      });
+    <\/script>
     </body></html>`);
   w.document.close();
-  w.print();
+  setTimeout(() => w.print(), 1000);
 }
 
 // ─── Component ────────────────────────────────────────────────────

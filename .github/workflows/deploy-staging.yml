@@ -84,3 +84,13 @@ jobs:
 
             docker image prune -f
           ENDSSH
+
+      - name: Run E2E Tests
+        if: success()
+        run: |
+          npx playwright install chromium --with-deps
+          PLAYWRIGHT_BASE_URL=https://staging.easternlm.com npx playwright test --project=desktop
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        continue-on-error: true

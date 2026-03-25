@@ -16,9 +16,14 @@ const REASONS = [
 interface OrderForRefund {
   id: string;
   grand_total_cents: number;
+  materials_subtotal_cents?: number;
+  delivery_total_cents?: number;
+  tax_cents?: number;
+  cc_surcharge_cents?: number;
   payment_method: string;
   payments: any[] | null;
   status: string;
+  items?: Array<{ product_name: string; quantity: number; unit_price_cents: number; line_subtotal_cents: number }>;
 }
 
 interface Props {
