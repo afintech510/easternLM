@@ -331,6 +331,15 @@ export function ProductForm({
         )}
       </div>
 
+      {Object.keys(errors).length > 0 && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive space-y-1">
+          <p className="font-medium">Please fix the following:</p>
+          {Object.entries(errors).map(([field, err]) => (
+            <p key={field} className="text-xs">• {field}: {(err as { message?: string })?.message ?? "Invalid"}</p>
+          ))}
+        </div>
+      )}
+
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? "Saving…" : isEdit ? "Update Product" : "Create Product"}
       </Button>
