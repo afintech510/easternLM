@@ -126,7 +126,7 @@ function printOrderReceipt(order: Order) {
     ${order.customer_email ? `<div>Email: ${order.customer_email}</div>` : ""}
     <div class="line"></div>
     <div class="bold">ITEMS</div>
-    ${items.map((i) => `<div class="mt"><div>${i.product_name}</div><div class="row"><span>${i.quantity} ${i.unit || "unit"} × ${formatUsd(i.unit_price_cents)}</span><span>${formatUsd(i.line_subtotal_cents)}</span></div></div>`).join("")}
+    ${items.map((i) => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${i.product_name}</div><div class="row"><span>@ ${formatUsd(i.unit_price_cents)} per ${u.replace(/s$/, "")}</span><span>${formatUsd(i.line_subtotal_cents)}</span></div></div>`; }).join("")}
     <div class="line"></div>
     <div class="row"><span>Materials:</span><span>${formatUsd(order.materials_subtotal_cents ?? 0)}</span></div>
     ${(order.delivery_total_cents ?? 0) > 0 ? `<div class="row"><span>Delivery:</span><span>${formatUsd(order.delivery_total_cents)}</span></div>` : ""}
@@ -173,23 +173,25 @@ function printDeliveryTicket(order: Order) {
     <div class="row"><span>Source:</span><span>${(order.source || "web").toUpperCase()} ORDER</span></div>
     <div class="dashed"></div>
     <div class="bold">CUSTOMER: ${order.customer_name || "Walk-in"}</div>
-    ${order.customer_phone ? `<div class="bold">PHONE: ${formatPhone(order.customer_phone)} — CALL IF ISSUES</div>` : ""}
+    ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
     <div class="line"></div>
     <div class="bold big">DELIVER TO:</div>
-    <div class="bold" style="font-size:14px;">${order.delivery_address || "NO ADDRESS"}</div>
+    <div class="bold" style="font-size:16px;">${(order.delivery_address || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
     ${deliveryDate ? `<div class="mt bold">DATE: ${formatDeliveryDate(String(deliveryDate))}</div>` : ""}
     ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
     ${flags.length > 0 || notes ? `<div class="warn"><strong>⚠ ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}
     ${order.delivery_notes ? `<div class="mt">NOTES: ${order.delivery_notes}</div>` : ""}
     <div class="line"></div>
     <div class="bold big">MATERIAL TO LOAD:</div>
-    ${items.map((i) => `<div class="mt bold">${i.product_name}<br/>${i.quantity} ${i.unit || "unit"}</div><div class="row mt"><span>☐ LOADED</span><span>☐ DELIVERED</span></div>`).join('<div class="dashed"></div>')}
+    ${items.map((i) => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${u}<br/>${i.product_name}</div>`; }).join('<div class="dashed"></div>')}
     <div class="line"></div>
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
-    <div class="bold mt">PAYMENT: ${(order.payment_method ?? "card").replace(/_/g, " ").toUpperCase()}${order.payment_method === "card_online" ? " (PAID — no collection needed)" : ""}</div>
+    ${order.payment_method === "cod" ? `
+      <div class="center bold" style="font-size:18px;border:2px solid #000;padding:8px;margin:8px 0;">COLLECT ON DELIVERY<br/>${formatUsd(order.grand_total_cents)}</div>
+    ` : `
+      <div class="bold big center">PAID</div>
+    `}
     <div class="line"></div>
-    <div class="mt">Driver signature: ___________________</div>
-    <div class="mt">Date completed: ___________________</div>
     <div class="line"></div>
     </body></html>`);
   w.document.close();
@@ -430,7 +432,7 @@ export default function AdminOperationsPage() {
                     <div key={i} className="flex justify-between text-sm py-1 border-b border-border/50 last:border-0">
                       <div>
                         <p className="font-medium">{item.product_name}</p>
-                        <p className="text-xs text-muted-foreground">{item.quantity} {item.unit || "unit"} × {formatUsd(item.unit_price_cents)}</p>
+                        <p className="text-xs text-muted-foreground">{item.quantity} {(item.unit === "unit" || !item.unit) ? "cu. yards" : item.unit} × {formatUsd(item.unit_price_cents)}</p>
                       </div>
                       <span className="font-medium whitespace-nowrap">{formatUsd(item.line_subtotal_cents)}</span>
                     </div>
