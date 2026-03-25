@@ -6,7 +6,7 @@
 const RC_CLIENT_ID = "aCtUW9yyeLhdl5lTGj019d";
 const RC_CLIENT_SECRET = "A9CZh1xxecPbFJryDGhBek5B7b2AYpiKfeKs0BfYCsYa";
 const RC_SERVER = "https://platform.ringcentral.com";
-const RC_DEFAULT_FROM = "+16318746244"; // main business line
+const RC_DEFAULT_FROM = "+13153625323"; // RingCentral SMS-enabled number
 
 // ─── Public API ──────────────────────────────────────────────────
 
