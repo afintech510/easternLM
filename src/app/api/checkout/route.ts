@@ -492,7 +492,7 @@ export async function POST(request: Request) {
           product_name: item.name,
           product_slug: null,
           quantity: item.quantity,
-          unit: "unit",
+          unit: item.deliveryType === "bulk" ? "cu. yard" : "ea",
           unit_price_cents: item.unitPriceCents,
           line_subtotal_cents: discountedLineTotals[index] ?? 0,
           delivery_type: item.deliveryType,
