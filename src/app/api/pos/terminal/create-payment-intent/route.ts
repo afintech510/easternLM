@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: "usd",
-      ...(isPhoneOrder
-        ? { automatic_payment_methods: { enabled: true } }
-        : { payment_method_types: ["card_present"] }),
+      // Phone orders: card only (no Link, no redirects, no wallets)
+      // Terminal orders: card_present (physical terminal)
+      payment_method_types: isPhoneOrder ? ["card"] : ["card_present"],
       capture_method: "automatic",
       metadata: {
         order_id: orderId || "",

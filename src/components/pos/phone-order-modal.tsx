@@ -33,17 +33,34 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
     if (!stripe || !elements) return;
     setProcessing(true);
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      onError(error.message ?? "Payment failed.");
+    // 30-second timeout to prevent infinite hang
+    const timeout = setTimeout(() => {
       setProcessing(false);
-    } else if (paymentIntent) {
-      onSuccess(paymentIntent.id);
+      onError("Payment timed out. Check Stripe dashboard for status.");
+    }, 30000);
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: "if_required",
+      });
+
+      clearTimeout(timeout);
+
+      if (error) {
+        onError(error.message ?? "Payment failed.");
+        setProcessing(false);
+      } else if (paymentIntent) {
+        onSuccess(paymentIntent.id);
+      } else {
+        onError("No response from Stripe. Check dashboard.");
+        setProcessing(false);
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      onError(err instanceof Error ? err.message : "Payment error");
+      setProcessing(false);
     }
   }
 
@@ -54,14 +71,25 @@ function PhonePaymentForm({ amountCents, onSuccess, onError }: {
         wallets: { applePay: "never", googlePay: "never" },
         fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },
       }} />
-      <button
-        type="submit"
-        disabled={!stripe || processing}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-500 disabled:opacity-50"
-      >
-        {processing ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
-        {processing ? "Processing..." : `Charge ${formatUsd(amountCents)}`}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={!stripe || processing}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-500 disabled:opacity-50"
+        >
+          {processing ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
+          {processing ? "Processing..." : `Charge ${formatUsd(amountCents)}`}
+        </button>
+        {processing && (
+          <button
+            type="button"
+            onClick={() => { setProcessing(false); onError("Cancelled by staff."); }}
+            className="rounded-lg border border-zinc-600 px-4 py-3 text-sm text-zinc-400 hover:bg-zinc-800"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
       <p className="text-center text-[10px] text-zinc-500">Secured by Stripe · 256-bit encryption</p>
     </form>
   );
