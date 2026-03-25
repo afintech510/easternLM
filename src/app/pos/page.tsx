@@ -995,7 +995,7 @@ export default function PosRegisterPage() {
     setTimeout(() => { w.print(); w.close(); }, 500);
   }
 
-  function printDeliveryTicket(data: Record<string, unknown>) {
+  async function printDeliveryTicket(data: Record<string, unknown>) {
     const items = (data.items as Array<{ product_name: string; quantity: number; unit?: string }>);
     const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
     const constraints = data.access_constraints as Record<string, unknown> | null;
@@ -1036,9 +1036,20 @@ export default function PosRegisterPage() {
         <div class="bold big center">PAID</div>
       `}
       <div class="line"></div>
+      <div class="center" style="margin:8px 0;">
+        <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
+        <img id="qr" style="width:150px;height:150px;margin:0 auto;" />
+      </div>
+      <div class="line"></div>
+      <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
+      <script>
+        QRCode.toDataURL('${typeof window !== "undefined" ? window.location.origin : "https://easternlm.com"}/delivery/confirm/${(data as Record<string, unknown>).order_id || ""}', {width:150,margin:1}, function(err,url){
+          if(url) document.getElementById('qr').src = url;
+        });
+      <\/script>
       </body></html>`);
     w.document.close();
-    setTimeout(() => { w.print(); w.close(); }, 500);
+    setTimeout(() => { w.print(); }, 1000);
   }
 
   // ── Hold / Resume orders ───────────────────────────────────────
@@ -1155,6 +1166,24 @@ export default function PosRegisterPage() {
           customerPhone={delPhone || customerPhone}
           customerEmail={delEmail}
           onClose={() => setShowPhoneOrder(false)}
+          onSendPaylink={async () => {
+            try {
+              const res = await fetch("/api/pos/save-quote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  items: items.map((i) => ({ productId: i.product.id, productName: i.product.name, quantity: i.quantity, unitPriceCents: i.price_cents, unit: i.product.unit_label, deliveryType: i.product.delivery_type })),
+                  customer: { name: delName || customerName, phone: delPhone || customerPhone, email: delEmail, id: selectedCustomer?.id ?? delCustomerId ?? null },
+                  delivery: deliveryMethod === "delivery" ? { address: delAddress || deliveryAddress, feeCents: deliveryFeeCents, date: delDate, timeWindow: delTimeWindow, notes: delNotes } : null,
+                  notes: "Phone order — customer paying via link",
+                  send: true,
+                  sendVia: "sms",
+                }),
+              });
+              if (res.ok) { alert("Payment link sent via SMS!"); setShowPhoneOrder(false); }
+              else alert("Failed to send payment link");
+            } catch { alert("Error sending payment link"); }
+          }}
           onSuccess={async (piId) => {
             setShowPhoneOrder(false);
             try {
@@ -1883,6 +1912,7 @@ export default function PosRegisterPage() {
                     {txnDetail.delivery_method === "delivery" && (
                       <button onClick={() => {
                         printDeliveryTicket({
+                          order_id: txnDetail.id,
                           items: txnDetail.items.filter(i => !i.product_name?.startsWith("Delivery Load")),
                           customer_name: txnDetail.customer_name,
                           customer_phone: txnDetail.customer_phone,

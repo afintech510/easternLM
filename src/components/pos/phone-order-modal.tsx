@@ -17,6 +17,7 @@ interface Props {
   customerEmail: string;
   onClose: () => void;
   onSuccess: (paymentIntentId: string) => void;
+  onSendPaylink?: () => void;
 }
 
 function PhonePaymentForm({ amountCents, clientSecret, onSuccess, onError }: {
@@ -105,7 +106,7 @@ function PhonePaymentForm({ amountCents, clientSecret, onSuccess, onError }: {
   );
 }
 
-export function PhoneOrderModal({ amountCents, customerName, customerPhone, customerEmail, onClose, onSuccess }: Props) {
+export function PhoneOrderModal({ amountCents, customerName, customerPhone, customerEmail, onClose, onSuccess, onSendPaylink }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -211,6 +212,18 @@ export function PhoneOrderModal({ amountCents, customerName, customerPhone, cust
             </Elements>
           ) : (
             <p className="text-sm text-zinc-500 text-center">Stripe not configured</p>
+          )}
+
+          {onSendPaylink && customerPhone && (
+            <div className="border-t border-zinc-700 pt-3 mt-1">
+              <p className="text-xs text-zinc-500 text-center mb-2">— or let the customer pay on their own —</p>
+              <button
+                onClick={() => { onSendPaylink(); onClose(); }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 py-2.5 text-sm font-medium text-amber-400 hover:bg-amber-500/10"
+              >
+                📱 Send Payment Link via SMS
+              </button>
+            </div>
           )}
 
           <p className="text-[10px] text-zinc-600 text-center">
