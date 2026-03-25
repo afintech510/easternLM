@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone, ensureCustomerForOrder } from "@/lib/customers/lifecycle";
+import { sendSms } from "@/lib/sms";
 
 /**
  * Generate lead number: LEAD-YYYY-NNNN
@@ -159,24 +160,8 @@ export async function autoAssignLead(lead: any): Promise<void> {
  * Send SMS notification to contractor about new lead.
  */
 async function sendLeadNotificationSms(phone: string, lead: any, contractorName: string): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) return;
-
-  const clean = phone.replace(/\D/g, "");
-  const to = clean.startsWith("1") ? `+${clean}` : `+1${clean}`;
-
   const body = `Eastern LM — New lead assigned to you:\n${lead.service_type}: ${(lead.description ?? "").slice(0, 80)}\nCustomer: ${lead.name} — ${lead.town ?? ""}\nTimeline: ${lead.timeline ?? "Flexible"}\nCall customer: ${lead.phone}\nQuestions? Call us: (631) 874-6244`;
-
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: to, From: from, Body: body }),
-  }).catch(() => {});
+  await sendSms(phone, body).catch(() => {});
 }
 
 /**

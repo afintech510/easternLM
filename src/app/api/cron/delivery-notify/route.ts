@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendSms } from "@/lib/sms";
 
 /**
  * Process pending customer delivery notifications.
@@ -61,20 +62,4 @@ async function getOrderPhone(supabase: ReturnType<typeof getSupabaseAdminClient>
   return phone;
 }
 
-async function sendSms(to: string, body: string) {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) return;
-
-  try {
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: `+1${to}`, From: from, Body: body }),
-    });
-  } catch { /* best effort */ }
-}
+// sendSms imported from @/lib/sms

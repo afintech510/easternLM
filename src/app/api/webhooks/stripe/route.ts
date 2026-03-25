@@ -8,6 +8,7 @@ import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 import { createProjectFromQuote } from "@/lib/projects/auto-create";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
+import { sendSms } from "@/lib/sms";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type DeliveryScheduleEntry = {
@@ -356,23 +357,11 @@ async function handleQuoteDepositCompleted(session: Stripe.Checkout.Session) {
   }).eq("id", quoteId);
 
   // Notify staff
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
   const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
-
-  if (sid && authToken && from && staffPhone && session.amount_total) {
+  if (staffPhone && session.amount_total) {
     const fmt = (c: number) =>
       new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-    const msg = `💰 Deposit received! ${fmt(session.amount_total)} deposit paid for quote ${session.metadata?.quoteNumber ?? quoteId}. Check /admin/quotes.`;
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
-    }).catch(() => {});
+    await sendSms(staffPhone, `Deposit received! ${fmt(session.amount_total)} deposit paid for quote ${session.metadata?.quoteNumber ?? quoteId}. Check /admin/quotes.`).catch(() => {});
   }
 
   // Auto-create project from the accepted quote
@@ -432,21 +421,10 @@ async function handleStatementPaymentCompleted(session: Stripe.Checkout.Session)
   }
 
   // Notify staff
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  const staffPhone = process.env.STAFF_NOTIFICATION_PHONE;
-  if (sid && authToken && from && staffPhone && paid) {
+  const staffPhone2 = process.env.STAFF_NOTIFICATION_PHONE;
+  if (staffPhone2 && paid) {
     const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-    const msg = `💰 Statement payment received! ${fmt(paid)} for ${session.metadata?.statementNumber ?? statementId}. Check /admin/statements.`;
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: staffPhone, From: from, Body: msg }),
-    }).catch(() => {});
+    await sendSms(staffPhone2, `Statement payment received! ${fmt(paid)} for ${session.metadata?.statementNumber ?? statementId}. Check /admin/statements.`).catch(() => {});
   }
 }
 
@@ -546,17 +524,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
       const orderTotal = fmt(order.grand_total_cents);
 
       // SMS to office
-      const sid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const fromPhone = process.env.TWILIO_PHONE_NUMBER;
-      if (sid && authToken && fromPhone) {
-        const smsBody = `New order! ${order.customer_name} — ${orderTotal}\n${order.delivery_method === "delivery" ? `Delivery: ${order.delivery_address}` : "Pickup"}\n${itemsList}`;
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-          method: "POST",
-          headers: { Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ To: "+16318746244", From: fromPhone, Body: smsBody }),
-        }).catch(() => {});
-      }
+      const smsBody = `New order! ${order.customer_name} — ${orderTotal}\n${order.delivery_method === "delivery" ? `Delivery: ${order.delivery_address}` : "Pickup"}\n${itemsList}`;
+      await sendSms("+16318746244", smsBody).catch(() => {});
 
       // Email to Adam & Ronnie
       try {

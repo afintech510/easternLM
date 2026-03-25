@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePOS } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import Stripe from "stripe";
+import { sendSms } from "@/lib/sms";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-03-31.basil" as any });
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     customerEmail,
     customerPhone,
     sendEmail,
-    sendSms,
+    sendSms: shouldSendSms,
     description,
   } = await request.json();
 
@@ -80,27 +81,9 @@ export async function POST(request: Request) {
   }
 
   // Send via SMS
-  if (sendSms && customerPhone) {
+  if (shouldSendSms && customerPhone) {
     try {
-      const sid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const from = process.env.TWILIO_PHONE_NUMBER;
-      if (sid && authToken && from) {
-        const cleanPhone = customerPhone.replace(/\D/g, "");
-        const toPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-          method: "POST",
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            To: toPhone,
-            From: from,
-            Body: `Eastern LM payment request: $${(amountCents / 100).toFixed(2)}${description ? ` — ${description}` : ""}\n\nPay here: ${payUrl}\n\nReply STOP to opt out.`,
-          }),
-        });
-      }
+      await sendSms(customerPhone, `Eastern LM payment request: $${(amountCents / 100).toFixed(2)}${description ? ` — ${description}` : ""}\n\nPay here: ${payUrl}\n\nReply STOP to opt out.`).catch(() => {});
     } catch (err) {
       console.error("Paylink SMS failed:", err);
     }

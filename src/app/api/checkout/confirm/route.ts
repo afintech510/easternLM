@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendSms } from "@/lib/sms";
 
 /**
  * POST /api/checkout/confirm
@@ -174,24 +175,8 @@ export async function POST(request: Request) {
 
   // SMS notification to office phone
   try {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_PHONE_NUMBER;
-    if (sid && token && from) {
-      const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
-      await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          To: "+16318746244",
-          From: from,
-          Body: `New order: ${order.customer_name} — ${fmt(order.grand_total_cents)} — ${order.delivery_method === "delivery" ? `Delivery to ${order.delivery_address}` : "Pickup"}`,
-        }),
-      });
-    }
+    const f = (c: number) => `$${(c / 100).toFixed(2)}`;
+    await sendSms("+16318746244", `New order: ${order.customer_name} — ${f(order.grand_total_cents)} — ${order.delivery_method === "delivery" ? `Delivery to ${order.delivery_address}` : "Pickup"}`).catch(() => {});
   } catch {}
 
   return NextResponse.json({ ok: true, orderId: order.id });

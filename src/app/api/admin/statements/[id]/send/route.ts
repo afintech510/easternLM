@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { Resend } from "resend";
+import { sendSms } from "@/lib/sms";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -154,26 +155,8 @@ export async function POST(request: Request, context: RouteContext) {
 
   // SMS
   if (via.includes("sms") && customer.phone) {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_PHONE_NUMBER;
-    if (sid && token && from) {
-      const fmtFn = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-      const msg = `Eastern LM: Your statement ${stmt.statement_number} is ready. Balance due: ${fmtFn(stmt.balance_due_cents)} by ${stmt.due_date}. Pay online: ${payUrl}`;
-      const clean = customer.phone.replace(/\D/g, "");
-      const to = clean.startsWith("1") ? `+${clean}` : `+1${clean}`;
-      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: to, From: from, Body: msg }),
-      });
-      const data = await res.json();
-      if (data.sid) sent.push("sms");
-      else errors.push(`SMS: ${data.message ?? "Twilio error"}`);
-    }
+    const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+    await sendSms(customer.phone, `Eastern LM — Your statement balance is ${fmt(stmt.balance_due_cents as number)}. Pay online: ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://easternlm.com"}/pay/${id}\n\nReply STOP to opt out.`).catch(() => {});
   }
 
   // Update statement status

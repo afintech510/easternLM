@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveAudience, type AudienceFilter } from "./audience";
+import { sendSms } from "@/lib/sms";
 
 // ─── Template rendering ──────────────────────────────────────────
 
@@ -150,11 +151,11 @@ export async function processCampaignBatch(
     try {
       if (send.channel === "sms" && send.phone) {
         const result = await sendSms(send.phone, rendered);
-        if ("error" in result) {
-          await supabase.from("campaign_sends").update({ status: "failed", error_message: result.error }).eq("id", send.id);
+        if (!result.ok) {
+          await supabase.from("campaign_sends").update({ status: "failed", error_message: result.error ?? "SMS failed" }).eq("id", send.id);
           failed++;
         } else {
-          await supabase.from("campaign_sends").update({ status: "sent", sent_at: new Date().toISOString(), sms_sid: result.sid }).eq("id", send.id);
+          await supabase.from("campaign_sends").update({ status: "sent", sent_at: new Date().toISOString(), sms_sid: result.messageId ?? "" }).eq("id", send.id);
           sent++;
         }
       } else if (send.channel === "email" && send.email) {
@@ -194,32 +195,7 @@ export async function processCampaignBatch(
   return { sent, failed, remaining: remaining || 0 };
 }
 
-// ─── SMS sender (reuse from follow-ups) ───────────────────────────
-
-async function sendSms(to: string, body: string): Promise<{ sid: string } | { error: string }> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!accountSid || !authToken || !from) return { error: "Twilio not configured" };
-
-  const phone = to.replace(/\D/g, "");
-  if (phone.length !== 10) return { error: "Invalid phone" };
-
-  try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: `+1${phone}`, From: from, Body: body }),
-    });
-    const data = await res.json();
-    return data.sid ? { sid: data.sid } : { error: data.message || "Twilio error" };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "SMS failed" };
-  }
-}
+// sendSms imported from @/lib/sms (RingCentral primary, Twilio fallback)
 
 // ─── Email sender ─────────────────────────────────────────────────
 

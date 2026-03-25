@@ -3,6 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendSms } from "@/lib/sms";
 
 // ─── Template rendering ──────────────────────────────────────────
 
@@ -194,42 +195,14 @@ export async function processFollowUps(
   return { sent, failed, skipped };
 }
 
-// ─── SMS via Twilio REST API (no SDK) ─────────────────────────────
-
+// sendSmsViaApi delegates to the unified sendSms (RingCentral primary, Twilio fallback)
 async function sendSmsViaApi(
   to: string,
   body: string,
 ): Promise<{ sid: string } | { error: string }> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-
-  if (!accountSid || !authToken || !from) {
-    return { error: "Twilio not configured" };
-  }
-
-  const phone = to.replace(/\D/g, "");
-  if (phone.length !== 10) return { error: "Invalid phone number" };
-
-  try {
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: `+1${phone}`, From: from, Body: body }),
-      },
-    );
-
-    const data = await res.json();
-    if (data.sid) return { sid: data.sid };
-    return { error: data.message || "Twilio error" };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Twilio request failed" };
-  }
+  const result = await sendSms(to, body);
+  if (result.ok) return { sid: result.messageId ?? "sent" };
+  return { error: result.error ?? "SMS failed" };
 }
 
 // ─── Email via Resend ─────────────────────────────────────────────

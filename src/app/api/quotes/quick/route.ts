@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePOS } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { scheduleQuoteFollowUps } from "@/lib/quotes/follow-ups";
+import { sendSms } from "@/lib/sms";
 
 const TAX_RATE = 0.0875;
 
@@ -16,27 +17,8 @@ async function generateQuoteNumber(supabase: any): Promise<string> {
 }
 
 async function sendQuoteSms(phone: string, quoteNumber: string, totalCents: number, quoteUrl: string) {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) return;
-
-  const clean = phone.replace(/\D/g, "");
-  const to = clean.startsWith("1") ? `+${clean}` : `+1${clean}`;
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      To: to,
-      From: from,
-      Body: `Eastern LM sent you a quote for ${fmt(totalCents)}.\nReview & accept: ${quoteUrl}\n\nReply STOP to opt out.`,
-    }),
-  }).catch(() => {});
+  await sendSms(phone, `Eastern LM sent you a quote for ${fmt(totalCents)}.\nReview & accept: ${quoteUrl}\n\nReply STOP to opt out.`).catch(() => {});
 }
 
 async function sendQuoteEmail(email: string, customerName: string, quoteNumber: string, totalCents: number, quoteUrl: string) {

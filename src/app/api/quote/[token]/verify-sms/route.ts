@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendSms } from "@/lib/sms";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -23,13 +24,6 @@ export async function POST(request: Request, context: RouteContext) {
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   if (!quote.customer_phone) return NextResponse.json({ error: "No phone number on quote" }, { status: 400 });
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !authToken || !from) {
-    return NextResponse.json({ error: "SMS not configured" }, { status: 500 });
-  }
-
   if (action === "send") {
     // Generate 6-digit code
     const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -45,21 +39,7 @@ export async function POST(request: Request, context: RouteContext) {
     }).eq("id", quote.id);
 
     // Send SMS
-    const clean = quote.customer_phone.replace(/\D/g, "");
-    const to = clean.startsWith("1") ? `+${clean}` : `+1${clean}`;
-
-    await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${authToken}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        To: to,
-        From: from,
-        Body: `Your Eastern LM verification code is: ${verifyCode}\n\nThis code expires in 10 minutes.`,
-      }),
-    });
+    await sendSms(quote.customer_phone, `Your Eastern LM verification code is: ${verifyCode}\n\nThis code expires in 10 minutes.`);
 
     return NextResponse.json({ ok: true, sent: true });
   }
