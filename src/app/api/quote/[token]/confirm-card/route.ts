@@ -23,7 +23,13 @@ export async function POST(
 
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   if (["converted"].includes(quote.status)) {
-    return NextResponse.json({ ok: true, alreadyConverted: true });
+    // Return the existing order ID if already converted
+    return NextResponse.json({ ok: true, alreadyConverted: true, orderId: quote.converted_order_id });
+  }
+
+  // Idempotency: if an order already exists for this quote, don't create another
+  if (quote.converted_order_id) {
+    return NextResponse.json({ ok: true, orderId: quote.converted_order_id, alreadyConverted: true });
   }
 
   const ccSurcharge = Math.round(quote.total_cents * 0.03);

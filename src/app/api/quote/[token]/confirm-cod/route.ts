@@ -20,8 +20,8 @@ export async function POST(
     .maybeSingle();
 
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
-  if (["accepted", "converted"].includes(quote.status)) {
-    return NextResponse.json({ error: "Already accepted" }, { status: 400 });
+  if (["accepted", "converted"].includes(quote.status) || quote.converted_order_id) {
+    return NextResponse.json({ ok: true, alreadyConverted: true, orderId: quote.converted_order_id });
   }
 
   // Update quote status

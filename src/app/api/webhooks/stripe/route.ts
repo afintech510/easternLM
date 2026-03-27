@@ -584,6 +584,30 @@ export async function POST(request: Request) {
     );
   }
 
+  // Webhook idempotency: skip if we already processed this event
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = getSupabaseAdminClient() as any;
+    const { data: alreadyProcessed } = await sb
+      .from("webhook_events")
+      .select("id")
+      .eq("stripe_event_id", event.id)
+      .maybeSingle();
+
+    if (alreadyProcessed) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
+    await sb.from("webhook_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+    }).catch(() => {
+      // Table may not exist yet — continue processing
+    });
+  } catch {
+    // Don't block webhook on idempotency check failure
+  }
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
