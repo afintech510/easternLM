@@ -280,13 +280,14 @@ export class ReceiptPrinter {
       if (o.cashTenderedCents) this.txt(c, line("Tendered:", fmt(o.cashTenderedCents)));
       if (o.changeDueCents != null) this.txt(c, line("Change:", fmt(o.changeDueCents)));
     } else if (o.paymentMethod === "cod") {
-      this.txt(c, "Payment: CASH ON DELIVERY");
-      this.txt(c, "");
+      this.txt(c, ddiv());
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
+      this.txt(c, "COD");
       this.txt(c, `COLLECT: ${fmt(o.totalCents)}`);
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
+      this.txt(c, ddiv());
     } else if (o.paymentMethod === "account") {
       this.txt(c, "Payment: Charge Account");
       if (o.accountName) this.txt(c, `Account: ${o.accountName}`);
@@ -396,8 +397,10 @@ export class ReceiptPrinter {
     if (o.paymentMethod === "cod") {
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
-      this.txt(c, "*** COLLECT ON DELIVERY ***");
+      this.txt(c, ddiv());
+      this.txt(c, "COD");
       this.txt(c, `AMOUNT DUE: ${fmt(o.totalCents)}`);
+      this.txt(c, ddiv());
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
       this.txt(c, "  [ ] CASH  [ ] CHECK  Amount: ________");
@@ -477,7 +480,7 @@ export class ReceiptPrinter {
     if (o.paymentMethod === "cash") {
       payment = `<div>Payment: Cash</div>${o.cashTenderedCents ? `<div class="row"><span>Tendered:</span><span>${f(o.cashTenderedCents)}</span></div><div class="row"><span>Change:</span><span>${f(o.changeDueCents ?? 0)}</span></div>` : ""}`;
     } else if (o.paymentMethod === "cod") {
-      payment = `<div class="warn">CASH ON DELIVERY<br>COLLECT: ${f(o.totalCents)}</div>`;
+      payment = `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">COD<br><span style="font-size:18px;">COLLECT: ${f(o.totalCents)}</span></div>`;
     } else if (o.paymentMethod === "card_terminal" || o.paymentMethod === "card_online") {
       payment = `<div>Payment: Card${o.cardBrand ? ` ${o.cardBrand}` : ""} ${o.cardLast4 ? `****${o.cardLast4}` : ""}</div>`;
     } else if (o.paymentMethod === "account") {
@@ -549,7 +552,7 @@ export class ReceiptPrinter {
         <div>[ ] LOADED &nbsp;&nbsp; [ ] DELIVERED</div>
       `).join("")}
       <div class="hr2"></div>
-      ${o.paymentMethod === "cod" ? `<div class="warn">COLLECT ON DELIVERY<br>AMOUNT DUE: ${f(o.totalCents)}</div>` : `<div>PAYMENT: PAID — ${f(o.totalCents)}</div>`}
+      ${o.paymentMethod === "cod" ? `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">COD<br><span style="font-size:18px;">AMOUNT DUE: ${f(o.totalCents)}</span></div>` : `<div>PAYMENT: PAID — ${f(o.totalCents)}</div>`}
       <br>
       <div>Driver signature: ___________________</div>
       <div>Date completed: ___________________</div>

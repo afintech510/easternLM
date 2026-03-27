@@ -174,7 +174,9 @@ function printOrderReceipt(order: OrderFull) {
     ${(order.cc_surcharge_cents ?? 0) > 0 ? `<div class="row"><span>CC Fee (3%):</span><span>${formatUsd(order.cc_surcharge_cents)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row bold" style="font-size:14px;"><span>TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
-    <div class="mt">Payment: ${formatPaymentMethod(order.payment_method)}</div>
+    ${order.payment_method === "cod" ? `
+      <div class="center bold" style="font-size:22px;border:3px solid #000;padding:10px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:18px;">${formatUsd(order.grand_total_cents)}</span></div>
+    ` : `<div class="mt">Payment: ${formatPaymentMethod(order.payment_method)}</div>`}
     ${order.delivery_method === "delivery" ? `
       <div class="line"></div>
       <div class="bold">DELIVERY</div>
@@ -232,7 +234,7 @@ function printDeliveryTicket(order: OrderFull) {
     <div class="line"></div>
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     ${order.payment_method === "cod" ? `
-      <div class="center bold" style="font-size:18px;border:2px solid #000;padding:8px;margin:8px 0;">COLLECT ON DELIVERY<br/>${formatUsd(order.grand_total_cents)}</div>
+      <div class="center bold" style="font-size:24px;border:3px solid #000;padding:12px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:20px;">${formatUsd(order.grand_total_cents)}</span></div>
     ` : `<div class="bold big center">PAID</div>`}
     <div class="line"></div>
     <div class="center" style="margin:8px 0;">

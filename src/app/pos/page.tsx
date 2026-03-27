@@ -1031,7 +1031,7 @@ export default function PosRegisterPage() {
       ${items.map(i => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${u}<br/>${i.product_name}</div>`; }).join('<div class="dashed"></div>')}
       <div class="line"></div>
       ${(data.payment_method as string) === "cod" ? `
-        <div class="center bold" style="font-size:18px;border:2px solid #000;padding:8px;margin:8px 0;">COLLECT ON DELIVERY<br/>${fmt(data.grand_total_cents as number)}</div>
+        <div class="center bold" style="font-size:24px;border:3px solid #000;padding:12px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:20px;">${fmt(data.grand_total_cents as number)}</span></div>
       ` : `
         <div class="bold big center">PAID</div>
       `}
