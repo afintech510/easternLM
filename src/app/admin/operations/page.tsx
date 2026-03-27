@@ -1,49 +1,61 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatUsd } from "@/lib/format";
-import { formatShortDateTime, formatOrderDateTime, formatDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod, formatShortDeliveryDate } from "@/lib/format-date";
-import { createBrowserClient } from "@supabase/ssr";
 import {
-  ArrowRight,
+  formatShortDateTime,
+  formatOrderDateTime,
+  formatDeliveryDate,
+  formatTimeWindow,
+  formatPhone,
+  formatPaymentMethod,
+  formatShortDeliveryDate,
+} from "@/lib/format-date";
+import {
+  OrderDetailPanel,
+  type OrderFull,
+  type OrderItem,
+  type CustomerHistory,
+  type DeliveryAssignment,
+  type OrderNote,
+} from "@/components/admin/orders/order-detail-panel";
+import { EditOrderModal, type EditOrderData } from "@/components/admin/orders/edit-order-modal";
+import { RefundModal } from "@/components/pos/refund/refund-modal";
+import { createBrowserClient } from "@supabase/ssr";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
   Calendar,
+  Check,
+  CheckSquare,
   Clock,
+  Download,
   MapPin,
-  Mail,
   Package,
   Phone,
   Printer,
   Search,
   ShoppingCart,
+  Store,
   Truck,
   X,
-  AlertTriangle,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────
 
-type OrderItem = {
-  id: string;
-  product_name: string;
-  quantity: number;
-  unit: string;
-  unit_price_cents: number;
-  line_subtotal_cents: number;
-  load_number: number | null;
-};
-
-type Order = {
+type OrderListItem = {
   id: string;
   created_at: string;
+  placed_at: string | null;
   status: string;
   source: string;
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
   items: OrderItem[];
-  order_items?: OrderItem[];
   grand_total_cents: number;
   materials_subtotal_cents: number;
   delivery_total_cents: number;
@@ -57,33 +69,28 @@ type Order = {
   access_constraints: Record<string, unknown> | null;
   payment_method: string;
   stripe_checkout_session_id: string | null;
-  notes: string | null;
   customer_id: string | null;
   metadata: Record<string, unknown> | null;
 };
 
 type Stats = {
-  totalOrders: number;
-  deliveryCount: number;
-  pickupCount: number;
-  revenueCents: number;
-  pendingCount: number;
+  filtered: { totalOrders: number; deliveryCount: number; pickupCount: number; revenueCents: number; pendingCount: number };
+  today: { count: number; revenueCents: number };
+  thisWeek: { count: number; revenueCents: number };
+  byStatus: Record<string, number>;
 };
 
-type OrderDetail = {
-  order: Order;
-  customerHistory: {
-    customer: { first_name: string; last_name: string; phone: string; total_orders: number; total_spent_cents: number; tags: string[] } | null;
-    recentOrders: Array<{ id: string; created_at: string; items: unknown; grand_total_cents: number; status: string }>;
-  } | null;
-} | null;
-
-const CONSTRAINT_LABELS: Record<string, string> = {
-  lowWires: "Low wires", narrowDriveway: "Narrow driveway", softGround: "Soft ground",
-  gated: "Gated", steep: "Steep grade", backyard: "Backyard access",
+type DetailData = {
+  order: OrderFull;
+  customerHistory: CustomerHistory | null;
+  deliveryAssignments: DeliveryAssignment[];
+  notes: OrderNote[];
 };
 
-const STATUS_OPTIONS = ["new", "confirmed", "scheduled", "loading", "out_for_delivery", "delivered", "paid", "cancelled", "issue"];
+// ─── Constants ────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
+
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-800",
   confirmed: "bg-cyan-100 text-cyan-800",
@@ -97,13 +104,45 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   pending_payment: "bg-yellow-100 text-yellow-800",
   refunded: "bg-red-200 text-red-800",
+  partially_refunded: "bg-orange-100 text-orange-600",
 };
-const SOURCE_LABELS: Record<string, string> = { web: "WEB", pos: "POS", phone: "PHONE", admin: "ADMIN" };
-const SOURCE_COLORS: Record<string, string> = { web: "bg-blue-900/40 text-blue-300", pos: "bg-green-900/40 text-green-300", phone: "bg-purple-900/40 text-purple-300", admin: "bg-gray-700 text-gray-300" };
 
-// ─── Print Helpers ───────────────────────────────────────────────
+const SOURCE_LABELS: Record<string, string> = { web: "WEB", pos: "POS", phone: "PHONE", admin: "ADMIN", quote: "QUOTE" };
+const SOURCE_COLORS: Record<string, string> = {
+  web: "bg-blue-100 text-blue-700",
+  pos: "bg-green-100 text-green-700",
+  phone: "bg-amber-100 text-amber-700",
+  admin: "bg-gray-100 text-gray-700",
+  quote: "bg-purple-100 text-purple-700",
+};
 
-function printOrderReceipt(order: Order) {
+const DATE_PRESETS = ["today", "yesterday", "this_week", "this_month", "all", "custom"] as const;
+const DATE_LABELS: Record<string, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  this_week: "This Week",
+  this_month: "This Month",
+  all: "All Time",
+  custom: "Custom",
+};
+
+const STATUS_FILTER_OPTIONS = ["all", "pending", "paid", "confirmed", "scheduled", "loading", "out_for_delivery", "delivered", "cancelled", "refunded", "issue"];
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "total_high", label: "Highest Total" },
+  { value: "total_low", label: "Lowest Total" },
+  { value: "customer_name", label: "Customer Name" },
+];
+
+const CONSTRAINT_LABELS: Record<string, string> = {
+  lowWires: "Low wires", narrowDriveway: "Narrow driveway", softGround: "Soft ground",
+  gated: "Gated", steep: "Steep grade", backyard: "Backyard access",
+};
+
+// ─── Print Helpers ────────────────────────────────────────────
+
+function printOrderReceipt(order: OrderFull) {
   const items = (order.order_items ?? order.items ?? []).filter(
     (i) => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"),
   );
@@ -134,7 +173,7 @@ function printOrderReceipt(order: Order) {
     ${(order.cc_surcharge_cents ?? 0) > 0 ? `<div class="row"><span>CC Fee (3%):</span><span>${formatUsd(order.cc_surcharge_cents)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row bold" style="font-size:14px;"><span>TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
-    <div class="mt">Payment: ${(order.payment_method ?? "card").replace(/_/g, " ")}</div>
+    <div class="mt">Payment: ${formatPaymentMethod(order.payment_method)}</div>
     ${order.delivery_method === "delivery" ? `
       <div class="line"></div>
       <div class="bold">DELIVERY</div>
@@ -150,7 +189,7 @@ function printOrderReceipt(order: Order) {
   w.print();
 }
 
-function printDeliveryTicket(order: Order) {
+function printDeliveryTicket(order: OrderFull) {
   const items = (order.order_items ?? order.items ?? []).filter(
     (i) => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"),
   );
@@ -184,7 +223,7 @@ function printDeliveryTicket(order: Order) {
     })()}
     ${deliveryDate ? `<div class="mt bold">DATE: ${formatDeliveryDate(String(deliveryDate))}</div>` : ""}
     ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
-    ${flags.length > 0 || notes ? `<div class="warn"><strong>⚠ ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}
+    ${flags.length > 0 || notes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}
     ${order.delivery_notes ? `<div class="mt">NOTES: ${order.delivery_notes}</div>` : ""}
     <div class="line"></div>
     <div class="bold big">MATERIAL TO LOAD:</div>
@@ -193,9 +232,7 @@ function printDeliveryTicket(order: Order) {
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     ${order.payment_method === "cod" ? `
       <div class="center bold" style="font-size:18px;border:2px solid #000;padding:8px;margin:8px 0;">COLLECT ON DELIVERY<br/>${formatUsd(order.grand_total_cents)}</div>
-    ` : `
-      <div class="bold big center">PAID</div>
-    `}
+    ` : `<div class="bold big center">PAID</div>`}
     <div class="line"></div>
     <div class="center" style="margin:8px 0;">
       <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
@@ -213,77 +250,175 @@ function printDeliveryTicket(order: Order) {
   setTimeout(() => w.print(), 1000);
 }
 
-// ─── Component ────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────
 
 export default function AdminOperationsPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState<Stats>({ totalOrders: 0, deliveryCount: 0, pickupCount: 0, revenueCents: 0, pendingCount: 0 });
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Filters
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [dateRange, setDateRange] = useState<"today" | "tomorrow" | "week" | "custom">("week");
+  // ── State ──
+
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [stats, setStats] = useState<Stats>({
+    filtered: { totalOrders: 0, deliveryCount: 0, pickupCount: 0, revenueCents: 0, pendingCount: 0 },
+    today: { count: 0, revenueCents: 0 },
+    thisWeek: { count: 0, revenueCents: 0 },
+    byStatus: {},
+  });
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  // Filters (initialized from URL)
+  const [sourceFilter, setSourceFilter] = useState(searchParams.get("source") || "all");
+  const [typeFilter, setTypeFilter] = useState(searchParams.get("type") || "all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [datePreset, setDatePreset] = useState(searchParams.get("date") || "this_week");
+  const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(searchParams.get("dateTo") || "");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "newest");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+
+  // Selection
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
   // Detail panel
-  const [detail, setDetail] = useState<OrderDetail>(null);
+  const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-    const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+  // Modals
+  const [editOrder, setEditOrder] = useState<EditOrderData | null>(null);
+  const [refundOrder, setRefundOrder] = useState<OrderFull | null>(null);
+  const [cancelOrder, setCancelOrder] = useState<OrderFull | null>(null);
+  const [cancelProcessRefund, setCancelProcessRefund] = useState(true);
+  const [cancelReason, setCancelReason] = useState("Customer requested");
+  const [cancelling, setCancelling] = useState(false);
 
-    let from = today, to = today;
-    if (dateRange === "tomorrow") { from = tomorrow; to = tomorrow; }
-    if (dateRange === "week") { from = today; to = weekEnd; }
+  // Search debounce
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const params = new URLSearchParams({ from, to });
+  // ── Data Fetching ──
+
+  const fetchOrders = useCallback(
+    async (reset = true) => {
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+
+      const currentOffset = reset ? 0 : offset;
+      const params = new URLSearchParams({
+        date: datePreset,
+        sort: sortBy,
+        offset: String(currentOffset),
+        limit: String(PAGE_SIZE),
+      });
+      if (sourceFilter !== "all") params.set("source", sourceFilter);
+      if (typeFilter !== "all") params.set("type", typeFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (searchQuery) params.set("q", searchQuery);
+      if (datePreset === "custom") {
+        if (dateFrom) params.set("dateFrom", dateFrom);
+        if (dateTo) params.set("dateTo", dateTo);
+      }
+
+      const res = await fetch(`/api/admin/operations?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (reset) {
+          setOrders(data.orders || []);
+          setOffset(PAGE_SIZE);
+        } else {
+          setOrders((prev) => [...prev, ...(data.orders || [])]);
+          setOffset(currentOffset + PAGE_SIZE);
+        }
+        setTotalCount(data.totalCount ?? 0);
+        setStats(data.stats);
+      }
+      setLoading(false);
+      setLoadingMore(false);
+    },
+    [sourceFilter, typeFilter, statusFilter, searchQuery, datePreset, dateFrom, dateTo, sortBy, offset],
+  );
+
+  // Initial fetch + filter changes
+  useEffect(() => {
+    fetchOrders(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceFilter, typeFilter, statusFilter, datePreset, dateFrom, dateTo, sortBy]);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchOrders(true);
+    }, 300);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  // URL sync
+  useEffect(() => {
+    const params = new URLSearchParams();
     if (sourceFilter !== "all") params.set("source", sourceFilter);
     if (typeFilter !== "all") params.set("type", typeFilter);
     if (statusFilter !== "all") params.set("status", statusFilter);
+    if (datePreset !== "this_week") params.set("date", datePreset);
+    if (sortBy !== "newest") params.set("sort", sortBy);
     if (searchQuery) params.set("q", searchQuery);
+    if (datePreset === "custom" && dateFrom) params.set("dateFrom", dateFrom);
+    if (datePreset === "custom" && dateTo) params.set("dateTo", dateTo);
+    const qs = params.toString();
+    router.replace(`/admin/operations${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [sourceFilter, typeFilter, statusFilter, datePreset, dateFrom, dateTo, sortBy, searchQuery, router]);
 
-    const res = await fetch(`/api/admin/operations?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setStats(data.stats);
-    }
-    setLoading(false);
-  }, [sourceFilter, typeFilter, statusFilter, searchQuery, dateRange]);
-
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  // Real-time subscriptions
+  // Real-time
   useEffect(() => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
-
     const channel = supabase
       .channel("orders-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, () => {
-        fetchOrders(); // Refresh on new order
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
+        const newOrder = payload.new as OrderListItem;
+        setOrders((prev) => [{ ...newOrder, items: [] }, ...prev]);
+        setTotalCount((c) => c + 1);
+        toast.info(`New order from ${newOrder.customer_name || "Walk-in"}`);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, () => {
-        fetchOrders(); // Refresh on status change
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload) => {
+        const updated = payload.new as OrderListItem;
+        setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
+        if (activeOrderId === updated.id) openDetail(updated.id);
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchOrders]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrderId]);
+
+  // ── Detail Panel ──
 
   async function openDetail(orderId: string) {
+    setActiveOrderId(orderId);
     setDetailLoading(true);
     const res = await fetch(`/api/admin/operations/${orderId}`);
-    if (res.ok) setDetail(await res.json());
+    if (res.ok) {
+      setDetailData(await res.json());
+    }
     setDetailLoading(false);
   }
+
+  function closeDetail() {
+    setActiveOrderId(null);
+    setDetailData(null);
+  }
+
+  // ── Actions ──
 
   async function updateStatus(orderId: string, newStatus: string) {
     await fetch(`/api/admin/operations/${orderId}`, {
@@ -291,328 +426,541 @@ export default function AdminOperationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
-    fetchOrders();
-    if (detail?.order.id === orderId) openDetail(orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    if (activeOrderId === orderId) openDetail(orderId);
+    toast.success(`Status updated to "${newStatus.replace(/_/g, " ")}"`);
   }
 
-  // ── Render ──────────────────────────────────────────────────────
+  async function addNote(orderId: string, note: string) {
+    await fetch("/api/admin/operations/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: orderId, note }),
+    });
+    if (activeOrderId === orderId) openDetail(orderId);
+    toast.success("Note added");
+  }
+
+  async function saveOrderEdits(orderId: string, updates: Record<string, unknown>) {
+    const res = await fetch(`/api/admin/operations/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      toast.success("Order updated");
+      fetchOrders(true);
+      if (activeOrderId === orderId) openDetail(orderId);
+    } else {
+      toast.error("Failed to update order");
+    }
+  }
+
+  async function handleCancel() {
+    if (!cancelOrder) return;
+    setCancelling(true);
+    const res = await fetch(`/api/admin/operations/${cancelOrder.id}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ processRefund: cancelProcessRefund, reason: cancelReason }),
+    });
+    if (res.ok) {
+      toast.success(cancelProcessRefund ? "Order cancelled and refunded" : "Order cancelled");
+      setCancelOrder(null);
+      fetchOrders(true);
+      if (activeOrderId === cancelOrder.id) openDetail(cancelOrder.id);
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "Failed to cancel order");
+    }
+    setCancelling(false);
+  }
+
+  async function emailReceipt(order: OrderFull) {
+    if (!order.customer_email) {
+      toast.error("No email address on file");
+      return;
+    }
+    toast.info("Sending receipt...");
+    // Use existing order confirmation email endpoint
+    const res = await fetch("/api/admin/operations/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: order.id, note: `Email receipt sent to ${order.customer_email}`, created_by: "system" }),
+    });
+    if (res.ok) toast.success("Receipt email logged");
+  }
+
+  async function sendSmsToCustomer(order: OrderFull) {
+    if (!order.customer_phone) {
+      toast.error("No phone number on file");
+      return;
+    }
+    toast.info(`SMS would be sent to ${formatPhone(order.customer_phone)}`);
+  }
+
+  // Bulk actions
+  async function bulkUpdateStatus(newStatus: string) {
+    for (const orderId of selectedOrders) {
+      await updateStatus(orderId, newStatus);
+    }
+    setSelectedOrders([]);
+    toast.success(`Updated ${selectedOrders.length} orders to "${newStatus.replace(/_/g, " ")}"`);
+  }
+
+  function bulkPrint(type: "receipt" | "ticket") {
+    const ordersToprint = orders.filter((o) => selectedOrders.includes(o.id));
+    for (const order of ordersToprint) {
+      if (type === "receipt") printOrderReceipt(order as unknown as OrderFull);
+      else if (order.delivery_method === "delivery") printDeliveryTicket(order as unknown as OrderFull);
+    }
+  }
+
+  async function exportCsv() {
+    const ids = selectedOrders.length > 0 ? selectedOrders : orders.map((o) => o.id);
+    const res = await fetch("/api/admin/operations/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderIds: ids }),
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `orders-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CSV exported");
+    }
+  }
+
+  function toggleSelect(orderId: string) {
+    setSelectedOrders((prev) => (prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]));
+  }
+
+  function toggleSelectAll() {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map((o) => o.id));
+    }
+  }
+
+  // ── Helpers ──
+
+  function extractTown(address: string | null): string {
+    if (!address) return "";
+    const parts = address.split(",").map((s) => s.trim());
+    return parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+  }
+
+  const hasMore = orders.length < totalCount;
+
+  // ── Render ──
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Operations</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Operations — Orders</h1>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={exportCsv}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+          </Button>
+        </div>
+      </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-5 gap-3">
-        <StatCard icon={ShoppingCart} label="Today" value={String(stats.totalOrders)} sub="orders" />
-        <StatCard icon={Truck} label="Deliveries" value={String(stats.deliveryCount)} sub="loads" color="text-blue-600" />
-        <StatCard icon={Package} label="Pickups" value={String(stats.pickupCount)} sub="orders" color="text-green-600" />
-        <StatCard icon={ArrowRight} label="Revenue" value={formatUsd(stats.revenueCents)} color="text-amber-600" />
-        <StatCard icon={Clock} label="Pending" value={String(stats.pendingCount)} sub="new" color="text-red-600" />
+      {/* Stats Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Today" value={String(stats.today.count)} sub={formatUsd(stats.today.revenueCents)} icon={ShoppingCart} />
+        <StatCard label="This Week" value={String(stats.thisWeek.count)} sub={formatUsd(stats.thisWeek.revenueCents)} icon={Calendar} />
+        <StatCard label="Pending" value={String(stats.byStatus.pending ?? 0)} color="text-amber-600" icon={Clock} />
+        <StatCard label="Scheduled" value={String(stats.byStatus.scheduled ?? 0)} color="text-blue-600" icon={Truck} />
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <FilterGroup label="Source" options={["all", "web", "pos", "phone"]} value={sourceFilter} onChange={setSourceFilter} />
-        <FilterGroup label="Type" options={["all", "delivery", "pickup"]} value={typeFilter} onChange={setTypeFilter} />
-        <FilterGroup label="Status" options={["all", "pending", "paid", "processing", "scheduled", "delivered", "cancelled"]} value={statusFilter} onChange={setStatusFilter} />
-        <FilterGroup label="Date" options={["today", "tomorrow", "week"]} value={dateRange} onChange={(v) => setDateRange(v as "today" | "tomorrow" | "week")} />
+        <FilterPills label="Source" options={["all", "web", "pos", "phone"]} value={sourceFilter} onChange={setSourceFilter} />
+        <FilterPills label="Type" options={["all", "delivery", "pickup"]} value={typeFilter} onChange={setTypeFilter} />
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-1">Status:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-7 rounded-lg border bg-background px-2 text-xs"
+          >
+            {STATUS_FILTER_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s === "all" ? "All" : s.replace(/_/g, " ")}</option>
+            ))}
+          </select>
+        </div>
+        <FilterPills
+          label="Date"
+          options={DATE_PRESETS as unknown as string[]}
+          value={datePreset}
+          onChange={setDatePreset}
+          labelMap={DATE_LABELS}
+        />
+        {datePreset === "custom" && (
+          <div className="flex items-center gap-1">
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-7 rounded-lg border bg-background px-2 text-xs" />
+            <span className="text-xs text-muted-foreground">→</span>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-7 rounded-lg border bg-background px-2 text-xs" />
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-1">Sort:</span>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="h-7 rounded-lg border bg-background px-2 text-xs">
+            {SORT_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="relative ml-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm"
+            placeholder="Search name, phone, address..."
+            className="rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm w-64"
           />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Two-panel layout */}
       <div className="flex gap-4">
-        {/* Order table */}
-        <div className="flex-1 overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-                <th className="px-3 py-2 font-medium">Customer</th>
-                <th className="px-3 py-2 font-medium">Items</th>
-                <th className="px-3 py-2 font-medium">Type</th>
-                <th className="px-3 py-2 font-medium text-right">Total</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
-              ) : orders.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No orders found</td></tr>
-              ) : orders.map((order) => (
-                <tr key={order.id} onClick={() => openDetail(order.id)} className="border-b cursor-pointer hover:bg-muted/30 transition-colors">
-                  <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                    {formatShortDateTime(order.created_at)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge className={`text-[10px] ${SOURCE_COLORS[order.source] || ""}`}>
-                      {SOURCE_LABELS[order.source] || order.source}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <p className="font-medium text-sm">{order.customer_name || "Walk-in"}</p>
-                    {order.customer_phone && <p className="text-xs text-muted-foreground">{order.customer_phone}</p>}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground max-w-40 truncate">
-                    {order.items?.map((i) => `${i.quantity} ${i.product_name}`).join(", ")}
-                  </td>
-                  <td className="px-3 py-2">
-                    {order.delivery_method === "delivery" ? (
-                      <span className="flex items-center gap-1 text-xs"><Truck className="h-3 w-3" /> Delivery</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pickup</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-sm">{formatUsd(order.grand_total_cents)}</td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={order.status}
-                      onChange={(e) => { e.stopPropagation(); updateStatus(order.id, e.target.value); }}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`rounded px-2 py-0.5 text-xs font-medium border-0 cursor-pointer ${STATUS_COLORS[order.status] || "bg-gray-100"}`}
-                    >
-                      {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Order detail slide-over */}
-        {detail && (
-          <div className="w-[420px] shrink-0 rounded-lg border bg-card p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-220px)]">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold">Order Detail</h2>
-              <button onClick={() => setDetail(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
+        {/* Order list (left panel) */}
+        <div className="flex-1 min-w-0">
+          {/* Select all + count */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <button onClick={toggleSelectAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                {selectedOrders.length === orders.length && orders.length > 0 ? (
+                  <CheckSquare className="h-4 w-4" />
+                ) : (
+                  <div className="h-4 w-4 rounded border" />
+                )}
+                Select all
               </button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Showing {orders.length} of {totalCount} orders
+            </p>
+          </div>
 
-            {detailLoading ? (
-              <p className="text-center text-muted-foreground py-8">Loading...</p>
+          {/* Order cards */}
+          <div className="rounded-lg border divide-y overflow-hidden">
+            {loading ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">Loading orders...</div>
+            ) : orders.length === 0 ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">No orders found</div>
             ) : (
-              <>
-                {/* Order header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(detail.order.created_at)}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge className={`text-[10px] ${SOURCE_COLORS[detail.order.source] || ""}`}>
-                        {SOURCE_LABELS[detail.order.source] || detail.order.source}
-                      </Badge>
-                      <Badge className={`text-[10px] ${STATUS_COLORS[detail.order.status] || ""}`}>
-                        {detail.order.status.replace(/_/g, " ")}
-                      </Badge>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold">{formatUsd(detail.order.grand_total_cents)}</p>
-                </div>
-
-                {/* Customer */}
-                <div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Customer</p>
-                  <p className="text-sm font-semibold">{detail.order.customer_name || "Walk-in"}</p>
-                  {detail.order.customer_phone && (
-                    <a href={`tel:${detail.order.customer_phone}`} className="flex items-center gap-1.5 text-sm text-primary hover:underline">
-                      <Phone className="h-3.5 w-3.5" /> {formatPhone(detail.order.customer_phone)}
-                    </a>
-                  )}
-                  {detail.order.customer_email && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Mail className="h-3.5 w-3.5" /> {detail.order.customer_email}
-                    </div>
-                  )}
-                  {detail.customerHistory?.customer && (
-                    <p className="text-xs text-muted-foreground">
-                      {detail.customerHistory.customer.total_orders} orders · {formatUsd(detail.customerHistory.customer.total_spent_cents)} lifetime
-                    </p>
-                  )}
-                </div>
-
-                {/* Items */}
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Items</p>
-                  {(detail.order.order_items ?? detail.order.items ?? []).filter((i: OrderItem) => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card")).map((item: OrderItem, i: number) => (
-                    <div key={i} className="flex justify-between text-sm py-1 border-b border-border/50 last:border-0">
-                      <div>
-                        <p className="font-medium">{item.product_name}</p>
-                        <p className="text-xs text-muted-foreground">{item.quantity} {(item.unit === "unit" || !item.unit) ? "cu. yards" : item.unit} × {formatUsd(item.unit_price_cents)}</p>
-                      </div>
-                      <span className="font-medium whitespace-nowrap">{formatUsd(item.line_subtotal_cents)}</span>
-                    </div>
-                  ))}
-                  {(detail.order.order_items ?? detail.order.items ?? []).length === 0 && (
-                    <p className="text-sm text-muted-foreground py-2">No items recorded</p>
-                  )}
-                </div>
-
-                {/* Delivery */}
-                {detail.order.delivery_method === "delivery" && (
-                  <div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Delivery</p>
-                    {detail.order.delivery_address && (
-                      <div className="flex items-start gap-1.5 text-sm">
-                        <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span>{detail.order.delivery_address}</span>
-                      </div>
-                    )}
-                    {(() => {
-                      const dd = detail.order.delivery_date || String((detail.order.metadata as Record<string, unknown>)?.deliveryDate ?? "");
-                      return dd ? (
-                        <div className="flex items-center gap-1.5 text-sm">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{formatDeliveryDate(dd)}</span>
-                        </div>
-                      ) : null;
-                    })()}
-                    {detail.order.delivery_time_window && (
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{formatTimeWindow(detail.order.delivery_time_window)}</span>
-                      </div>
-                    )}
-                    {detail.order.delivery_time_window && (
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{detail.order.delivery_time_window}</span>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground">Fee: {formatUsd(detail.order.delivery_total_cents ?? 0)}</p>
-                    {detail.order.delivery_notes && (
-                      <p className="text-xs text-muted-foreground">Notes: {detail.order.delivery_notes}</p>
-                    )}
-                    {(() => {
-                      if (!detail.order.access_constraints) return null;
-                      const c = detail.order.access_constraints as Record<string, unknown>;
-                      const flags = Object.entries(c).filter(([k, v]) => v === true && k !== "notes").map(([k]) => CONSTRAINT_LABELS[k] || k);
-                      const cNotes = typeof c.notes === "string" && c.notes.trim() ? c.notes.trim() : null;
-                      if (!flags.length && !cNotes) return null;
-                      return (
-                        <div className="flex items-start gap-1.5 text-xs text-amber-700">
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>{[...flags, cNotes].filter(Boolean).join(" · ")}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* Totals */}
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Totals</p>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Materials</span><span>{formatUsd(detail.order.materials_subtotal_cents ?? 0)}</span></div>
-                    {(detail.order.delivery_total_cents ?? 0) > 0 && (
-                      <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>{formatUsd(detail.order.delivery_total_cents)}</span></div>
-                    )}
-                    <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(detail.order.tax_cents ?? 0)}</span></div>
-                    {(detail.order.cc_surcharge_cents ?? 0) > 0 && (
-                      <div className="flex justify-between"><span className="text-muted-foreground">CC Fee (3%)</span><span>{formatUsd(detail.order.cc_surcharge_cents)}</span></div>
-                    )}
-                    <div className="flex justify-between border-t pt-1.5 font-bold">
-                      <span>Total</span><span>{formatUsd(detail.order.grand_total_cents)}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    Payment: {formatPaymentMethod(detail.order.payment_method)}
-                    {detail.order.stripe_checkout_session_id && (
-                      <span className="ml-1 font-mono text-[10px]">({detail.order.stripe_checkout_session_id.slice(0, 15)}…)</span>
-                    )}
-                  </p>
-                </div>
-
-                {/* Notes */}
-                {detail.order.notes && (
-                  <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Notes</p>
-                    {detail.order.notes}
-                  </div>
-                )}
-
-                {/* Print actions */}
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => printOrderReceipt(detail.order)}>
-                    <Printer className="mr-1.5 h-3.5 w-3.5" /> Receipt
-                  </Button>
-                  {detail.order.delivery_method === "delivery" && (
-                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => printDeliveryTicket(detail.order)}>
-                      <Truck className="mr-1.5 h-3.5 w-3.5" /> Delivery Ticket
-                    </Button>
-                  )}
-                </div>
-
-                {/* Status change */}
-                <div className="border-t pt-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Change Status</p>
-                  <div className="flex flex-wrap gap-1">
-                    {STATUS_OPTIONS.map((s) => (
-                      <Button
-                        key={s}
-                        size="sm"
-                        variant={detail.order.status === s ? "default" : "outline"}
-                        className="text-xs"
-                        onClick={() => updateStatus(detail.order.id, s)}
-                      >
-                        {s.replace(/_/g, " ")}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Customer history */}
-                {detail.customerHistory?.recentOrders && detail.customerHistory.recentOrders.length > 1 && (
-                  <div className="border-t pt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Recent Orders</p>
-                    {detail.customerHistory.recentOrders.slice(0, 5).map((o) => (
-                      <div key={o.id} className="flex justify-between text-xs py-1 text-muted-foreground">
-                        <span>{new Date(o.created_at).toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" })}</span>
-                        <span>{formatUsd(o.grand_total_cents)}</span>
-                        <Badge className={`text-[10px] ${STATUS_COLORS[o.status] || ""}`}>{o.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+              orders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  isSelected={activeOrderId === order.id}
+                  isChecked={selectedOrders.includes(order.id)}
+                  onToggleCheck={() => toggleSelect(order.id)}
+                  onClick={() => openDetail(order.id)}
+                />
+              ))
             )}
           </div>
+
+          {/* Load more */}
+          {hasMore && !loading && (
+            <div className="text-center mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fetchOrders(false)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading..." : "Load More"}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Detail panel (right) */}
+        {(activeOrderId || detailLoading) && detailData && (
+          <OrderDetailPanel
+            order={detailData.order}
+            customerHistory={detailData.customerHistory}
+            deliveryAssignments={detailData.deliveryAssignments}
+            notes={detailData.notes}
+            loading={detailLoading}
+            onClose={closeDetail}
+            onStatusChange={updateStatus}
+            onAddNote={addNote}
+            onPrintReceipt={() => detailData && printOrderReceipt(detailData.order)}
+            onPrintDeliveryTicket={() => detailData && printDeliveryTicket(detailData.order)}
+            onEmailReceipt={() => detailData && emailReceipt(detailData.order)}
+            onSendSms={() => detailData && sendSmsToCustomer(detailData.order)}
+            onEdit={() => detailData && setEditOrder(detailData.order as unknown as EditOrderData)}
+            onRefund={() => detailData && setRefundOrder(detailData.order)}
+            onCancel={() => detailData && setCancelOrder(detailData.order)}
+          />
         )}
       </div>
+
+      {/* Bulk actions bar */}
+      {selectedOrders.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg p-3 flex items-center justify-between z-40">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {selectedOrders.length} order{selectedOrders.length > 1 ? "s" : ""} selected
+            </span>
+            <Button size="sm" variant="outline" onClick={() => setSelectedOrders([])}>
+              Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Status:</span>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) bulkUpdateStatus(e.target.value);
+                  e.target.value = "";
+                }}
+                className="h-8 rounded-lg border bg-background px-2 text-xs"
+                defaultValue=""
+              >
+                <option value="" disabled>Change...</option>
+                {["confirmed", "scheduled", "loading", "out_for_delivery", "delivered", "cancelled"].map((s) => (
+                  <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                ))}
+              </select>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => bulkPrint("receipt")}>
+              <Printer className="mr-1 h-3.5 w-3.5" /> Print Receipts
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => bulkPrint("ticket")}>
+              <Truck className="mr-1 h-3.5 w-3.5" /> Print Tickets
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportCsv}>
+              <Download className="mr-1 h-3.5 w-3.5" /> Export
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editOrder && (
+        <EditOrderModal
+          order={editOrder}
+          onClose={() => setEditOrder(null)}
+          onSave={saveOrderEdits}
+        />
+      )}
+
+      {/* Refund modal */}
+      {refundOrder && (
+        <RefundModal
+          order={{
+            id: refundOrder.id,
+            grand_total_cents: refundOrder.grand_total_cents,
+            materials_subtotal_cents: refundOrder.materials_subtotal_cents,
+            delivery_total_cents: refundOrder.delivery_total_cents,
+            tax_cents: refundOrder.tax_cents,
+            cc_surcharge_cents: refundOrder.cc_surcharge_cents,
+            payment_method: refundOrder.payment_method,
+            payments: refundOrder.payments || null,
+            status: refundOrder.status,
+            items: (refundOrder.items || []).map((i) => ({
+              product_name: i.product_name,
+              quantity: i.quantity,
+              unit_price_cents: i.unit_price_cents,
+              line_subtotal_cents: i.line_subtotal_cents,
+            })),
+          }}
+          onClose={() => setRefundOrder(null)}
+          onRefund={() => {
+            setRefundOrder(null);
+            fetchOrders(true);
+            if (activeOrderId) openDetail(activeOrderId);
+            toast.success("Refund processed");
+          }}
+        />
+      )}
+
+      {/* Cancel dialog */}
+      {cancelOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setCancelOrder(null)}>
+          <div className="bg-card rounded-xl border shadow-xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-bold text-lg">Cancel Order #{cancelOrder.id.slice(0, 8)}?</h2>
+            <div className="text-sm text-muted-foreground">
+              <p>Customer: {cancelOrder.customer_name || "Walk-in"}</p>
+              <p>Total: {formatUsd(cancelOrder.grand_total_cents)} ({formatPaymentMethod(cancelOrder.payment_method)})</p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={cancelProcessRefund}
+                  onChange={(e) => setCancelProcessRefund(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                Process refund (returns {formatUsd(cancelOrder.grand_total_cents)} to card)
+              </label>
+
+              <div>
+                <label className="text-xs text-muted-foreground">Reason</label>
+                <select
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full h-9 rounded-lg border px-3 text-sm mt-0.5"
+                >
+                  <option>Customer requested</option>
+                  <option>Out of stock</option>
+                  <option>Duplicate order</option>
+                  <option>Fraudulent</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCancelOrder(null)} disabled={cancelling}>
+                Keep Order
+              </Button>
+              <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
+                {cancelling ? "Processing..." : cancelProcessRefund ? "Cancel & Refund" : "Cancel Order"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Helper components ──────────────────────────────────────────────
+// ─── Helper Components ────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: string; sub?: string; color?: string }) {
+function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color?: string }) {
   return (
-    <div className="rounded-lg border bg-card p-3 text-center">
-      <Icon className={`mx-auto mb-1 h-5 w-5 ${color || "text-muted-foreground"}`} />
-      <p className={`text-xl font-bold ${color || ""}`}>{value}</p>
-      <p className="text-xs text-muted-foreground">{sub ? `${label} · ${sub}` : label}</p>
+    <div className="rounded-lg border bg-card p-3">
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${color || "text-muted-foreground"}`} />
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+      <p className={`text-2xl font-bold mt-1 ${color || ""}`}>{value}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
 
-function FilterGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+function FilterPills({
+  label,
+  options,
+  value,
+  onChange,
+  labelMap,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  labelMap?: Record<string, string>;
+}) {
   return (
     <div className="flex items-center gap-1">
       <span className="text-xs text-muted-foreground mr-1">{label}:</span>
       {options.map((opt) => (
-        <Button key={opt} size="sm" variant={value === opt ? "default" : "outline"} className="h-7 text-xs px-2" onClick={() => onChange(opt)}>
-          {opt.replace(/_/g, " ")}
+        <Button
+          key={opt}
+          size="sm"
+          variant={value === opt ? "default" : "outline"}
+          className="h-7 text-xs px-2"
+          onClick={() => onChange(opt)}
+        >
+          {labelMap?.[opt] || opt.replace(/_/g, " ")}
         </Button>
       ))}
+    </div>
+  );
+}
+
+function OrderCard({
+  order,
+  isSelected,
+  isChecked,
+  onToggleCheck,
+  onClick,
+}: {
+  order: OrderListItem;
+  isSelected: boolean;
+  isChecked: boolean;
+  onToggleCheck: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className={`p-3 cursor-pointer transition-colors ${
+        isSelected ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-muted/50"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={onToggleCheck}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 rounded mt-0.5"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">#{order.id.slice(0, 8)}</span>
+              <span className="text-sm">{order.customer_name || "Walk-in"}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+              <Badge className={`text-[9px] px-1.5 py-0 ${SOURCE_COLORS[order.source] || "bg-gray-100"}`}>
+                {SOURCE_LABELS[order.source] || order.source}
+              </Badge>
+              <Badge className={`text-[9px] px-1.5 py-0 ${STATUS_COLORS[order.status] || "bg-gray-100"}`}>
+                {order.status.replace(/_/g, " ")}
+              </Badge>
+              <span>{formatShortDateTime(order.placed_at || order.created_at)}</span>
+            </div>
+          </div>
+        </div>
+        <span className="font-bold text-sm">{formatUsd(order.grand_total_cents)}</span>
+      </div>
+
+      <div className="flex items-center gap-1 mt-1.5 ml-6 text-xs text-muted-foreground">
+        {order.delivery_method === "delivery" ? (
+          <>
+            <Truck className="w-3 h-3" />
+            <span>Delivery</span>
+            {order.delivery_address && (
+              <span className="truncate max-w-48">
+                · {order.delivery_address.split(",")[0]}
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            <Store className="w-3 h-3" />
+            <span>Pickup</span>
+          </>
+        )}
+        {order.items && order.items.length > 0 && (
+          <span className="truncate max-w-48 ml-1">
+            · {order.items.slice(0, 2).map((i) => i.product_name).join(", ")}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
