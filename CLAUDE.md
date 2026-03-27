@@ -142,11 +142,34 @@ ssh hampton-vps 'cd /opt/easternlm-web && git pull && eval $(grep -v "^#" .env.l
 All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PROJECT_REF, SUPABASE_ACCESS_TOKEN
-- STRIPE_SECRET_KEY (test), STRIPE_WEBHOOK_SECRET
+- STRIPE_SECRET_KEY (test), PROD_STRIPE_SECRET_KEY (live), STRIPE_WEBHOOK_SECRET
+- NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (test), PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (live)
 - GOOGLE_MAPS_API_KEY
 - RESEND_API_KEY, RESEND_FROM_EMAIL
+- TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
+- RINGCENTRAL_JWT (for RingCentral SMS — primary SMS provider)
+- ANTHROPIC_API_KEY (for AI quote generation)
 - NEXT_PUBLIC_SITE_URL
 - `NEXT_PUBLIC_` prefix = exposed to browser (Next.js bakes these into the JS bundle at build time, so they must be passed as `--build-arg`)
+
+## SMS
+
+- **Primary:** RingCentral via `src/lib/sms.ts` — `sendSms(to, body, from?)`
+- **Fallback:** Twilio (when RINGCENTRAL_JWT not set)
+- **Default from:** +16318746244 (falls back to +13153625323)
+- All outbound SMS uses the unified `sendSms()` function — no inline Twilio calls
+
+## Testing
+
+- **Playwright E2E:** `npm run test:e2e` — 29 tests across 7 suites
+- **Unit tests:** `npm test` — Jest (delivery fee calculations)
+- **CI:** Playwright runs after staging deploy in GitHub Actions
+
+## Cron Jobs (VPS)
+
+- RingCentral subscription renewal: daily 2 AM
+- Supabase keepalive: every 6 hours
+- Follow-up sequences: every 30 minutes
 
 ## Go-Live Blockers
 
