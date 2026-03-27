@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -252,7 +252,15 @@ function printDeliveryTicket(order: OrderFull) {
 
 // ─── Main Component ───────────────────────────────────────────
 
-export default function AdminOperationsPage() {
+export default function AdminOperationsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading...</div>}>
+      <AdminOperationsPage />
+    </Suspense>
+  );
+}
+
+function AdminOperationsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
