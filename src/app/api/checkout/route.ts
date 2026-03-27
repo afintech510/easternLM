@@ -444,6 +444,35 @@ export async function POST(request: Request) {
         feeCents: load.feeCents,
       }));
 
+      // Clean up stale pending orders for the same customer to prevent duplicates.
+      // If the customer retries checkout, we cancel old pending orders and their PIs.
+      const customerPhone = payload.customer.phone?.replace(/\D/g, "").slice(-10);
+      if (customerPhone) {
+        const { data: stalePending } = await supabaseAdmin
+          .from("orders")
+          .select("id, stripe_checkout_session_id")
+          .eq("status", "pending")
+          .ilike("customer_phone", `%${customerPhone}%`)
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+        if (stalePending && stalePending.length > 0) {
+          // Cancel old PaymentIntents in Stripe (ignore errors — they may already be expired)
+          for (const stale of stalePending) {
+            if (stale.stripe_checkout_session_id?.startsWith("pi_")) {
+              try {
+                await stripe.paymentIntents.cancel(stale.stripe_checkout_session_id);
+              } catch {
+                // PI may already be canceled/expired — that's fine
+              }
+            }
+          }
+          // Delete stale orders and their items
+          const staleIds = stalePending.map((s: { id: string }) => s.id);
+          await supabaseAdmin.from("order_items").delete().in("order_id", staleIds);
+          await supabaseAdmin.from("orders").delete().in("id", staleIds);
+        }
+      }
+
       const insertedOrder = await supabaseAdmin
         .from("orders")
         .insert({

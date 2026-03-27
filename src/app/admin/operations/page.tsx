@@ -24,6 +24,7 @@ import {
 } from "@/components/admin/orders/order-detail-panel";
 import { EditOrderModal, type EditOrderData } from "@/components/admin/orders/edit-order-modal";
 import { RefundModal } from "@/components/pos/refund/refund-modal";
+import { SmsModal } from "@/components/admin/orders/sms-modal";
 import { createBrowserClient } from "@supabase/ssr";
 import { toast } from "sonner";
 import {
@@ -300,6 +301,7 @@ function AdminOperationsPage() {
   const [editOrder, setEditOrder] = useState<EditOrderData | null>(null);
   const [refundOrder, setRefundOrder] = useState<OrderFull | null>(null);
   const [cancelOrder, setCancelOrder] = useState<OrderFull | null>(null);
+  const [smsOrder, setSmsOrder] = useState<OrderFull | null>(null);
   const [cancelProcessRefund, setCancelProcessRefund] = useState(true);
   const [cancelReason, setCancelReason] = useState("Customer requested");
   const [cancelling, setCancelling] = useState(false);
@@ -499,12 +501,12 @@ function AdminOperationsPage() {
     if (res.ok) toast.success("Receipt email logged");
   }
 
-  async function sendSmsToCustomer(order: OrderFull) {
+  function sendSmsToCustomer(order: OrderFull) {
     if (!order.customer_phone) {
       toast.error("No phone number on file");
       return;
     }
-    toast.info(`SMS would be sent to ${formatPhone(order.customer_phone)}`);
+    setSmsOrder(order);
   }
 
   // Bulk actions
@@ -797,6 +799,33 @@ function AdminOperationsPage() {
             if (activeOrderId) openDetail(activeOrderId);
             toast.success("Refund processed");
           }}
+        />
+      )}
+
+      {/* SMS modal */}
+      {smsOrder && (
+        <SmsModal
+          order={{
+            id: smsOrder.id,
+            customer_name: smsOrder.customer_name,
+            customer_phone: smsOrder.customer_phone,
+            customer_email: smsOrder.customer_email,
+            grand_total_cents: smsOrder.grand_total_cents,
+            status: smsOrder.status,
+            payment_method: smsOrder.payment_method,
+            delivery_method: smsOrder.delivery_method,
+            delivery_address: smsOrder.delivery_address,
+            delivery_date: smsOrder.delivery_date,
+            delivery_time_window: smsOrder.delivery_time_window,
+            delivery_notes: smsOrder.delivery_notes,
+            items: (smsOrder.items || []).map((i) => ({
+              product_name: i.product_name,
+              quantity: i.quantity,
+              unit: i.unit,
+              delivery_type: i.delivery_type,
+            })),
+          }}
+          onClose={() => setSmsOrder(null)}
         />
       )}
 
