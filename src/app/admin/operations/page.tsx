@@ -141,116 +141,48 @@ const CONSTRAINT_LABELS: Record<string, string> = {
   gated: "Gated", steep: "Steep grade", backyard: "Backyard access",
 };
 
-// ─── Print Helpers ────────────────────────────────────────────
+// ─── Print Helpers (shared utility) ───────────────────────────
+
+import { printReceiptWindow, printDeliveryTicketWindow, type PrintableOrder } from "@/lib/print/order-print";
+
+function orderToPrintable(order: OrderFull): PrintableOrder {
+  const deliveryDate = order.delivery_date || String((order.metadata as Record<string, unknown>)?.deliveryDate ?? "") || null;
+  return {
+    id: order.id,
+    created_at: order.placed_at || order.created_at,
+    source: order.source || "web",
+    customer_name: order.customer_name,
+    customer_phone: order.customer_phone,
+    customer_email: order.customer_email,
+    items: (order.order_items ?? order.items ?? []).map((i) => ({
+      product_name: i.product_name,
+      quantity: i.quantity,
+      unit: i.unit,
+      unit_price_cents: i.unit_price_cents,
+      line_total_cents: i.line_subtotal_cents,
+      delivery_type: i.delivery_type,
+    })),
+    materials_subtotal_cents: order.materials_subtotal_cents ?? 0,
+    delivery_total_cents: order.delivery_total_cents ?? 0,
+    tax_cents: order.tax_cents ?? 0,
+    cc_surcharge_cents: order.cc_surcharge_cents ?? 0,
+    grand_total_cents: order.grand_total_cents,
+    payment_method: order.payment_method,
+    delivery_method: order.delivery_method,
+    delivery_address: order.delivery_address,
+    delivery_date: deliveryDate || null,
+    delivery_time_window: order.delivery_time_window,
+    delivery_notes: order.delivery_notes,
+    access_constraints: order.access_constraints,
+  };
+}
 
 function printOrderReceipt(order: OrderFull) {
-  const items = (order.order_items ?? order.items ?? []).filter(
-    (i) => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"),
-  );
-  const deliveryDate = order.delivery_date || (order.metadata as Record<string, unknown>)?.deliveryDate || null;
-  const w = window.open("", "_blank", "width=400,height=700");
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
-    <style>body{font-family:monospace;font-size:12px;max-width:380px;margin:0 auto;padding:20px;}
-    .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:1px dashed #000;margin:8px 0;}
-    .row{display:flex;justify-content:space-between;} .mt{margin-top:6px;}</style></head><body>
-    <div class="center bold" style="font-size:14px;">EASTERN LANDSCAPE<br/>& MASON SUPPLY</div>
-    <div class="center" style="font-size:11px;">110 Frowein Road<br/>Center Moriches, NY 11934<br/>(631) 874-6244</div>
-    <div class="line"></div>
-    <div class="row"><span>Date:</span><span>${formatOrderDateTime(order.created_at)}</span></div>
-    <div class="row"><span>Source:</span><span>${(order.source || "web").toUpperCase()}</span></div>
-    <div class="line"></div>
-    <div class="bold">CUSTOMER</div>
-    <div>${order.customer_name || "Walk-in"}</div>
-    ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
-    ${order.customer_email ? `<div>Email: ${order.customer_email}</div>` : ""}
-    <div class="line"></div>
-    <div class="bold">ITEMS</div>
-    ${items.map((i) => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${i.product_name}</div><div class="row"><span>@ ${formatUsd(i.unit_price_cents)} per ${u.replace(/s$/, "")}</span><span>${formatUsd(i.line_subtotal_cents)}</span></div></div>`; }).join("")}
-    <div class="line"></div>
-    <div class="row"><span>Materials:</span><span>${formatUsd(order.materials_subtotal_cents ?? 0)}</span></div>
-    ${(order.delivery_total_cents ?? 0) > 0 ? `<div class="row"><span>Delivery:</span><span>${formatUsd(order.delivery_total_cents)}</span></div>` : ""}
-    <div class="row"><span>Tax (8.75%):</span><span>${formatUsd(order.tax_cents ?? 0)}</span></div>
-    ${(order.cc_surcharge_cents ?? 0) > 0 ? `<div class="row"><span>CC Fee (3%):</span><span>${formatUsd(order.cc_surcharge_cents)}</span></div>` : ""}
-    <div class="line"></div>
-    <div class="row bold" style="font-size:14px;"><span>TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
-    ${order.payment_method === "cod" ? `
-      <div class="center bold" style="font-size:22px;border:3px solid #000;padding:10px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:18px;">${formatUsd(order.grand_total_cents)}</span></div>
-    ` : `<div class="mt">Payment: ${formatPaymentMethod(order.payment_method)}</div>`}
-    ${order.delivery_method === "delivery" ? `
-      <div class="line"></div>
-      <div class="bold">DELIVERY</div>
-      <div>${order.delivery_address || ""}</div>
-      ${deliveryDate ? `<div>Date: ${formatShortDeliveryDate(String(deliveryDate))}</div>` : ""}
-      ${order.delivery_time_window ? `<div>Time: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
-      ${order.delivery_notes ? `<div>Notes: ${order.delivery_notes}</div>` : ""}
-    ` : ""}
-    <div class="line"></div>
-    <div class="center mt">Thank you for your business!<br/>easternlm.com</div>
-    </body></html>`);
-  w.document.close();
-  w.print();
+  printReceiptWindow(orderToPrintable(order));
 }
 
 function printDeliveryTicket(order: OrderFull) {
-  const items = (order.order_items ?? order.items ?? []).filter(
-    (i) => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"),
-  );
-  const deliveryDate = order.delivery_date || (order.metadata as Record<string, unknown>)?.deliveryDate || null;
-  const constraints = order.access_constraints as Record<string, unknown> | null;
-  const flags = constraints ? Object.entries(constraints).filter(([k, v]) => v === true && k !== "notes").map(([k]) => CONSTRAINT_LABELS[k] || k) : [];
-  const notes = constraints && typeof constraints.notes === "string" ? constraints.notes : null;
-  const w = window.open("", "_blank", "width=400,height=700");
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Delivery Ticket</title>
-    <style>body{font-family:monospace;font-size:12px;max-width:380px;margin:0 auto;padding:20px;}
-    .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:2px solid #000;margin:8px 0;}
-    .dashed{border-top:1px dashed #000;margin:8px 0;} .row{display:flex;justify-content:space-between;}
-    .big{font-size:16px;} .mt{margin-top:6px;} .warn{background:#fff3cd;padding:6px;border:1px solid #ffc107;margin:4px 0;}</style></head><body>
-    <div class="line"></div>
-    <div class="center bold big">DELIVERY TICKET</div>
-    <div class="center">EASTERN LANDSCAPE & MASON SUPPLY</div>
-    <div class="line"></div>
-    <div class="row"><span>Date:</span><span>${formatShortDeliveryDate(order.created_at)}</span></div>
-    <div class="row"><span>Source:</span><span>${(order.source || "web").toUpperCase()} ORDER</span></div>
-    <div class="dashed"></div>
-    <div class="bold">CUSTOMER: ${order.customer_name || "Walk-in"}</div>
-    ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
-    <div class="line"></div>
-    <div class="bold big">DELIVER TO:</div>
-    ${(() => {
-      const addr = (order.delivery_address || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "");
-      const zip = addr.match(/\b(\d{5})\b/)?.[1] || "";
-      const cleanAddr = addr.replace(/,?\s*NY\s*,?/i, " ").replace(/\s+/g, " ").trim();
-      return `<div class="bold" style="font-size:16px;">${cleanAddr}</div>${zip ? `<div class="bold" style="font-size:16px;">ZIP: ${zip}</div>` : ""}`;
-    })()}
-    ${deliveryDate ? `<div class="mt bold">DATE: ${formatDeliveryDate(String(deliveryDate))}</div>` : ""}
-    ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
-    ${flags.length > 0 || notes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, notes].filter(Boolean).join(" · ")}</div>` : ""}
-    ${order.delivery_notes ? `<div class="mt">NOTES: ${order.delivery_notes}</div>` : ""}
-    <div class="line"></div>
-    <div class="bold big">MATERIAL TO LOAD:</div>
-    ${items.map((i) => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${u}<br/>${i.product_name}</div>`; }).join('<div class="dashed"></div>')}
-    <div class="line"></div>
-    <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
-    ${order.payment_method === "cod" ? `
-      <div class="center bold" style="font-size:24px;border:3px solid #000;padding:12px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:20px;">${formatUsd(order.grand_total_cents)}</span></div>
-    ` : `<div class="bold big center">PAID</div>`}
-    <div class="line"></div>
-    <div class="center" style="margin:8px 0;">
-      <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
-      <img id="qr" style="width:150px;height:150px;margin:0 auto;" />
-    </div>
-    <div class="line"></div>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
-    <script>
-      QRCode.toDataURL('${typeof window !== "undefined" ? window.location.origin : "https://easternlm.com"}/delivery/confirm/${order.id}', {width:150,margin:1}, function(err,url){
-        if(url) document.getElementById('qr').src = url;
-      });
-    <\/script>
-    </body></html>`);
-  w.document.close();
-  setTimeout(() => w.print(), 1000);
+  printDeliveryTicketWindow(orderToPrintable(order));
 }
 
 // ─── Main Component ───────────────────────────────────────────
