@@ -31,6 +31,7 @@ import { formatUsd } from "@/lib/format";
 import { formatShortDateTime, formatDeliveryDate, formatShortDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod } from "@/lib/format-date";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
+import { printReceiptWindow, printDeliveryTicketWindow, type PrintableOrder } from "@/lib/print/order-print";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { NewLeadModal } from "@/components/pos/new-lead-modal";
@@ -732,67 +733,92 @@ export default function PosRegisterPage() {
     setShowCustomItem(false);
   }
 
-  async function afterSale(method: "card" | "cash" | "account", orderPayload: Record<string, unknown>) {
-    // Print receipt via thermal printer
+  function buildPrintableOrder(method: string, orderPayload: Record<string, unknown>): PrintableOrder {
+    const paymentMethod = method === "card" ? "card_terminal" : method === "account" ? "account" : method === "cod" ? "cod" : "cash";
+    return {
+      id: orderPayload.order_id as string | undefined,
+      created_at: new Date().toISOString(),
+      source: "pos",
+      customer_name: (orderPayload.customer_name as string) || null,
+      customer_phone: (orderPayload.customer_phone as string) || customerPhone || null,
+      customer_email: (orderPayload.customer_email as string) || delEmail || null,
+      items: ((orderPayload.items as Array<Record<string, unknown>>) || [])
+        .filter((i) => !(i.product_name as string)?.startsWith("Delivery Load") && !(i.product_name as string)?.startsWith("Sales Tax") && !(i.product_name as string)?.startsWith("Credit Card"))
+        .map((i) => ({
+          product_name: i.product_name as string,
+          quantity: i.quantity as number,
+          unit: (i.unit as string) || "cu. yard",
+          unit_price_cents: i.unit_price_cents as number,
+          line_total_cents: i.line_total_cents as number,
+          delivery_type: i.delivery_type as string | undefined,
+        })),
+      materials_subtotal_cents: orderPayload.subtotal_cents as number,
+      delivery_total_cents: (orderPayload.delivery_fee_cents as number) || 0,
+      tax_cents: orderPayload.tax_cents as number,
+      cc_surcharge_cents: method === "card" ? ((orderPayload.cc_fee_cents as number) || 0) : 0,
+      grand_total_cents: orderPayload.grand_total_cents as number,
+      discount_amount_cents: orderPayload.discount_amount_cents as number | undefined,
+      payment_method: paymentMethod,
+      delivery_method: (orderPayload.delivery_method as string) || deliveryMethod,
+      delivery_address: (orderPayload.delivery_address as string) || null,
+      delivery_date: (orderPayload.delivery_date as string) || delDate || null,
+      delivery_time_window: (orderPayload.delivery_time_window as string) || (deliveryMethod === "delivery" ? delTimeWindow : null),
+      delivery_notes: (orderPayload.delivery_notes as string) || delNotes || null,
+      access_constraints: (orderPayload.access_constraints as Record<string, unknown>) || null,
+      cash_tendered_cents: orderPayload.cash_tendered_cents as number | undefined,
+      change_due_cents: orderPayload.cash_tendered_cents
+        ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
+        : undefined,
+    };
+  }
+
+  async function afterSale(method: string, orderPayload: Record<string, unknown>) {
+    const printOrder = buildPrintableOrder(method, orderPayload);
+
+    // Print receipt via thermal printer or browser fallback
     if (autoPrint) {
-      const receiptItems = (orderPayload.items as Array<Record<string, unknown>>).map((i) => ({
-        productName: i.product_name as string,
-        quantity: i.quantity as number,
-        unit: (i.delivery_type === "bulk" ? "cu. yards" : (i.unit as string) || "ea"),
-        unitPriceCents: i.unit_price_cents as number,
-        lineTotalCents: i.line_total_cents as number,
+      const receiptItems = printOrder.items.map((i) => ({
+        productName: i.product_name,
+        quantity: i.quantity,
+        unit: i.delivery_type === "bulk" ? "cu. yards" : i.unit || "ea",
+        unitPriceCents: i.unit_price_cents,
+        lineTotalCents: i.line_total_cents,
       }));
       await printerRef.current.printReceipt({
-        createdAt: new Date().toISOString(),
+        createdAt: printOrder.created_at,
         items: receiptItems,
-        subtotalCents: orderPayload.subtotal_cents as number,
-        taxCents: orderPayload.tax_cents as number,
-        deliveryFeeCents: (orderPayload.delivery_fee_cents as number) || 0,
-        ccSurchargeCents: method === "card" ? (orderPayload.cc_fee_cents as number) || 0 : 0,
-        totalCents: orderPayload.grand_total_cents as number,
-        paymentMethod: method === "card" ? "card_terminal" : method === "account" ? "account" : "cash",
-        cashTenderedCents: orderPayload.cash_tendered_cents as number | undefined,
-        changeDueCents: orderPayload.cash_tendered_cents
-          ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
-          : undefined,
-        customerName: orderPayload.customer_name as string,
-        customerPhone: (orderPayload.customer_phone as string) || customerPhone || undefined,
-        customerEmail: (orderPayload.customer_email as string) || delEmail || undefined,
-        deliveryMethod: orderPayload.delivery_method as string | undefined,
-        deliveryAddress: orderPayload.delivery_address as string | undefined,
-        deliveryDate: (orderPayload.delivery_date as string) || delDate || undefined,
-        deliveryTimeWindow: (orderPayload.delivery_time_window as string) || (deliveryMethod === "delivery" ? delTimeWindow : undefined),
-        deliveryNotes: (orderPayload.delivery_notes as string) || delNotes || undefined,
-        accessConstraints: orderPayload.access_constraints as Record<string, boolean> | undefined,
+        subtotalCents: printOrder.materials_subtotal_cents,
+        taxCents: printOrder.tax_cents,
+        deliveryFeeCents: printOrder.delivery_total_cents,
+        ccSurchargeCents: printOrder.cc_surcharge_cents,
+        totalCents: printOrder.grand_total_cents,
+        paymentMethod: printOrder.payment_method,
+        cashTenderedCents: printOrder.cash_tendered_cents,
+        changeDueCents: printOrder.change_due_cents,
+        customerName: printOrder.customer_name || undefined,
+        customerPhone: printOrder.customer_phone || undefined,
+        customerEmail: printOrder.customer_email || undefined,
+        deliveryMethod: printOrder.delivery_method,
+        deliveryAddress: printOrder.delivery_address || undefined,
+        deliveryDate: printOrder.delivery_date || undefined,
+        deliveryTimeWindow: printOrder.delivery_time_window || undefined,
+        deliveryNotes: printOrder.delivery_notes || undefined,
+        accessConstraints: printOrder.access_constraints as Record<string, boolean> | undefined,
         notes: orderPayload.notes as string | undefined,
       });
     } else {
-      // Fallback: browser popup receipt
-      printReceipt(orderPayload, method);
+      printReceiptWindow(printOrder);
     }
 
     // Print delivery tickets for delivery orders (2 copies: driver + dispatch)
-    if (orderPayload.delivery_address && deliveryMethod === "delivery") {
-      const ticketData = {
-        items: (orderPayload.items as Array<Record<string, unknown>>).filter((i) => !(i.product_name as string)?.startsWith("Delivery Load")),
-        customer_name: orderPayload.customer_name,
-        customer_phone: orderPayload.customer_phone || customerPhone,
-        delivery_address: orderPayload.delivery_address,
-        delivery_date: orderPayload.delivery_date || delDate,
-        delivery_time_window: orderPayload.delivery_time_window || delTimeWindow,
-        delivery_notes: orderPayload.delivery_notes || delNotes,
-        access_constraints: orderPayload.access_constraints || null,
-        grand_total_cents: orderPayload.grand_total_cents,
-        payment_method: method === "card" ? "card_terminal" : method,
-      };
-      // Driver copy + dispatch copy
+    if (printOrder.delivery_address && printOrder.delivery_method === "delivery") {
       await new Promise(r => setTimeout(r, 800));
-      printDeliveryTicket(ticketData);
+      printDeliveryTicketWindow(printOrder);
       await new Promise(r => setTimeout(r, 800));
-      printDeliveryTicket(ticketData);
+      printDeliveryTicketWindow(printOrder);
     }
 
-    // Open cash drawer on cash sales
+    // Open cash drawer on cash sales (not COD — money collected on delivery)
     if (method === "cash" && autoDrawer) {
       await printerRef.current.openCashDrawer();
     }
@@ -919,7 +945,6 @@ export default function PosRegisterPage() {
 
         if (result.success) {
           setCardPaymentStatus("Payment approved!");
-          if (!autoPrint) printReceipt(orderPayload, method);
           await afterSale(method, orderPayload);
           setTimeout(resetRegister, 1500);
         } else {
@@ -927,11 +952,9 @@ export default function PosRegisterPage() {
           setTimeout(() => setCardPaymentStatus(null), 3000);
         }
       } else if (method === "cod") {
-        if (!autoPrint) printReceipt(orderPayload, method);
-        await afterSale("cash", orderPayload);
+        await afterSale("cod", orderPayload);
         resetRegister();
       } else {
-        if (!autoPrint) printReceipt(orderPayload, method);
         await afterSale(method, orderPayload);
         resetRegister();
       }
@@ -940,117 +963,6 @@ export default function PosRegisterPage() {
     }
   }
 
-  // ── Receipt printing ────────────────────────────────────────────
-
-  function printReceipt(orderData: Record<string, unknown>, method: string) {
-    const w = window.open("", "_blank", "width=380,height=700");
-    if (!w) return;
-    const receiptItems = (orderData.items as Array<{ product_name: string; quantity: number; unit?: string; unit_price_cents: number; line_total_cents: number }>).filter(i => !i.product_name?.startsWith("Delivery Load") && !i.product_name?.startsWith("Sales Tax") && !i.product_name?.startsWith("Credit Card"));
-    const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
-    const delDate = orderData.delivery_date as string | null;
-    const delTimeWindow = orderData.delivery_time_window as string | null;
-    const delAddr = orderData.delivery_address as string | null;
-    const delNotes = orderData.delivery_notes as string | null;
-    const custPhone = orderData.customer_phone as string | null;
-    w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
-      <style>body{font-family:monospace;max-width:380px;margin:0 auto;padding:20px;font-size:12px;}
-      .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:1px dashed #000;margin:8px 0;}
-      .row{display:flex;justify-content:space-between;} .mt{margin-top:6px;}
-      @media print{body{width:80mm;}}</style></head><body>
-      <div class="center bold" style="font-size:14px;">EASTERN LANDSCAPE & MASON SUPPLY</div>
-      <div class="center">110 Frowein Road · Center Moriches, NY 11934</div>
-      <div class="center">(631) 874-6244</div>
-      <div class="line"></div>
-      <div>Date: ${new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} ${new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>
-      <div>Customer: ${orderData.customer_name || "Walk-in"}</div>
-      ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
-      <div class="line"></div>
-      <div class="bold">ITEMS</div>
-      ${receiptItems.map(i => { const isBulk = (i.unit === "unit" || i.unit === "cu. yard" || !i.unit); const u = isBulk ? "cu yds" : i.unit; const uSingle = isBulk ? "cu yd" : (i.unit || "ea"); return `<div class="mt"><div style="font-size:14px;font-weight:bold;">${i.quantity} ${u} ${isBulk ? "of " : ""}${i.product_name}</div><div class="row"><span>@ ${fmt(i.unit_price_cents)} per ${uSingle}</span><span>${fmt(i.line_total_cents)}</span></div></div>`; }).join("")}
-      ${delAddr ? `
-        <div class="line"></div>
-        <div class="bold">DELIVERY</div>
-        ${custPhone ? `<div>Phone: ${formatPhone(custPhone)}</div>` : ""}
-        ${(orderData.customer_email as string) ? `<div>Email: ${orderData.customer_email}</div>` : ""}
-        <div class="mt" style="font-size:14px;font-weight:bold;">${delAddr.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ")}</div>
-        ${delDate ? `<div>Date: ${formatShortDeliveryDate(delDate)}</div>` : ""}
-        ${delTimeWindow ? `<div>Time: ${formatTimeWindow(delTimeWindow)}</div>` : ""}
-        ${delNotes ? `<div>Notes: ${delNotes}</div>` : ""}
-      ` : ""}
-      <div class="line"></div>
-      <div class="row"><span>Subtotal</span><span>${fmt(orderData.subtotal_cents as number)}</span></div>
-      ${(orderData.discount_amount_cents as number) > 0 ? `<div class="row"><span>Discount</span><span>-${fmt(orderData.discount_amount_cents as number)}</span></div>` : ""}
-      ${(orderData.delivery_fee_cents as number) > 0 ? `<div class="row"><span>Delivery</span><span>${fmt(orderData.delivery_fee_cents as number)}</span></div>` : ""}
-      <div class="row"><span>Tax (8.75%)</span><span>${fmt(orderData.tax_cents as number)}</span></div>
-      ${method === "card" && (orderData.cc_fee_cents as number) > 0 ? `<div class="row"><span>CC Fee (3%)</span><span>${fmt(orderData.cc_fee_cents as number)}</span></div>` : ""}
-      <div class="line"></div>
-      <div class="row bold" style="font-size:14px;"><span>TOTAL</span><span>${fmt(orderData.grand_total_cents as number)}</span></div>
-      <div class="mt">Payment: ${method === "card" ? "Card" : method === "cod" ? "CASH ON DELIVERY" : method === "cash" ? "Cash" : method}</div>
-      ${method === "cod" ? `<div class="bold mt">AMOUNT DUE ON DELIVERY: ${fmt(orderData.grand_total_cents as number)}</div>` : ""}
-      <div class="line"></div>
-      <div class="center">Thank you for your business!</div>
-      <div class="center">easternlm.com</div>
-      </body></html>`);
-    w.document.close();
-    setTimeout(() => { w.print(); w.close(); }, 500);
-  }
-
-  async function printDeliveryTicket(data: Record<string, unknown>) {
-    const items = (data.items as Array<{ product_name: string; quantity: number; unit?: string }>);
-    const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
-    const constraints = data.access_constraints as Record<string, unknown> | null;
-    const flags = constraints ? Object.entries(constraints).filter(([k, v]) => v === true && k !== "notes").map(([k]) => k) : [];
-    const cNotes = constraints && typeof constraints.notes === "string" ? constraints.notes : null;
-    const w = window.open("", "_blank", "width=380,height=700");
-    if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Delivery Ticket</title>
-      <style>body{font-family:monospace;max-width:380px;margin:0 auto;padding:20px;font-size:12px;}
-      .center{text-align:center;} .bold{font-weight:bold;} .line{border-top:2px solid #000;margin:8px 0;}
-      .dashed{border-top:1px dashed #000;margin:8px 0;} .row{display:flex;justify-content:space-between;}
-      .big{font-size:16px;} .mt{margin-top:6px;} .warn{background:#fff3cd;padding:6px;border:1px solid #ffc107;margin:4px 0;}</style></head><body>
-      <div class="line"></div>
-      <div class="center bold big">DELIVERY TICKET</div>
-      <div class="center">EASTERN LANDSCAPE & MASON SUPPLY</div>
-      <div class="line"></div>
-      <div class="bold">CUSTOMER: ${data.customer_name || "Walk-in"}</div>
-      ${data.customer_phone ? `<div>Phone: ${formatPhone(data.customer_phone as string)}</div>` : ""}
-      <div class="line"></div>
-      <div class="bold big">DELIVER TO:</div>
-      ${(() => {
-        const addr = (data.delivery_address as string || "NO ADDRESS").replace(/,?\s*(USA|US|United States)\s*$/i, "");
-        const zip = (data as Record<string, unknown>).delivery_zip as string || addr.match(/\b(\d{5})\b/)?.[1] || "";
-        const cleanAddr = addr.replace(/,?\s*NY\s*,?/i, " ").replace(/\s+/g, " ").trim();
-        return `<div class="bold" style="font-size:16px;">${cleanAddr}</div>${zip ? `<div class="bold" style="font-size:16px;">ZIP: ${zip}</div>` : ""}`;
-      })()}
-      ${data.delivery_date ? `<div class="mt">Date: ${formatDeliveryDate(data.delivery_date as string)}</div>` : ""}
-      ${data.delivery_time_window ? `<div>Time: ${formatTimeWindow(data.delivery_time_window as string)}</div>` : ""}
-      ${flags.length > 0 || cNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, cNotes].filter(Boolean).join(" · ")}</div>` : ""}
-      ${data.delivery_notes ? `<div class="mt">NOTES: ${data.delivery_notes}</div>` : ""}
-      <div class="line"></div>
-      <div class="bold big">MATERIAL TO LOAD:</div>
-      ${items.map(i => { const u = (i.unit === "unit" || !i.unit) ? "cu. yards" : i.unit; return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${u}<br/>${i.product_name}</div>`; }).join('<div class="dashed"></div>')}
-      <div class="line"></div>
-      ${(data.payment_method as string) === "cod" ? `
-        <div class="center bold" style="font-size:24px;border:3px solid #000;padding:12px 4px;margin:10px 0;background:#000;color:#fff;letter-spacing:2px;width:100%;box-sizing:border-box;">COD<br/><span style="font-size:20px;">${fmt(data.grand_total_cents as number)}</span></div>
-      ` : `
-        <div class="bold big center">PAID</div>
-      `}
-      <div class="line"></div>
-      <div class="center" style="margin:8px 0;">
-        <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
-        <img id="qr" style="width:150px;height:150px;margin:0 auto;" />
-      </div>
-      <div class="line"></div>
-      <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
-      <script>
-        QRCode.toDataURL('${typeof window !== "undefined" ? window.location.origin : "https://easternlm.com"}/delivery/confirm/${(data as Record<string, unknown>).order_id || ""}', {width:150,margin:1}, function(err,url){
-          if(url) document.getElementById('qr').src = url;
-        });
-      <\/script>
-      </body></html>`);
-    w.document.close();
-    setTimeout(() => { w.print(); }, 1000);
-  }
 
   // ── Hold / Resume orders ───────────────────────────────────────
 
@@ -1891,39 +1803,61 @@ export default function PosRegisterPage() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => {
-                      printReceipt({
-                        items: txnDetail.items.map(i => ({ product_name: i.product_name, quantity: i.quantity, unit: i.unit, unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents })),
-                        subtotal_cents: txnDetail.materials_subtotal_cents,
-                        tax_cents: txnDetail.tax_cents,
-                        delivery_fee_cents: txnDetail.delivery_total_cents,
-                        cc_fee_cents: txnDetail.cc_surcharge_cents,
-                        grand_total_cents: txnDetail.grand_total_cents,
+                      const po: PrintableOrder = {
+                        id: txnDetail.id,
+                        created_at: txnDetail.placed_at,
+                        source: txnDetail.source || "pos",
                         customer_name: txnDetail.customer_name,
                         customer_phone: txnDetail.customer_phone,
+                        customer_email: txnDetail.customer_email,
+                        items: txnDetail.items.map((i: { product_name: string; quantity: number; unit: string; unit_price_cents: number; line_subtotal_cents: number; delivery_type?: string }) => ({
+                          product_name: i.product_name, quantity: i.quantity, unit: i.unit,
+                          unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents, delivery_type: i.delivery_type,
+                        })),
+                        materials_subtotal_cents: txnDetail.materials_subtotal_cents,
+                        delivery_total_cents: txnDetail.delivery_total_cents,
+                        tax_cents: txnDetail.tax_cents,
+                        cc_surcharge_cents: txnDetail.cc_surcharge_cents,
+                        grand_total_cents: txnDetail.grand_total_cents,
+                        payment_method: txnDetail.payment_method,
+                        delivery_method: txnDetail.delivery_method,
                         delivery_address: txnDetail.delivery_address,
                         delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
                         delivery_time_window: txnDetail.delivery_time_window,
                         delivery_notes: txnDetail.delivery_notes,
-                        discount_amount_cents: 0,
-                      }, txnDetail.payment_method.includes("card") ? "card" : txnDetail.payment_method);
+                        access_constraints: txnDetail.access_constraints,
+                      };
+                      printReceiptWindow(po);
                     }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                       <Printer className="w-3.5 h-3.5" /> Receipt
                     </button>
                     {txnDetail.delivery_method === "delivery" && (
                       <button onClick={() => {
-                        printDeliveryTicket({
-                          order_id: txnDetail.id,
-                          items: txnDetail.items.filter(i => !i.product_name?.startsWith("Delivery Load")),
+                        const po: PrintableOrder = {
+                          id: txnDetail.id,
+                          created_at: txnDetail.placed_at,
+                          source: txnDetail.source || "pos",
                           customer_name: txnDetail.customer_name,
                           customer_phone: txnDetail.customer_phone,
+                          customer_email: txnDetail.customer_email,
+                          items: txnDetail.items.map((i: { product_name: string; quantity: number; unit: string; unit_price_cents: number; line_subtotal_cents: number; delivery_type?: string }) => ({
+                            product_name: i.product_name, quantity: i.quantity, unit: i.unit,
+                            unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents, delivery_type: i.delivery_type,
+                          })),
+                          materials_subtotal_cents: txnDetail.materials_subtotal_cents,
+                          delivery_total_cents: txnDetail.delivery_total_cents,
+                          tax_cents: txnDetail.tax_cents,
+                          cc_surcharge_cents: txnDetail.cc_surcharge_cents,
+                          grand_total_cents: txnDetail.grand_total_cents,
+                          payment_method: txnDetail.payment_method,
+                          delivery_method: txnDetail.delivery_method,
                           delivery_address: txnDetail.delivery_address,
                           delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
                           delivery_time_window: txnDetail.delivery_time_window,
                           delivery_notes: txnDetail.delivery_notes,
                           access_constraints: txnDetail.access_constraints,
-                          grand_total_cents: txnDetail.grand_total_cents,
-                          payment_method: txnDetail.payment_method,
-                        });
+                        };
+                        printDeliveryTicketWindow(po);
                       }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                         <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                       </button>
