@@ -99,9 +99,11 @@ export async function POST(request: Request) {
       product_name: (item.product_name as string) || "Unknown",
       product_slug: (item.product_slug as string) || null,
       quantity: (item.quantity as number) || 1,
-      unit: "unit" as const,
+      unit: (item.unit as string) || (item.delivery_type === "bulk" ? "cu. yard" : "ea"),
       unit_price_cents: (item.unit_price_cents as number) || 0,
       line_subtotal_cents: (item.line_total_cents as number) || 0,
+      delivery_type: (item.delivery_type as string) || null,
+      material_class: (item.material_class as string) || null,
     }));
     await supabase.from("order_items").insert(orderItems);
   }

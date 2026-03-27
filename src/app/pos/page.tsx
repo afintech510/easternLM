@@ -884,6 +884,8 @@ export default function PosRegisterPage() {
           quantity: i.quantity,
           unit_price_cents: i.price_cents,
           line_total_cents: i.price_cents * i.quantity,
+          unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
+          delivery_type: i.product.delivery_type,
         })),
         subtotal_cents: subtotalCents,
         tax_cents: taxCents,
@@ -983,7 +985,7 @@ export default function PosRegisterPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.price_cents * i.quantity })),
+        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.price_cents * i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
         customer_name: customerName,
         customer_phone: customerPhone || null,
         delivery_method: deliveryMethod,
@@ -1107,6 +1109,7 @@ export default function PosRegisterPage() {
                   quantity: i.quantity,
                   unit_price_cents: i.price_cents,
                   line_total_cents: i.price_cents * i.quantity,
+                  unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
                   delivery_type: i.product.delivery_type,
                 })),
                 subtotal_cents: subtotalCents,
@@ -2164,7 +2167,7 @@ export default function PosRegisterPage() {
               // Split payment — create order directly
               const effectiveTotal = payments.reduce((s, p) => s + p.amountCents, 0);
               const orderPayload: any = {
-                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents })),
+                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
                 cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.03 / 1.03), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
