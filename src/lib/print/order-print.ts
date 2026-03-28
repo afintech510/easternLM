@@ -375,10 +375,9 @@ export function buildReceiptHtml(order: PrintableOrder): string {
     <div class="center mt">Thank you for your business!<br/>easternlm.com</div>
     <div class="line"></div>
     <div style="font-size:9px;color:#444;line-height:1.3;margin-top:6px;">
-    ${order.delivery_method === "delivery"
-      ? `<p>Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>`
-      : `<p>All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>`}
-    <p style="margin-top:4px;">All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. No returns on loose bulk materials, special-order items, or cement/masonry products. We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. A 3% surcharge applies to all credit card transactions.</p>
+    <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
+    <p style="margin-top:4px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
+    <p style="margin-top:4px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
     </div>
     </body></html>`;
 }
@@ -404,18 +403,13 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     ? codBannerHtml(order.grand_total_cents)
     : `<div class="paid-banner">PAID</div>`;
 
-  const qrScript = order.id
+  // QR code placeholder — will be replaced with data URL by printDeliveryTicketWindow
+  const qrPlaceholder = order.id
     ? `<div class="center" style="margin:8px 0;">
       <p style="font-size:10px;margin-bottom:4px;">Scan to confirm delivery:</p>
       <img id="qr" style="width:150px;height:150px;margin:0 auto;" />
     </div>
-    <div class="solid-line"></div>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
-    <script>
-      QRCode.toDataURL('${typeof window !== "undefined" ? window.location.origin : "https://easternlm.com"}/delivery/confirm/${order.id}', {width:150,margin:1}, function(err,url){
-        if(url) document.getElementById('qr').src = url;
-      });
-    <\/script>`
+    <div class="solid-line"></div>`
     : "";
 
   return `<!DOCTYPE html><html><head><title>Delivery Ticket</title>
@@ -446,10 +440,11 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     <div class="solid-line"></div>
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     <div class="solid-line"></div>
-    ${qrScript}
+    ${qrPlaceholder}
     <div style="font-size:9px;color:#444;line-height:1.3;margin-top:6px;">
-    <p>Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
-    <p style="margin-top:4px;">All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. No returns on loose bulk materials, special-order items, or cement/masonry products. We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. A 3% surcharge applies to all credit card transactions.</p>
+    <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
+    <p style="margin-top:4px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
+    <p style="margin-top:4px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
     </div>
     </body></html>`;
 }
@@ -464,10 +459,25 @@ export function printReceiptWindow(order: PrintableOrder) {
   setTimeout(() => { w.print(); }, 500);
 }
 
-export function printDeliveryTicketWindow(order: PrintableOrder) {
+export async function printDeliveryTicketWindow(order: PrintableOrder) {
+  const html = buildDeliveryTicketHtml(order);
   const w = window.open("", "_blank", "width=400,height=700");
   if (!w) return;
-  w.document.write(buildDeliveryTicketHtml(order));
+  w.document.write(html);
   w.document.close();
-  setTimeout(() => { w.print(); }, 1000);
+
+  // Generate QR code and inject into the img element
+  if (order.id) {
+    try {
+      const QRCode = await import("qrcode");
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://easternlm.com";
+      const url = await QRCode.toDataURL(`${origin}/delivery/confirm/${order.id}`, { width: 150, margin: 1 });
+      const img = w.document.getElementById("qr") as HTMLImageElement | null;
+      if (img) img.src = url;
+    } catch {
+      // QR generation failed — ticket still prints without it
+    }
+  }
+
+  setTimeout(() => { w.print(); }, 1200);
 }

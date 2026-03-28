@@ -788,9 +788,9 @@ export default function PosRegisterPage() {
     // Print delivery tickets for delivery orders (2 copies: driver + dispatch)
     if (printOrder.delivery_address && printOrder.delivery_method === "delivery") {
       await new Promise(r => setTimeout(r, 800));
-      printDeliveryTicketWindow(printOrder);
+      await printDeliveryTicketWindow(printOrder);
       await new Promise(r => setTimeout(r, 800));
-      printDeliveryTicketWindow(printOrder);
+      await printDeliveryTicketWindow(printOrder);
     }
 
     // Open cash drawer on cash sales (not COD — money collected on delivery)
