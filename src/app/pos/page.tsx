@@ -613,7 +613,7 @@ export default function PosRegisterPage() {
     const res = await fetch(`/api/admin/operations/${orderId}`);
     if (res.ok) {
       const data = await res.json();
-      setTxnDetail({ ...data.order, items: data.order.order_items || data.items || [] });
+      setTxnDetail({ ...data.order, items: data.order.items || data.order.order_items || [] });
       setSelectedTxn(orderId);
     }
   }
@@ -776,9 +776,10 @@ export default function PosRegisterPage() {
   async function afterSale(method: string, orderPayload: Record<string, unknown>) {
     const printOrder = buildPrintableOrder(method, orderPayload);
 
-    // Print receipt via thermal printer (ESC/POS) or browser fallback (HTML)
-    // Both use the same PrintableOrder data — thermal gets it via toReceiptOrder adapter
-    if (autoPrint) {
+    // Print receipt: use thermal ESC/POS if connected, otherwise unified HTML template.
+    // We bypass the printer's internal HTML fallback (which has a truncated template)
+    // and always use printReceiptWindow for browser printing.
+    if (autoPrint && printerRef.current.connected) {
       await printerRef.current.printReceipt(toReceiptOrder(printOrder));
     } else {
       printReceiptWindow(printOrder);
