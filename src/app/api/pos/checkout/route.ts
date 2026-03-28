@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // Build order row using actual columns from orders table
+  // Build order row — ALL delivery fields go in actual columns, not just metadata
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orderData: any = {
     status: status_override || "paid",
@@ -58,6 +58,10 @@ export async function POST(request: Request) {
     customer_phone: customer_phone || null,
     delivery_method: delivery_method || "pickup",
     delivery_address: delivery_address || null,
+    delivery_date: delivery_date || null,
+    delivery_time_window: delivery_time_window || null,
+    delivery_notes: delivery_notes || null,
+    access_constraints: accessConstraints || {},
     materials_subtotal_cents: subtotal_cents,
     delivery_total_cents: delivery_fee_cents || 0,
     tax_cents,
