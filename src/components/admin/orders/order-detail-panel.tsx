@@ -365,6 +365,41 @@ export function OrderDetailPanel({
           </Section>
         )}
 
+        {/* Delivery Confirmation Photos */}
+        {(() => {
+          const meta = order.metadata as Record<string, unknown> | null;
+          const photos = meta?.delivery_photos as string[] | undefined;
+          const confirmedAt = meta?.delivery_confirmed_at as string | undefined;
+          const cashCollected = meta?.cash_collected as boolean | undefined;
+          if (!photos?.length && !confirmedAt) return null;
+          return (
+            <Section title="Delivery Confirmation" bg>
+              {confirmedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Confirmed: {new Date(confirmedAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                  {cashCollected ? " · Cash collected" : ""}
+                </p>
+              )}
+              {photos && photos.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {photos.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={url}
+                        alt={`Delivery photo ${i + 1}`}
+                        className="w-28 h-28 object-cover rounded-lg border hover:opacity-80 transition-opacity cursor-pointer"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+              {(!photos || photos.length === 0) && confirmedAt && (
+                <p className="text-xs text-muted-foreground italic">Confirmed without photos</p>
+              )}
+            </Section>
+          );
+        })()}
+
         {/* Totals */}
         <Section title="Totals">
           <div className="space-y-1 text-sm">
