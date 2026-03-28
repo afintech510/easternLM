@@ -31,7 +31,7 @@ import { formatUsd } from "@/lib/format";
 import { formatShortDateTime, formatDeliveryDate, formatShortDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod } from "@/lib/format-date";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
-import { printReceiptWindow, printDeliveryTicketWindow, type PrintableOrder } from "@/lib/print/order-print";
+import { printReceiptWindow, printDeliveryTicketWindow, mapDatabaseOrderToUnified, toReceiptOrder, type PrintableOrder } from "@/lib/print/order-print";
 import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { MaterialCalculator } from "@/components/pos/material-calculator";
 import { NewLeadModal } from "@/components/pos/new-lead-modal";
@@ -742,22 +742,22 @@ export default function PosRegisterPage() {
       customer_name: (orderPayload.customer_name as string) || null,
       customer_phone: (orderPayload.customer_phone as string) || customerPhone || null,
       customer_email: (orderPayload.customer_email as string) || delEmail || null,
-      items: ((orderPayload.items as Array<Record<string, unknown>>) || [])
-        .filter((i) => !(i.product_name as string)?.startsWith("Delivery Load") && !(i.product_name as string)?.startsWith("Sales Tax") && !(i.product_name as string)?.startsWith("Credit Card"))
-        .map((i) => ({
-          product_name: i.product_name as string,
-          quantity: i.quantity as number,
-          unit: (i.unit as string) || "cu. yard",
-          unit_price_cents: i.unit_price_cents as number,
-          line_total_cents: i.line_total_cents as number,
-          delivery_type: i.delivery_type as string | undefined,
-        })),
+      items: ((orderPayload.items as Array<Record<string, unknown>>) || []).map((i) => ({
+        product_name: i.product_name as string,
+        quantity: i.quantity as number,
+        unit: (i.unit as string) || "cu. yard",
+        unit_price_cents: i.unit_price_cents as number,
+        line_total_cents: i.line_total_cents as number,
+        delivery_type: i.delivery_type as string | undefined,
+      })),
       materials_subtotal_cents: orderPayload.subtotal_cents as number,
       delivery_total_cents: (orderPayload.delivery_fee_cents as number) || 0,
       tax_cents: orderPayload.tax_cents as number,
       cc_surcharge_cents: method === "card" ? ((orderPayload.cc_fee_cents as number) || 0) : 0,
       grand_total_cents: orderPayload.grand_total_cents as number,
-      discount_amount_cents: orderPayload.discount_amount_cents as number | undefined,
+      discount_amount_cents: (orderPayload.discount_amount_cents as number) || 0,
+      discount_reason: (orderPayload.discount_reason as string) || null,
+      tax_exempt: (orderPayload.tax_exempt as boolean) || false,
       payment_method: paymentMethod,
       delivery_method: (orderPayload.delivery_method as string) || deliveryMethod,
       delivery_address: (orderPayload.delivery_address as string) || null,
@@ -769,43 +769,17 @@ export default function PosRegisterPage() {
       change_due_cents: orderPayload.cash_tendered_cents
         ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
         : undefined,
+      account_name: method === "account" && selectedCustomer ? (selectedCustomer as Record<string, unknown>).company_name as string || (selectedCustomer as Record<string, unknown>).full_name as string || null : null,
     };
   }
 
   async function afterSale(method: string, orderPayload: Record<string, unknown>) {
     const printOrder = buildPrintableOrder(method, orderPayload);
 
-    // Print receipt via thermal printer or browser fallback
+    // Print receipt via thermal printer (ESC/POS) or browser fallback (HTML)
+    // Both use the same PrintableOrder data — thermal gets it via toReceiptOrder adapter
     if (autoPrint) {
-      const receiptItems = printOrder.items.map((i) => ({
-        productName: i.product_name,
-        quantity: i.quantity,
-        unit: i.delivery_type === "bulk" ? "cu. yards" : i.unit || "ea",
-        unitPriceCents: i.unit_price_cents,
-        lineTotalCents: i.line_total_cents,
-      }));
-      await printerRef.current.printReceipt({
-        createdAt: printOrder.created_at,
-        items: receiptItems,
-        subtotalCents: printOrder.materials_subtotal_cents,
-        taxCents: printOrder.tax_cents,
-        deliveryFeeCents: printOrder.delivery_total_cents,
-        ccSurchargeCents: printOrder.cc_surcharge_cents,
-        totalCents: printOrder.grand_total_cents,
-        paymentMethod: printOrder.payment_method,
-        cashTenderedCents: printOrder.cash_tendered_cents,
-        changeDueCents: printOrder.change_due_cents,
-        customerName: printOrder.customer_name || undefined,
-        customerPhone: printOrder.customer_phone || undefined,
-        customerEmail: printOrder.customer_email || undefined,
-        deliveryMethod: printOrder.delivery_method,
-        deliveryAddress: printOrder.delivery_address || undefined,
-        deliveryDate: printOrder.delivery_date || undefined,
-        deliveryTimeWindow: printOrder.delivery_time_window || undefined,
-        deliveryNotes: printOrder.delivery_notes || undefined,
-        accessConstraints: printOrder.access_constraints as Record<string, boolean> | undefined,
-        notes: orderPayload.notes as string | undefined,
-      });
+      await printerRef.current.printReceipt(toReceiptOrder(printOrder));
     } else {
       printReceiptWindow(printOrder);
     }
@@ -1803,64 +1777,16 @@ export default function PosRegisterPage() {
                     <p>{formatShortDateTime(txnDetail.placed_at)}</p>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions — uses shared mapDatabaseOrderToUnified for identical output */}
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => {
-                      const po: PrintableOrder = {
-                        id: txnDetail.id,
-                        created_at: txnDetail.placed_at,
-                        source: txnDetail.source || "pos",
-                        customer_name: txnDetail.customer_name,
-                        customer_phone: txnDetail.customer_phone,
-                        customer_email: txnDetail.customer_email,
-                        items: txnDetail.items.map((i: { product_name: string; quantity: number; unit: string; unit_price_cents: number; line_subtotal_cents: number; delivery_type?: string }) => ({
-                          product_name: i.product_name, quantity: i.quantity, unit: i.unit,
-                          unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents, delivery_type: i.delivery_type,
-                        })),
-                        materials_subtotal_cents: txnDetail.materials_subtotal_cents,
-                        delivery_total_cents: txnDetail.delivery_total_cents,
-                        tax_cents: txnDetail.tax_cents,
-                        cc_surcharge_cents: txnDetail.cc_surcharge_cents,
-                        grand_total_cents: txnDetail.grand_total_cents,
-                        payment_method: txnDetail.payment_method,
-                        delivery_method: txnDetail.delivery_method,
-                        delivery_address: txnDetail.delivery_address,
-                        delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
-                        delivery_time_window: txnDetail.delivery_time_window,
-                        delivery_notes: txnDetail.delivery_notes,
-                        access_constraints: txnDetail.access_constraints,
-                      };
-                      printReceiptWindow(po);
+                      printReceiptWindow(mapDatabaseOrderToUnified(txnDetail));
                     }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                       <Printer className="w-3.5 h-3.5" /> Receipt
                     </button>
                     {txnDetail.delivery_method === "delivery" && (
                       <button onClick={() => {
-                        const po: PrintableOrder = {
-                          id: txnDetail.id,
-                          created_at: txnDetail.placed_at,
-                          source: txnDetail.source || "pos",
-                          customer_name: txnDetail.customer_name,
-                          customer_phone: txnDetail.customer_phone,
-                          customer_email: txnDetail.customer_email,
-                          items: txnDetail.items.map((i: { product_name: string; quantity: number; unit: string; unit_price_cents: number; line_subtotal_cents: number; delivery_type?: string }) => ({
-                            product_name: i.product_name, quantity: i.quantity, unit: i.unit,
-                            unit_price_cents: i.unit_price_cents, line_total_cents: i.line_subtotal_cents, delivery_type: i.delivery_type,
-                          })),
-                          materials_subtotal_cents: txnDetail.materials_subtotal_cents,
-                          delivery_total_cents: txnDetail.delivery_total_cents,
-                          tax_cents: txnDetail.tax_cents,
-                          cc_surcharge_cents: txnDetail.cc_surcharge_cents,
-                          grand_total_cents: txnDetail.grand_total_cents,
-                          payment_method: txnDetail.payment_method,
-                          delivery_method: txnDetail.delivery_method,
-                          delivery_address: txnDetail.delivery_address,
-                          delivery_date: txnDetail.delivery_date || (txnDetail.metadata as Record<string, unknown>)?.deliveryDate as string || null,
-                          delivery_time_window: txnDetail.delivery_time_window,
-                          delivery_notes: txnDetail.delivery_notes,
-                          access_constraints: txnDetail.access_constraints,
-                        };
-                        printDeliveryTicketWindow(po);
+                        printDeliveryTicketWindow(mapDatabaseOrderToUnified(txnDetail));
                       }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                         <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                       </button>

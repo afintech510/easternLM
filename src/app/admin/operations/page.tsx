@@ -143,46 +143,14 @@ const CONSTRAINT_LABELS: Record<string, string> = {
 
 // ─── Print Helpers (shared utility) ───────────────────────────
 
-import { printReceiptWindow, printDeliveryTicketWindow, type PrintableOrder } from "@/lib/print/order-print";
-
-function orderToPrintable(order: OrderFull): PrintableOrder {
-  const deliveryDate = order.delivery_date || String((order.metadata as Record<string, unknown>)?.deliveryDate ?? "") || null;
-  return {
-    id: order.id,
-    created_at: order.placed_at || order.created_at,
-    source: order.source || "web",
-    customer_name: order.customer_name,
-    customer_phone: order.customer_phone,
-    customer_email: order.customer_email,
-    items: (order.order_items ?? order.items ?? []).map((i) => ({
-      product_name: i.product_name,
-      quantity: i.quantity,
-      unit: i.unit,
-      unit_price_cents: i.unit_price_cents,
-      line_total_cents: i.line_subtotal_cents,
-      delivery_type: i.delivery_type,
-    })),
-    materials_subtotal_cents: order.materials_subtotal_cents ?? 0,
-    delivery_total_cents: order.delivery_total_cents ?? 0,
-    tax_cents: order.tax_cents ?? 0,
-    cc_surcharge_cents: order.cc_surcharge_cents ?? 0,
-    grand_total_cents: order.grand_total_cents,
-    payment_method: order.payment_method,
-    delivery_method: order.delivery_method,
-    delivery_address: order.delivery_address,
-    delivery_date: deliveryDate || null,
-    delivery_time_window: order.delivery_time_window,
-    delivery_notes: order.delivery_notes,
-    access_constraints: order.access_constraints,
-  };
-}
+import { printReceiptWindow, printDeliveryTicketWindow, mapDatabaseOrderToUnified } from "@/lib/print/order-print";
 
 function printOrderReceipt(order: OrderFull) {
-  printReceiptWindow(orderToPrintable(order));
+  printReceiptWindow(mapDatabaseOrderToUnified(order));
 }
 
 function printDeliveryTicket(order: OrderFull) {
-  printDeliveryTicketWindow(orderToPrintable(order));
+  printDeliveryTicketWindow(mapDatabaseOrderToUnified(order));
 }
 
 // ─── Main Component ───────────────────────────────────────────
