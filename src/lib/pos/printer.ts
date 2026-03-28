@@ -283,7 +283,7 @@ export class ReceiptPrinter {
       this.txt(c, ddiv());
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
-      this.txt(c, "COD");
+      this.txt(c, "CASH ON DELIVERY");
       this.txt(c, `COLLECT: ${fmt(o.totalCents)}`);
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
@@ -398,8 +398,8 @@ export class ReceiptPrinter {
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
       this.txt(c, ddiv());
-      this.txt(c, "COD");
-      this.txt(c, `AMOUNT DUE: ${fmt(o.totalCents)}`);
+      this.txt(c, "CASH ON DELIVERY");
+      this.txt(c, `COLLECT: ${fmt(o.totalCents)}`);
       this.txt(c, ddiv());
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
@@ -480,7 +480,7 @@ export class ReceiptPrinter {
     if (o.paymentMethod === "cash") {
       payment = `<div>Payment: Cash</div>${o.cashTenderedCents ? `<div class="row"><span>Tendered:</span><span>${f(o.cashTenderedCents)}</span></div><div class="row"><span>Change:</span><span>${f(o.changeDueCents ?? 0)}</span></div>` : ""}`;
     } else if (o.paymentMethod === "cod") {
-      payment = `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">COD<br><span style="font-size:18px;">COLLECT: ${f(o.totalCents)}</span></div>`;
+      payment = `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">CASH ON DELIVERY<br><span style="font-size:18px;">COLLECT: ${f(o.totalCents)}</span></div>`;
     } else if (o.paymentMethod === "card_terminal" || o.paymentMethod === "card_online") {
       payment = `<div>Payment: Card${o.cardBrand ? ` ${o.cardBrand}` : ""} ${o.cardLast4 ? `****${o.cardLast4}` : ""}</div>`;
     } else if (o.paymentMethod === "account") {
@@ -552,7 +552,7 @@ export class ReceiptPrinter {
         <div>[ ] LOADED &nbsp;&nbsp; [ ] DELIVERED</div>
       `).join("")}
       <div class="hr2"></div>
-      ${o.paymentMethod === "cod" ? `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">COD<br><span style="font-size:18px;">AMOUNT DUE: ${f(o.totalCents)}</span></div>` : `<div>PAYMENT: PAID — ${f(o.totalCents)}</div>`}
+      ${o.paymentMethod === "cod" ? `<div style="text-align:center;font-weight:bold;font-size:22px;border:3px solid #000;padding:10px;margin:8px 0;background:#000;color:#fff;letter-spacing:2px;">CASH ON DELIVERY<br><span style="font-size:18px;">COLLECT: ${f(o.totalCents)}</span></div>` : `<div>PAYMENT: PAID — ${f(o.totalCents)}</div>`}
       <br>
       <div>Driver signature: ___________________</div>
       <div>Date completed: ___________________</div>
