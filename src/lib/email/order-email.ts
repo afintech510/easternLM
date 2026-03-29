@@ -207,6 +207,10 @@ export async function sendOrderConfirmationEmail(input: {
     </div>
   `;
 
+  if (!order.customer_email) {
+    return { sent: false, reason: "No customer email" as const };
+  }
+
   try {
     await resend.emails.send({
       from: fromEmail,
