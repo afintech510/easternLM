@@ -197,6 +197,29 @@ async function handlePresenceEvent(supabase: any, body: any) {
       session_id: call.sessionId ?? body.subscriptionId ?? null,
     });
 
+    // Also upsert into call_records (for the Phone tab / call log)
+    const sessionId = call.sessionId ?? `presence-${digits}-${Date.now()}`;
+    await supabase
+      .from("call_records")
+      .upsert(
+        {
+          rc_session_id: sessionId,
+          direction: "inbound" as const,
+          from_number: callerPhone,
+          to_number: "+16318746244",
+          from_name: customer
+            ? [customer.first_name, customer.last_name]
+                .filter(Boolean)
+                .join(" ") || null
+            : null,
+          status: "ringing",
+          started_at: new Date().toISOString(),
+          customer_id: customer?.id ?? null,
+          customer_match_type: customer ? "auto_phone" : null,
+        },
+        { onConflict: "rc_session_id", ignoreDuplicates: false }
+      );
+
     console.log(
       `[RC] Incoming call: ${callerPhone} → customer: ${
         customer
