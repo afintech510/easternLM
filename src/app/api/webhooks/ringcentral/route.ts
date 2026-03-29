@@ -1,37 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  getRingCentralAccessToken,
-  getRingCentralServerUrl,
-  phoneDigits,
-} from "@/lib/ringcentral/auth";
+import { phoneDigits } from "@/lib/ringcentral/auth";
+import { EXTENSION_NAMES, mapRCStatus } from "@/lib/ringcentral/helpers";
 import { sendSms } from "@/lib/sms";
-
-// Extension ID → display name mapping
-const EXTENSION_NAMES: Record<string, string> = {
-  "101": "Adam",
-  "102": "Counter",
-  "103": "Ronnie",
-  "104": "Adam Cell",
-};
-
-/** Map RingCentral status codes to our call_records status enum. */
-function mapRCStatus(code: string | undefined): string {
-  if (!code) return "ringing";
-  const map: Record<string, string> = {
-    Setup: "ringing",
-    Proceeding: "ringing",
-    Answered: "answered",
-    Disconnected: "completed",
-    Gone: "missed",
-    Rejected: "missed",
-    VoiceMail: "voicemail",
-    NoAnswer: "missed",
-    Busy: "missed",
-    FaxReceive: "completed",
-  };
-  return map[code] ?? "ringing";
-}
 
 export async function POST(request: Request) {
   // ── RingCentral validation handshake ─────────────────────────
