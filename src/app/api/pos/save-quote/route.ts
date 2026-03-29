@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { generateQuoteNumber } from "@/lib/quotes/generate-number";
 import { sendSms } from "@/lib/sms";
 
 const TAX_RATE = 0.0875;
@@ -115,11 +116,7 @@ export async function POST(request: Request) {
   const valueTier = calculateValueTier(cashTotal);
 
   // 4. Generate quote number + short code
-  const year = new Date().getFullYear();
-  const { count } = await supabase
-    .from("quotes").select("id", { count: "exact", head: true })
-    .gte("created_at", `${year}-01-01T00:00:00Z`);
-  const quoteNumber = `QT-${year}-${((count ?? 0) + 1).toString().padStart(4, "0")}`;
+  const quoteNumber = await generateQuoteNumber();
 
   let shortCode = generateShortCode();
   // Ensure uniqueness (very unlikely collision with <100 quotes)

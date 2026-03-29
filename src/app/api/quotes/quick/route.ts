@@ -2,19 +2,10 @@ import { NextResponse } from "next/server";
 import { requirePOS } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { scheduleQuoteFollowUps } from "@/lib/quotes/follow-ups";
+import { generateQuoteNumber } from "@/lib/quotes/generate-number";
 import { sendSms } from "@/lib/sms";
 
 const TAX_RATE = 0.0875;
-
-async function generateQuoteNumber(supabase: any): Promise<string> {
-  const year = new Date().getFullYear();
-  const { count } = await supabase
-    .from("quotes")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", `${year}-01-01T00:00:00Z`);
-  const seq = ((count ?? 0) + 1).toString().padStart(4, "0");
-  return `QT-${year}-${seq}`;
-}
 
 async function sendQuoteSms(phone: string, quoteNumber: string, totalCents: number, quoteUrl: string) {
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
@@ -113,7 +104,7 @@ export async function POST(request: Request) {
   validUntilDate.setDate(validUntilDate.getDate() + (validDays ?? 30));
   const validUntil = validUntilDate.toISOString().split("T")[0];
 
-  const quoteNumber = await generateQuoteNumber(supabase);
+  const quoteNumber = await generateQuoteNumber();
 
   const firstItemName = lineItems[0]?.description ?? "Materials";
   const title = note || `Material Quote — ${firstItemName}`;

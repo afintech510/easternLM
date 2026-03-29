@@ -405,7 +405,8 @@ export default function PosRegisterPage() {
     ? Math.round(subtotalCents * (parseFloat(discountValue) || 0) / 100)
     : Math.round((parseFloat(discountValue) || 0) * 100);
   const subtotalAfterDiscounts = subtotalCents - proDiscountCents - manualDiscountCents;
-  const taxCents = taxExempt ? 0 : Math.round(subtotalAfterDiscounts * TAX_RATE);
+  // NY State: tax applies to materials AND delivery
+  const taxCents = taxExempt ? 0 : Math.round((subtotalAfterDiscounts + deliveryFeeCents) * TAX_RATE);
   const baseTotalCents = subtotalAfterDiscounts + taxCents + deliveryFeeCents;
   const cashTotalCents = baseTotalCents;
   const ccFeeCents = Math.round(baseTotalCents * CC_SURCHARGE);
