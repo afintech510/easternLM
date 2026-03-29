@@ -18,6 +18,7 @@ import {
   Truck,
   UserPlus,
   Users,
+  Phone as PhoneIcon,
   Wifi,
   X,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { NewLeadModal } from "@/components/pos/new-lead-modal";
 import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
 import { QuoteBuilder } from "@/components/pos/quote-builder";
 import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
+import { PhoneTab } from "@/components/pos/phone-tab";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -70,7 +72,7 @@ type LineItem = {
 
 type PosCategory = { slug: string; name: string; count: number };
 
-type MiddleTab = "delivery" | "customer" | "transactions";
+type MiddleTab = "delivery" | "customer" | "transactions" | "phone";
 
 type RouteInfo = {
   roundTripMiles: number;
@@ -1246,6 +1248,17 @@ export default function PosRegisterPage() {
           setDelCustomerId(cust.id);
           setDelCustomerStatus("found");
         }}
+        onOpenCustomerTab={(customerId) => {
+          setMiddleTab("customer");
+          // Trigger customer lookup by ID
+          fetch(`/api/pos/customers/search?q=${customerId}`)
+            .then((r) => r.json())
+            .then((d) => {
+              const found = d.customers?.[0];
+              if (found) selectCustomer(found as any);
+            })
+            .catch(() => {});
+        }}
       />
       {/* ── LEFT: Product Catalog ── */}
       <div className={`flex min-w-0 flex-1 flex-col border-r ${t.border}`}>
@@ -1269,6 +1282,7 @@ export default function PosRegisterPage() {
             { key: "delivery" as MiddleTab, label: "Delivery", icon: Truck },
             { key: "customer" as MiddleTab, label: "Customer", icon: Users },
             { key: "transactions" as MiddleTab, label: "Transactions", icon: ClipboardList },
+            { key: "phone" as MiddleTab, label: "Phone", icon: PhoneIcon },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1664,6 +1678,10 @@ export default function PosRegisterPage() {
             </div>
           )}
 
+          {/* Phone Tab */}
+          {middleTab === "phone" && (
+            <PhoneTab />
+          )}
           {/* Transactions Tab */}
           {middleTab === "transactions" && (
             <div className="space-y-3">

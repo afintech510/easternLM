@@ -16,18 +16,19 @@ function formatUsd(cents: number) {
 
 async function getDashboardData() {
   const supabase = tryGetAdmin();
-  if (!supabase) return { products: 0, pendingOrders: 0, totalOrders: 0, revenue: 0, newLeads: 0, recentOrders: [], recentLeads: [] };
+  if (!supabase) return { products: 0, pendingOrders: 0, totalOrders: 0, revenue: 0, newLeads: 0, recentOrders: [], recentLeads: [], missedCalls: [] };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [productsRes, pendingRes, ordersRes, leadsRes, recentOrdersRes, recentLeadsRes] = await Promise.all([
+  const [productsRes, pendingRes, ordersRes, leadsRes, recentOrdersRes, recentLeadsRes, missedCallsRes] = await Promise.all([
     supabase.from("products").select("id", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("orders").select("grand_total_cents, status"),
     supabase.from("service_leads").select("id", { count: "exact", head: true }).eq("status", "new"),
     supabase.from("orders").select("id, customer_name, grand_total_cents, status, delivery_method, placed_at").order("placed_at", { ascending: false }).limit(8),
     supabase.from("service_leads").select("id, name, phone, service_type, town, status, created_at").eq("status", "new").order("created_at", { ascending: false }).limit(5),
+    (supabase as any).from("call_records").select("id, from_number, from_name, started_at, customer_id, customer:customers(first_name, last_name, phone)").eq("status", "missed").eq("requires_follow_up", true).eq("follow_up_resolved", false).order("started_at", { ascending: false }).limit(10),
   ]);
 
   const orders = ordersRes.data ?? [];
@@ -41,6 +42,7 @@ async function getDashboardData() {
     newLeads: leadsRes.count ?? 0,
     recentOrders: (recentOrdersRes.data ?? []) as Array<{ id: string; customer_name: string | null; grand_total_cents: number; status: string; delivery_method: string; placed_at: string }>,
     recentLeads: (recentLeadsRes.data ?? []) as Array<{ id: string; name: string; phone: string; service_type: string; town: string | null; status: string; created_at: string }>,
+    missedCalls: (missedCallsRes.data ?? []) as Array<{ id: string; from_number: string; from_name: string | null; started_at: string; customer_id: string | null; customer: { first_name: string | null; last_name: string | null; phone: string | null } | null }>,
   };
 }
 
@@ -138,6 +140,40 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Missed calls */}
+      {data.missedCalls.length > 0 && (
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Phone className="size-4 text-red-500" />
+              Missed Calls
+              <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{data.missedCalls.length}</span>
+            </h2>
+          </div>
+          <div className="divide-y">
+            {data.missedCalls.map((call) => {
+              const callerName = call.customer
+                ? [call.customer.first_name, call.customer.last_name].filter(Boolean).join(" ")
+                : call.from_name ?? "Unknown";
+              const phone = call.from_number;
+              const d = phone.replace(/\D/g, "").slice(-10);
+              const formatted = d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : phone;
+              return (
+                <div key={call.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <div>
+                    <p className="font-medium">{callerName}</p>
+                    <p className="text-xs text-muted-foreground">{formatted} &middot; {new Date(call.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                  </div>
+                  <a href={`tel:${phone}`} className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500">
+                    <Phone className="size-3" /> Call Back
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
