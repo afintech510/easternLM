@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  getRingCentralAccessToken,
+  getRingCentralServerUrl,
+} from "@/lib/ringcentral/auth";
 
-const RC_CLIENT_ID = "aCtUW9yyeLhdl5lTGj019d";
-const RC_CLIENT_SECRET = "A9CZh1xxecPbFJryDGhBek5B7b2AYpiKfeKs0BfYCsYa";
-const RC_SERVER = "https://platform.ringcentral.com";
 const WEBHOOK_URL = "https://easternlm.com/api/webhooks/ringcentral";
 
 /**
@@ -11,30 +12,11 @@ const WEBHOOK_URL = "https://easternlm.com/api/webhooks/ringcentral";
  * Should be called daily via cron (subscriptions expire every 7 days).
  */
 export async function GET() {
-  const jwt = process.env.RINGCENTRAL_JWT;
-  if (!jwt) {
-    return NextResponse.json({ error: "RINGCENTRAL_JWT not set" }, { status: 500 });
-  }
-
   try {
-    // 1. Get access token
-    const authRes = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(`${RC_CLIENT_ID}:${RC_CLIENT_SECRET}`).toString("base64")}`,
-      },
-      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-    });
+    const access_token = await getRingCentralAccessToken();
+    const RC_SERVER = getRingCentralServerUrl();
 
-    if (!authRes.ok) {
-      const err = await authRes.text();
-      return NextResponse.json({ error: `Auth failed: ${err}` }, { status: 500 });
-    }
-
-    const { access_token } = await authRes.json();
-
-    // 2. Check existing subscriptions
+    // Check existing subscriptions
     const listRes = await fetch(`${RC_SERVER}/restapi/v1.0/subscription`, {
       headers: { Authorization: `Bearer ${access_token}` },
     });
@@ -44,7 +26,7 @@ export async function GET() {
     );
 
     if (existing) {
-      // 3a. Renew existing subscription
+      // Renew existing subscription
       const renewRes = await fetch(`${RC_SERVER}/restapi/v1.0/subscription/${existing.id}/renew`, {
         method: "POST",
         headers: { Authorization: `Bearer ${access_token}` },
@@ -67,7 +49,7 @@ export async function GET() {
       });
     }
 
-    // 3b. Create new subscription
+    // Create new subscription with telephony session events
     const createRes = await fetch(`${RC_SERVER}/restapi/v1.0/subscription`, {
       method: "POST",
       headers: {
@@ -78,6 +60,7 @@ export async function GET() {
         eventFilters: [
           "/restapi/v1.0/account/~/extension/~/presence?detailedTelephonyState=true",
           "/restapi/v1.0/account/~/extension/~/message-store/instant?type=SMS",
+          "/restapi/v1.0/account/~/telephony/sessions",
         ],
         deliveryMode: {
           transportType: "WebHook",

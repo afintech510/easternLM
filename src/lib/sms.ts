@@ -3,9 +3,11 @@
  * All outbound SMS in the app should use sendSms() from this module.
  */
 
-const RC_CLIENT_ID = "aCtUW9yyeLhdl5lTGj019d";
-const RC_CLIENT_SECRET = "A9CZh1xxecPbFJryDGhBek5B7b2AYpiKfeKs0BfYCsYa";
-const RC_SERVER = "https://platform.ringcentral.com";
+import {
+  getRingCentralAccessToken,
+  getRingCentralServerUrl,
+} from "@/lib/ringcentral/auth";
+
 const RC_DEFAULT_FROM = "+16318746244"; // main business line (ext 102)
 
 // Map from-numbers to their RingCentral extension IDs
@@ -27,9 +29,8 @@ export async function sendSms(
   if (!toNormalized) return { ok: false, error: "Invalid phone number" };
 
   // Primary: RingCentral
-  const rcJwt = process.env.RINGCENTRAL_JWT;
-  if (rcJwt) {
-    const result = await sendViaRingCentral(toNormalized, body, from ?? RC_DEFAULT_FROM, rcJwt);
+  if (process.env.RINGCENTRAL_JWT) {
+    const result = await sendViaRingCentral(toNormalized, body, from ?? RC_DEFAULT_FROM);
     if (result.ok) return result;
     console.warn("[SMS] RingCentral failed, trying Twilio fallback:", result.error);
   }
@@ -40,38 +41,16 @@ export async function sendSms(
 
 // ─── RingCentral ─────────────────────────────────────────────────
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function getRcAccessToken(jwt: string): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
-    return cachedToken.token;
-  }
-
-  const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${RC_CLIENT_ID}:${RC_CLIENT_SECRET}`).toString("base64")}`,
-    },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
-
-  if (!res.ok) throw new Error(`RingCentral auth failed: ${res.status}`);
-
-  const data = await res.json();
-  cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return data.access_token;
-}
-
 async function sendViaRingCentral(
-  to: string, body: string, from: string, jwt: string,
+  to: string, body: string, from: string,
 ): Promise<{ ok: boolean; messageId?: string; error?: string }> {
   try {
-    const token = await getRcAccessToken(jwt);
+    const token = await getRingCentralAccessToken();
+    const server = getRingCentralServerUrl();
 
     // Try the requested from-number's extension first
     const extensionId = RC_EXTENSION_MAP[from] ?? "~";
-    let res = await fetch(`${RC_SERVER}/restapi/v1.0/account/~/extension/${extensionId}/sms`, {
+    let res = await fetch(`${server}/restapi/v1.0/account/~/extension/${extensionId}/sms`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,7 +66,7 @@ async function sendViaRingCentral(
     // If cross-extension permission denied, fall back to JWT owner's extension
     if (res.status === 403 && extensionId !== "~") {
       console.warn(`[SMS:RC] Permission denied for ext ${extensionId}, falling back to default extension`);
-      res = await fetch(`${RC_SERVER}/restapi/v1.0/account/~/extension/~/sms`, {
+      res = await fetch(`${server}/restapi/v1.0/account/~/extension/~/sms`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

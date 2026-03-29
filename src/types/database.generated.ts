@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       accounts: {
@@ -20,8 +45,10 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_active: boolean
           is_pro_member: boolean
           phone: string | null
+          pos_pin_hash: string | null
           role: string
           sms_consent_at: string | null
           sms_opt_in: boolean
@@ -32,8 +59,10 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          is_active?: boolean
           is_pro_member?: boolean
           phone?: string | null
+          pos_pin_hash?: string | null
           role?: string
           sms_consent_at?: string | null
           sms_opt_in?: boolean
@@ -44,8 +73,10 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_active?: boolean
           is_pro_member?: boolean
           phone?: string | null
+          pos_pin_hash?: string | null
           role?: string
           sms_consent_at?: string | null
           sms_opt_in?: boolean
@@ -112,6 +143,152 @@ export type Database = {
           source_page?: string | null
         }
         Relationships: []
+      }
+      call_order_links: {
+        Row: {
+          call_id: string
+          id: string
+          linked_at: string
+          linked_by: string | null
+          order_id: string
+        }
+        Insert: {
+          call_id: string
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          order_id: string
+        }
+        Update: {
+          call_id?: string
+          id?: string
+          linked_at?: string
+          linked_by?: string | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_order_links_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_order_links_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_records: {
+        Row: {
+          ai_action_items: string[] | null
+          ai_fetched_at: string | null
+          ai_sentiment: string | null
+          ai_summary: string | null
+          ai_transcript: string | null
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          customer_id: string | null
+          customer_match_type: string | null
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          extension_id: string | null
+          extension_name: string | null
+          follow_up_resolved: boolean | null
+          follow_up_resolved_at: string | null
+          follow_up_resolved_by: string | null
+          from_name: string | null
+          from_number: string
+          id: string
+          rc_call_id: string | null
+          rc_recording_id: string | null
+          rc_session_id: string | null
+          requires_follow_up: boolean | null
+          staff_notes: string | null
+          started_at: string
+          status: string
+          to_number: string
+          updated_at: string
+        }
+        Insert: {
+          ai_action_items?: string[] | null
+          ai_fetched_at?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          ai_transcript?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_match_type?: string | null
+          direction: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          extension_id?: string | null
+          extension_name?: string | null
+          follow_up_resolved?: boolean | null
+          follow_up_resolved_at?: string | null
+          follow_up_resolved_by?: string | null
+          from_name?: string | null
+          from_number: string
+          id?: string
+          rc_call_id?: string | null
+          rc_recording_id?: string | null
+          rc_session_id?: string | null
+          requires_follow_up?: boolean | null
+          staff_notes?: string | null
+          started_at?: string
+          status?: string
+          to_number: string
+          updated_at?: string
+        }
+        Update: {
+          ai_action_items?: string[] | null
+          ai_fetched_at?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          ai_transcript?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_match_type?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          extension_id?: string | null
+          extension_name?: string | null
+          follow_up_resolved?: boolean | null
+          follow_up_resolved_at?: string | null
+          follow_up_resolved_by?: string | null
+          from_name?: string | null
+          from_number?: string
+          id?: string
+          rc_call_id?: string | null
+          rc_recording_id?: string | null
+          rc_session_id?: string | null
+          requires_follow_up?: boolean | null
+          staff_notes?: string | null
+          started_at?: string
+          status?: string
+          to_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_records_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaign_sends: {
         Row: {
@@ -296,25 +473,134 @@ export type Database = {
         }
         Relationships: []
       }
+      contractors: {
+        Row: {
+          avg_response_minutes: number | null
+          company_name: string | null
+          created_at: string
+          current_active_leads: number | null
+          customer_id: string | null
+          email: string | null
+          email_notifications: boolean | null
+          id: string
+          is_active: boolean
+          max_active_leads: number | null
+          name: string
+          notes: string | null
+          phone: string
+          preferred_contact: string | null
+          service_types: string[]
+          sms_notifications: boolean | null
+          total_leads_assigned: number | null
+          total_leads_won: number | null
+          win_rate: number | null
+        }
+        Insert: {
+          avg_response_minutes?: number | null
+          company_name?: string | null
+          created_at?: string
+          current_active_leads?: number | null
+          customer_id?: string | null
+          email?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          is_active?: boolean
+          max_active_leads?: number | null
+          name: string
+          notes?: string | null
+          phone: string
+          preferred_contact?: string | null
+          service_types?: string[]
+          sms_notifications?: boolean | null
+          total_leads_assigned?: number | null
+          total_leads_won?: number | null
+          win_rate?: number | null
+        }
+        Update: {
+          avg_response_minutes?: number | null
+          company_name?: string | null
+          created_at?: string
+          current_active_leads?: number | null
+          customer_id?: string | null
+          email?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          is_active?: boolean
+          max_active_leads?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          preferred_contact?: string | null
+          service_types?: string[]
+          sms_notifications?: boolean | null
+          total_leads_assigned?: number | null
+          total_leads_won?: number | null
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractors_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      counter_checkins: {
+        Row: {
+          checked_in: boolean
+          checked_in_at: string
+          extension_id: string
+          id: string
+          staff_name: string | null
+        }
+        Insert: {
+          checked_in: boolean
+          checked_in_at?: string
+          extension_id: string
+          id?: string
+          staff_name?: string | null
+        }
+        Update: {
+          checked_in?: boolean
+          checked_in_at?: string
+          extension_id?: string
+          id?: string
+          staff_name?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
+          billing_address: string | null
+          billing_email: string | null
+          charge_account_name: string | null
           city: string | null
           company_name: string | null
           created_at: string
+          credit_limit_cents: number | null
+          current_balance_cents: number
+          customer_type: string
           email: string | null
           first_name: string | null
           first_order_at: string | null
           id: string
+          is_charge_account: boolean
           last_name: string | null
           last_order_at: string | null
+          last_statement_date: string | null
           notes: string | null
           opted_in_email: boolean
           opted_in_sms: boolean
+          payment_terms: string | null
           phone: string | null
           source: string
           state: string | null
           tags: string[]
+          tax_exempt: boolean
+          tax_exempt_certificate: string | null
           total_orders: number
           total_spent_cents: number
           updated_at: string
@@ -322,22 +608,33 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          billing_address?: string | null
+          billing_email?: string | null
+          charge_account_name?: string | null
           city?: string | null
           company_name?: string | null
           created_at?: string
+          credit_limit_cents?: number | null
+          current_balance_cents?: number
+          customer_type?: string
           email?: string | null
           first_name?: string | null
           first_order_at?: string | null
           id?: string
+          is_charge_account?: boolean
           last_name?: string | null
           last_order_at?: string | null
+          last_statement_date?: string | null
           notes?: string | null
           opted_in_email?: boolean
           opted_in_sms?: boolean
+          payment_terms?: string | null
           phone?: string | null
           source?: string
           state?: string | null
           tags?: string[]
+          tax_exempt?: boolean
+          tax_exempt_certificate?: string | null
           total_orders?: number
           total_spent_cents?: number
           updated_at?: string
@@ -345,22 +642,33 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          billing_address?: string | null
+          billing_email?: string | null
+          charge_account_name?: string | null
           city?: string | null
           company_name?: string | null
           created_at?: string
+          credit_limit_cents?: number | null
+          current_balance_cents?: number
+          customer_type?: string
           email?: string | null
           first_name?: string | null
           first_order_at?: string | null
           id?: string
+          is_charge_account?: boolean
           last_name?: string | null
           last_order_at?: string | null
+          last_statement_date?: string | null
           notes?: string | null
           opted_in_email?: boolean
           opted_in_sms?: boolean
+          payment_terms?: string | null
           phone?: string | null
           source?: string
           state?: string | null
           tags?: string[]
+          tax_exempt?: boolean
+          tax_exempt_certificate?: string | null
           total_orders?: number
           total_spent_cents?: number
           updated_at?: string
@@ -376,6 +684,10 @@ export type Database = {
           actual_completion: string | null
           actual_departure: string | null
           assigned_by: string | null
+          auto_scheduled: boolean
+          backhaul_material: string | null
+          backhaul_supplier_id: string | null
+          backhaul_yards: number | null
           created_at: string
           delivery_date: string
           destination_address: string
@@ -392,9 +704,11 @@ export type Database = {
           id: string
           load_number: number
           material_summary: string
+          optimization_notes: string | null
           order_id: string
           spreading_yards: number | null
           status: string
+          suggested_route_order: number | null
           time_slot: string | null
           total_yards: number | null
           truck_id: string | null
@@ -408,6 +722,10 @@ export type Database = {
           actual_completion?: string | null
           actual_departure?: string | null
           assigned_by?: string | null
+          auto_scheduled?: boolean
+          backhaul_material?: string | null
+          backhaul_supplier_id?: string | null
+          backhaul_yards?: number | null
           created_at?: string
           delivery_date: string
           destination_address: string
@@ -424,9 +742,11 @@ export type Database = {
           id?: string
           load_number?: number
           material_summary: string
+          optimization_notes?: string | null
           order_id: string
           spreading_yards?: number | null
           status?: string
+          suggested_route_order?: number | null
           time_slot?: string | null
           total_yards?: number | null
           truck_id?: string | null
@@ -440,6 +760,10 @@ export type Database = {
           actual_completion?: string | null
           actual_departure?: string | null
           assigned_by?: string | null
+          auto_scheduled?: boolean
+          backhaul_material?: string | null
+          backhaul_supplier_id?: string | null
+          backhaul_yards?: number | null
           created_at?: string
           delivery_date?: string
           destination_address?: string
@@ -456,9 +780,11 @@ export type Database = {
           id?: string
           load_number?: number
           material_summary?: string
+          optimization_notes?: string | null
           order_id?: string
           spreading_yards?: number | null
           status?: string
+          suggested_route_order?: number | null
           time_slot?: string | null
           total_yards?: number | null
           truck_id?: string | null
@@ -471,6 +797,13 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_assignments_backhaul_supplier_id_fkey"
+            columns: ["backhaul_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -791,6 +1124,136 @@ export type Database = {
           },
         ]
       }
+      incoming_calls: {
+        Row: {
+          caller_digits: string | null
+          caller_phone: string
+          created_at: string
+          customer_data: Json | null
+          customer_id: string | null
+          dismissed: boolean
+          id: string
+          session_id: string | null
+        }
+        Insert: {
+          caller_digits?: string | null
+          caller_phone: string
+          created_at?: string
+          customer_data?: Json | null
+          customer_id?: string | null
+          dismissed?: boolean
+          id?: string
+          session_id?: string | null
+        }
+        Update: {
+          caller_digits?: string | null
+          caller_phone?: string
+          created_at?: string
+          customer_data?: Json | null
+          customer_id?: string | null
+          dismissed?: boolean
+          id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incoming_calls_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_adjustments: {
+        Row: {
+          adjustment_qty: number
+          created_at: string
+          id: string
+          new_qty: number
+          notes: string | null
+          product_id: string
+          reason: string
+          reference_id: string | null
+          staff_id: string | null
+        }
+        Insert: {
+          adjustment_qty: number
+          created_at?: string
+          id?: string
+          new_qty: number
+          notes?: string | null
+          product_id: string
+          reason: string
+          reference_id?: string | null
+          staff_id?: string | null
+        }
+        Update: {
+          adjustment_qty?: number
+          created_at?: string
+          id?: string
+          new_qty?: number
+          notes?: string | null
+          product_id?: string
+          reason?: string
+          reference_id?: string | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_adjustments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_activity: {
+        Row: {
+          activity_type: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          lead_id: string
+          metadata: Json | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activity_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "service_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_history: {
         Row: {
           created_at: string
@@ -919,6 +1382,38 @@ export type Database = {
           },
         ]
       }
+      order_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           access_constraints: Json
@@ -927,31 +1422,46 @@ export type Database = {
           cc_surcharge_cents: number
           combine_loads: boolean
           created_at: string
-          customer_email: string
+          customer_address: string | null
+          customer_email: string | null
+          customer_id: string | null
           customer_name: string
           customer_phone: string | null
           delivery_address: string | null
+          delivery_date: string | null
           delivery_method: string
+          delivery_notes: string | null
           delivery_schedule: Json
+          delivery_time_window: string | null
           delivery_total_cents: number
           delivery_zip: string | null
+          discount_amount_cents: number
+          discount_reason: string | null
+          discount_type: string | null
+          discount_value: number | null
           distance_meters: number | null
           duration_seconds: number | null
           first_load_fee_cents: number | null
           grand_total_cents: number
           id: string
+          license_photo_url: string | null
           materials_subtotal_cents: number
           metadata: Json
           payment_method: string | null
+          payments: Json | null
           placed_at: string
           pos_register_id: string | null
           pos_staff_id: string | null
+          quote_id: string | null
+          refunds: Json | null
           sms_consent_at: string | null
           sms_opt_in: boolean
           source: string
           status: string
           stripe_checkout_session_id: string | null
           tax_cents: number
+          tax_exempt: boolean
+          tax_exempt_certificate: string | null
           total_delivery_days: number
           total_loads: number
           updated_at: string
@@ -963,31 +1473,46 @@ export type Database = {
           cc_surcharge_cents: number
           combine_loads?: boolean
           created_at?: string
-          customer_email: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
           customer_name: string
           customer_phone?: string | null
           delivery_address?: string | null
+          delivery_date?: string | null
           delivery_method: string
+          delivery_notes?: string | null
           delivery_schedule?: Json
+          delivery_time_window?: string | null
           delivery_total_cents: number
           delivery_zip?: string | null
+          discount_amount_cents?: number
+          discount_reason?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
           distance_meters?: number | null
           duration_seconds?: number | null
           first_load_fee_cents?: number | null
           grand_total_cents: number
           id?: string
+          license_photo_url?: string | null
           materials_subtotal_cents: number
           metadata?: Json
           payment_method?: string | null
+          payments?: Json | null
           placed_at?: string
           pos_register_id?: string | null
           pos_staff_id?: string | null
+          quote_id?: string | null
+          refunds?: Json | null
           sms_consent_at?: string | null
           sms_opt_in?: boolean
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
           tax_cents: number
+          tax_exempt?: boolean
+          tax_exempt_certificate?: string | null
           total_delivery_days?: number
           total_loads?: number
           updated_at?: string
@@ -999,31 +1524,46 @@ export type Database = {
           cc_surcharge_cents?: number
           combine_loads?: boolean
           created_at?: string
-          customer_email?: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string | null
           delivery_address?: string | null
+          delivery_date?: string | null
           delivery_method?: string
+          delivery_notes?: string | null
           delivery_schedule?: Json
+          delivery_time_window?: string | null
           delivery_total_cents?: number
           delivery_zip?: string | null
+          discount_amount_cents?: number
+          discount_reason?: string | null
+          discount_type?: string | null
+          discount_value?: number | null
           distance_meters?: number | null
           duration_seconds?: number | null
           first_load_fee_cents?: number | null
           grand_total_cents?: number
           id?: string
+          license_photo_url?: string | null
           materials_subtotal_cents?: number
           metadata?: Json
           payment_method?: string | null
+          payments?: Json | null
           placed_at?: string
           pos_register_id?: string | null
           pos_staff_id?: string | null
+          quote_id?: string | null
+          refunds?: Json | null
           sms_consent_at?: string | null
           sms_opt_in?: boolean
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
           tax_cents?: number
+          tax_exempt?: boolean
+          tax_exempt_certificate?: string | null
           total_delivery_days?: number
           total_loads?: number
           updated_at?: string
@@ -1037,10 +1577,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_pos_staff_id_fkey"
             columns: ["pos_staff_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -1201,6 +1755,7 @@ export type Database = {
       }
       products: {
         Row: {
+          barcode: string | null
           category_id: string
           created_at: string
           delivery_type: string
@@ -1209,25 +1764,33 @@ export type Database = {
           images: string[]
           is_active: boolean
           is_taxable: boolean
+          low_stock_threshold: number | null
           material_class: string
           max_qty: number
           min_qty: number
           name: string
           pairs_well_with: string[]
+          pos_sort_order: number | null
           price_note: string
           price_per_unit_cents: number
           recommended_uses: string[]
+          sku: string | null
           slug: string
           sort_order: number
           step_qty: number
+          stock_qty: number | null
+          stock_unit: string | null
+          track_inventory: boolean
           unit: string
           unit_display: string
           updated_at: string
           visible_pos: boolean
           visible_web: boolean
           wc_id: number | null
+          web_price_per_unit_cents: number | null
         }
         Insert: {
+          barcode?: string | null
           category_id: string
           created_at?: string
           delivery_type: string
@@ -1236,25 +1799,33 @@ export type Database = {
           images?: string[]
           is_active?: boolean
           is_taxable?: boolean
+          low_stock_threshold?: number | null
           material_class: string
           max_qty: number
           min_qty: number
           name: string
           pairs_well_with?: string[]
+          pos_sort_order?: number | null
           price_note?: string
           price_per_unit_cents: number
           recommended_uses?: string[]
+          sku?: string | null
           slug: string
           sort_order?: number
           step_qty: number
+          stock_qty?: number | null
+          stock_unit?: string | null
+          track_inventory?: boolean
           unit: string
           unit_display: string
           updated_at?: string
           visible_pos?: boolean
           visible_web?: boolean
           wc_id?: number | null
+          web_price_per_unit_cents?: number | null
         }
         Update: {
+          barcode?: string | null
           category_id?: string
           created_at?: string
           delivery_type?: string
@@ -1263,23 +1834,30 @@ export type Database = {
           images?: string[]
           is_active?: boolean
           is_taxable?: boolean
+          low_stock_threshold?: number | null
           material_class?: string
           max_qty?: number
           min_qty?: number
           name?: string
           pairs_well_with?: string[]
+          pos_sort_order?: number | null
           price_note?: string
           price_per_unit_cents?: number
           recommended_uses?: string[]
+          sku?: string | null
           slug?: string
           sort_order?: number
           step_qty?: number
+          stock_qty?: number | null
+          stock_unit?: string | null
+          track_inventory?: boolean
           unit?: string
           unit_display?: string
           updated_at?: string
           visible_pos?: boolean
           visible_web?: boolean
           wc_id?: number | null
+          web_price_per_unit_cents?: number | null
         }
         Relationships: [
           {
@@ -1291,71 +1869,550 @@ export type Database = {
           },
         ]
       }
+      project_activity: {
+        Row: {
+          activity_type: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          metadata: Json | null
+          project_id: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          metadata?: Json | null
+          project_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_activity_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_activity_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          address: string | null
+          assigned_crew: string[] | null
+          balance_due_cents: number | null
+          created_at: string
+          created_by: string | null
+          crew_notes: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_assignment_ids: string[] | null
+          deposit_cents: number | null
+          description: string | null
+          documents: Json
+          estimated_days: number | null
+          estimated_end: string | null
+          estimated_start: string | null
+          id: string
+          invoice_ids: string[] | null
+          invoiced_cents: number | null
+          notes: string | null
+          order_id: string | null
+          paid_cents: number | null
+          priority: string | null
+          project_number: string | null
+          project_type: string
+          quote_id: string | null
+          quote_total_cents: number | null
+          scheduled_date: string | null
+          service_type: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          address?: string | null
+          assigned_crew?: string[] | null
+          balance_due_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          crew_notes?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_assignment_ids?: string[] | null
+          deposit_cents?: number | null
+          description?: string | null
+          documents?: Json
+          estimated_days?: number | null
+          estimated_end?: string | null
+          estimated_start?: string | null
+          id?: string
+          invoice_ids?: string[] | null
+          invoiced_cents?: number | null
+          notes?: string | null
+          order_id?: string | null
+          paid_cents?: number | null
+          priority?: string | null
+          project_number?: string | null
+          project_type?: string
+          quote_id?: string | null
+          quote_total_cents?: number | null
+          scheduled_date?: string | null
+          service_type?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          address?: string | null
+          assigned_crew?: string[] | null
+          balance_due_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          crew_notes?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_assignment_ids?: string[] | null
+          deposit_cents?: number | null
+          description?: string | null
+          documents?: Json
+          estimated_days?: number | null
+          estimated_end?: string | null
+          estimated_start?: string | null
+          id?: string
+          invoice_ids?: string[] | null
+          invoiced_cents?: number | null
+          notes?: string | null
+          order_id?: string | null
+          paid_cents?: number | null
+          priority?: string | null
+          project_number?: string | null
+          project_type?: string
+          quote_id?: string | null
+          quote_total_cents?: number | null
+          scheduled_date?: string | null
+          service_type?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          acceptance_metadata: Json | null
+          accepted_at: string | null
+          access_constraints: Json | null
+          ai_generated: boolean
+          ai_prompt: string | null
+          cc_surcharge_cents: number | null
+          converted_order_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          customer_signature_url: string | null
+          decline_reason: string | null
+          declined_at: string | null
+          delivery_address: string | null
+          delivery_date: string | null
+          delivery_fee_cents: number | null
+          delivery_loads: Json | null
+          delivery_notes: string | null
+          delivery_time_window: string | null
+          deposit_paid_at: string | null
+          deposit_paid_cents: number
+          deposit_required_cents: number
+          deposit_stripe_payment_id: string | null
+          description: string | null
+          estimated_timeline: string | null
+          id: string
+          internal_notes: string | null
+          lead_id: string | null
+          line_items: Json
+          photo_urls: string[] | null
+          public_token: string
+          quote_number: string
+          route_info: Json | null
+          sent_at: string | null
+          sent_via: string[] | null
+          service_interest: string | null
+          short_code: string | null
+          source: string | null
+          status: string
+          subtotal_cents: number
+          tax_cents: number
+          terms: string | null
+          title: string
+          total_cents: number
+          type: string | null
+          updated_at: string
+          valid_until: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          acceptance_metadata?: Json | null
+          accepted_at?: string | null
+          access_constraints?: Json | null
+          ai_generated?: boolean
+          ai_prompt?: string | null
+          cc_surcharge_cents?: number | null
+          converted_order_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          customer_signature_url?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          delivery_address?: string | null
+          delivery_date?: string | null
+          delivery_fee_cents?: number | null
+          delivery_loads?: Json | null
+          delivery_notes?: string | null
+          delivery_time_window?: string | null
+          deposit_paid_at?: string | null
+          deposit_paid_cents?: number
+          deposit_required_cents?: number
+          deposit_stripe_payment_id?: string | null
+          description?: string | null
+          estimated_timeline?: string | null
+          id?: string
+          internal_notes?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          photo_urls?: string[] | null
+          public_token?: string
+          quote_number: string
+          route_info?: Json | null
+          sent_at?: string | null
+          sent_via?: string[] | null
+          service_interest?: string | null
+          short_code?: string | null
+          source?: string | null
+          status?: string
+          subtotal_cents?: number
+          tax_cents?: number
+          terms?: string | null
+          title: string
+          total_cents?: number
+          type?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          acceptance_metadata?: Json | null
+          accepted_at?: string | null
+          access_constraints?: Json | null
+          ai_generated?: boolean
+          ai_prompt?: string | null
+          cc_surcharge_cents?: number | null
+          converted_order_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          customer_signature_url?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          delivery_address?: string | null
+          delivery_date?: string | null
+          delivery_fee_cents?: number | null
+          delivery_loads?: Json | null
+          delivery_notes?: string | null
+          delivery_time_window?: string | null
+          deposit_paid_at?: string | null
+          deposit_paid_cents?: number
+          deposit_required_cents?: number
+          deposit_stripe_payment_id?: string | null
+          description?: string | null
+          estimated_timeline?: string | null
+          id?: string
+          internal_notes?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          photo_urls?: string[] | null
+          public_token?: string
+          quote_number?: string
+          route_info?: Json | null
+          sent_at?: string | null
+          sent_via?: string[] | null
+          service_interest?: string | null
+          short_code?: string | null
+          source?: string | null
+          status?: string
+          subtotal_cents?: number
+          tax_cents?: number
+          terms?: string | null
+          title?: string
+          total_cents?: number
+          type?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_converted_order_id_fkey"
+            columns: ["converted_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "service_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_carts: {
+        Row: {
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_address: string | null
+          delivery_method: string | null
+          expires_at: string
+          followup_sent_at: string | null
+          id: string
+          items: Json
+          source: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_method?: string | null
+          expires_at?: string
+          followup_sent_at?: string | null
+          id?: string
+          items?: Json
+          source?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_method?: string | null
+          expires_at?: string
+          followup_sent_at?: string | null
+          id?: string
+          items?: Json
+          source?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: []
+      }
       service_leads: {
         Row: {
           address: string | null
+          assigned_at: string | null
+          assigned_contractors: string[] | null
           assigned_to: string | null
+          conversion_date: string | null
           created_at: string
           customer_id: string | null
           description: string | null
           email: string | null
+          estimated_value_cents: number | null
+          follow_up_count: number | null
           id: string
           internal_notes: string | null
+          last_contacted_at: string | null
+          lead_number: string | null
+          lead_type: string | null
+          lost_competitor: string | null
+          lost_reason: string | null
           metadata: Json
           name: string
+          next_follow_up: string | null
           phone: string
           photo_urls: string[]
+          priority: string | null
+          project_id: string | null
+          property_type: string | null
+          quote_id: string | null
           quoted_amount_cents: number | null
           referral_source: string | null
           service_type: string
+          site_photos: string[] | null
+          site_visit_date: string | null
+          site_visit_notes: string | null
+          source: string | null
+          source_detail: string | null
           status: string
           timeline: string | null
           town: string | null
           updated_at: string
+          value_tier: string | null
           zip: string | null
         }
         Insert: {
           address?: string | null
+          assigned_at?: string | null
+          assigned_contractors?: string[] | null
           assigned_to?: string | null
+          conversion_date?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
           email?: string | null
+          estimated_value_cents?: number | null
+          follow_up_count?: number | null
           id?: string
           internal_notes?: string | null
+          last_contacted_at?: string | null
+          lead_number?: string | null
+          lead_type?: string | null
+          lost_competitor?: string | null
+          lost_reason?: string | null
           metadata?: Json
           name: string
+          next_follow_up?: string | null
           phone: string
           photo_urls?: string[]
+          priority?: string | null
+          project_id?: string | null
+          property_type?: string | null
+          quote_id?: string | null
           quoted_amount_cents?: number | null
           referral_source?: string | null
           service_type: string
+          site_photos?: string[] | null
+          site_visit_date?: string | null
+          site_visit_notes?: string | null
+          source?: string | null
+          source_detail?: string | null
           status?: string
           timeline?: string | null
           town?: string | null
           updated_at?: string
+          value_tier?: string | null
           zip?: string | null
         }
         Update: {
           address?: string | null
+          assigned_at?: string | null
+          assigned_contractors?: string[] | null
           assigned_to?: string | null
+          conversion_date?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
           email?: string | null
+          estimated_value_cents?: number | null
+          follow_up_count?: number | null
           id?: string
           internal_notes?: string | null
+          last_contacted_at?: string | null
+          lead_number?: string | null
+          lead_type?: string | null
+          lost_competitor?: string | null
+          lost_reason?: string | null
           metadata?: Json
           name?: string
+          next_follow_up?: string | null
           phone?: string
           photo_urls?: string[]
+          priority?: string | null
+          project_id?: string | null
+          property_type?: string | null
+          quote_id?: string | null
           quoted_amount_cents?: number | null
           referral_source?: string | null
           service_type?: string
+          site_photos?: string[] | null
+          site_visit_date?: string | null
+          site_visit_notes?: string | null
+          source?: string | null
+          source_detail?: string | null
           status?: string
           timeline?: string | null
           town?: string | null
           updated_at?: string
+          value_tier?: string | null
           zip?: string | null
         }
         Relationships: [
@@ -1364,6 +2421,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_leads_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -1589,6 +2660,366 @@ export type Database = {
         }
         Relationships: []
       }
+      statements: {
+        Row: {
+          adjustments_cents: number
+          amount_paid_cents: number
+          balance_due_cents: number
+          charges_cents: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          due_date: string
+          id: string
+          notes: string | null
+          order_ids: string[]
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_stripe_id: string | null
+          payments_cents: number
+          period_end: string
+          period_start: string
+          previous_balance_cents: number
+          public_token: string
+          sent_at: string | null
+          sent_via: string[] | null
+          statement_number: string
+          status: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          adjustments_cents?: number
+          amount_paid_cents?: number
+          balance_due_cents?: number
+          charges_cents?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          order_ids?: string[]
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_stripe_id?: string | null
+          payments_cents?: number
+          period_end: string
+          period_start: string
+          previous_balance_cents?: number
+          public_token?: string
+          sent_at?: string | null
+          sent_via?: string[] | null
+          statement_number: string
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          adjustments_cents?: number
+          amount_paid_cents?: number
+          balance_due_cents?: number
+          charges_cents?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          order_ids?: string[]
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_stripe_id?: string | null
+          payments_cents?: number
+          period_end?: string
+          period_start?: string
+          previous_balance_cents?: number
+          public_token?: string
+          sent_at?: string | null
+          sent_via?: string[] | null
+          statement_number?: string
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_invoices: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_type: string | null
+          extracted_at: string | null
+          file_urls: string[]
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          is_paid: boolean
+          line_items: Json
+          notes: string | null
+          ocr_status: string
+          paid_at: string | null
+          raw_extraction: string | null
+          supplier_id: string | null
+          total_amount_cents: number | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_type?: string | null
+          extracted_at?: string | null
+          file_urls?: string[]
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          is_paid?: boolean
+          line_items?: Json
+          notes?: string | null
+          ocr_status?: string
+          paid_at?: string | null
+          raw_extraction?: string | null
+          supplier_id?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_type?: string | null
+          extracted_at?: string | null
+          file_urls?: string[]
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          is_paid?: boolean
+          line_items?: Json
+          notes?: string | null
+          ocr_status?: string
+          paid_at?: string | null
+          raw_extraction?: string | null
+          supplier_id?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_price_history: {
+        Row: {
+          changed_at: string
+          id: string
+          new_cost_cents: number
+          old_cost_cents: number
+          source: string | null
+          supplier_product_id: string
+        }
+        Insert: {
+          changed_at?: string
+          id?: string
+          new_cost_cents: number
+          old_cost_cents: number
+          source?: string | null
+          supplier_product_id: string
+        }
+        Update: {
+          changed_at?: string
+          id?: string
+          new_cost_cents?: number
+          old_cost_cents?: number
+          source?: string | null
+          supplier_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_price_history_supplier_product_id_fkey"
+            columns: ["supplier_product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_products: {
+        Row: {
+          cost_per_unit_cents: number
+          created_at: string
+          id: string
+          is_available: boolean
+          last_price_update: string
+          lead_time_days: number | null
+          minimum_order_qty: number | null
+          notes: string | null
+          our_price_per_unit_cents: number | null
+          product_id: string | null
+          supplier_id: string
+          supplier_product_name: string
+          supplier_sku: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          cost_per_unit_cents: number
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          last_price_update?: string
+          lead_time_days?: number | null
+          minimum_order_qty?: number | null
+          notes?: string | null
+          our_price_per_unit_cents?: number | null
+          product_id?: string | null
+          supplier_id: string
+          supplier_product_name: string
+          supplier_sku?: string | null
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          cost_per_unit_cents?: number
+          created_at?: string
+          id?: string
+          is_available?: boolean
+          last_price_update?: string
+          lead_time_days?: number | null
+          minimum_order_qty?: number | null
+          notes?: string | null
+          our_price_per_unit_cents?: number | null
+          product_id?: string | null
+          supplier_id?: string
+          supplier_product_name?: string
+          supplier_sku?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          account_number: string | null
+          address: string
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          days_closed: string[]
+          delivery_fee_notes: string | null
+          email: string | null
+          fulfillment_type: string
+          hours: Json
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          minimum_order_notes: string | null
+          name: string
+          notes: string | null
+          payment_terms: string | null
+          phone: string | null
+          pricelist_documents: Json | null
+          pricelist_effective_date: string | null
+          slug: string
+          state: string | null
+          updated_at: string
+          website: string | null
+          zip: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          address: string
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          days_closed?: string[]
+          delivery_fee_notes?: string | null
+          email?: string | null
+          fulfillment_type?: string
+          hours?: Json
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          minimum_order_notes?: string | null
+          name: string
+          notes?: string | null
+          payment_terms?: string | null
+          phone?: string | null
+          pricelist_documents?: Json | null
+          pricelist_effective_date?: string | null
+          slug: string
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+          zip?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          address?: string
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          days_closed?: string[]
+          delivery_fee_notes?: string | null
+          email?: string | null
+          fulfillment_type?: string
+          hours?: Json
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          minimum_order_notes?: string | null
+          name?: string
+          notes?: string | null
+          payment_terms?: string | null
+          phone?: string | null
+          pricelist_documents?: Json | null
+          pricelist_effective_date?: string | null
+          slug?: string
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
       town_pages: {
         Row: {
           created_at: string
@@ -1811,6 +3242,27 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          processed_at: string
+          stripe_event_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          processed_at?: string
+          stripe_event_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          processed_at?: string
+          stripe_event_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1945,6 +3397,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
