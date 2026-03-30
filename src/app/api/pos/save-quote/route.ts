@@ -43,6 +43,7 @@ export async function POST(request: Request) {
   const {
     items, customer, delivery, notes, serviceInterest,
     send = false, sendVia = "email",
+    saveAs,
     accessConstraints,
     routeInfo,
   } = body;
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
     valid_until: validUntil.toISOString().split("T")[0],
     terms: "Prices subject to availability. Delivery schedule confirmed upon payment.",
     ai_generated: false,
-    status: send ? "sent" : "draft",
+    status: send ? "sent" : (saveAs === "saved" ? "saved" : "draft"),
     sent_at: send ? new Date().toISOString() : null,
     sent_via: send ? (sendVia === "both" ? ["email", "sms"] : [sendVia]) : null,
     source: "pos",
