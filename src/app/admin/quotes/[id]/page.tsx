@@ -512,64 +512,65 @@ export default function QuoteDetailPage() {
             </div>
 
             {lineItems.map((item, idx) => (
-              <div key={idx} className="grid gap-2 items-start" style={{ gridTemplateColumns: "1fr 70px 90px 110px 110px 36px" }}>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">Description</label>}
+              <div key={idx} className="rounded-lg border bg-background p-3 space-y-2">
+                {/* Row 1: Description (full width) */}
+                <div className="flex items-center gap-2">
                   <Input
                     value={item.description}
                     onChange={(e) => updateItem(idx, "description", e.target.value)}
                     disabled={isReadOnly}
                     placeholder="Item description"
+                    className="flex-1"
                   />
-                </div>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">Qty</label>}
-                  <Input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
-                    disabled={isReadOnly}
-                  />
-                </div>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">Unit</label>}
-                  <Input
-                    value={item.unit}
-                    onChange={(e) => updateItem(idx, "unit", e.target.value)}
-                    disabled={isReadOnly}
-                  />
-                </div>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">Unit Price</label>}
-                  <div className="relative">
-                    <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
-                    <Input
-                      className="pl-5"
-                      value={centsToStr(item.unit_price_cents)}
-                      onChange={(e) => updateItem(idx, "unit_price_cents", strToCents(e.target.value))}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">Total</label>}
-                  <div className="relative">
-                    <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
-                    <Input
-                      className="pl-5"
-                      value={centsToStr(item.total_cents)}
-                      onChange={(e) => updateItem(idx, "total_cents", strToCents(e.target.value))}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {idx === 0 && <label className="text-xs text-muted-foreground">&nbsp;</label>}
                   {!isReadOnly && (
-                    <Button variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive" onClick={() => removeItem(idx)}>
+                    <Button variant="ghost" size="icon" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeItem(idx)}>
                       <X className="size-4" />
                     </Button>
                   )}
+                </div>
+                {/* Row 2: Qty, Unit, Unit Price, Total */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Qty</label>
+                    <Input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Unit</label>
+                    <Input
+                      value={item.unit}
+                      onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Unit Price</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
+                      <Input
+                        className="pl-5"
+                        value={centsToStr(item.unit_price_cents)}
+                        onChange={(e) => updateItem(idx, "unit_price_cents", strToCents(e.target.value))}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Total</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
+                      <Input
+                        className="pl-5"
+                        value={centsToStr(item.total_cents)}
+                        onChange={(e) => updateItem(idx, "total_cents", strToCents(e.target.value))}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
