@@ -13,7 +13,7 @@ import {
 // Per RC API: +16313951661 has SmsSender on Ext 101, +16313668524 has SmsSender on Ext 101.
 // +16318746244 (main) has SmsSender on Ext 102 only — NOT on Ext 101 (JWT owner).
 // So we must send from a number with SmsSender on the JWT owner's extension.
-const RC_DEFAULT_FROM = "+16313951661"; // Adam's direct line — has SmsSender on JWT owner ext
+const RC_DEFAULT_FROM = "+16313668524"; // Order & Sales Queue — has SmsSender on JWT owner ext
 
 // Map from-numbers to their RingCentral extension IDs
 const RC_EXTENSION_MAP: Record<string, string> = {
@@ -79,7 +79,7 @@ async function sendViaRingCentral(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: { phoneNumber: "+16313951661" }, // Adam's line — SmsSender on JWT owner ext
+          from: { phoneNumber: "+16313668524" }, // Order & Sales Queue — SmsSender on JWT owner ext
           to: [{ phoneNumber: to }],
           text: body,
         }),
