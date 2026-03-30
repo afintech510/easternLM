@@ -8,19 +8,16 @@ import {
   getRingCentralServerUrl,
 } from "@/lib/ringcentral/auth";
 
-// The JWT authenticates as Ext 101 (Adam Larkin, id 63383649004).
-// SMS can only be sent from numbers with SmsSender feature on the JWT owner's extension.
-// Per RC API: +16313951661 has SmsSender on Ext 101, +16313668524 has SmsSender on Ext 101.
-// +16318746244 (main) has SmsSender on Ext 102 only — NOT on Ext 101 (JWT owner).
-// So we must send from a number with SmsSender on the JWT owner's extension.
-const RC_DEFAULT_FROM = "+16313668524"; // Order & Sales Queue — has SmsSender on JWT owner ext
+// The JWT authenticates as Ext 102 (POS Desk, id 63390330004).
+// SMS-capable numbers on this extension: +16318746244, +16313668524, +16313951661.
+const RC_DEFAULT_FROM = "+16318746244"; // Main business line (631) 874-6244
 
 // Map from-numbers to their RingCentral extension IDs
 const RC_EXTENSION_MAP: Record<string, string> = {
-  "+16313951661": "63383649004", // Adam Larkin (ext 101 — JWT owner, has SmsSender)
-  "+16313668524": "63383649004", // Also has SmsSender on ext 101
-  "+16318746244": "63390330004", // Main line — SmsSender on ext 102 only (cross-ext, may 403)
-  "+13153625323": "63390330004", // POS Desk direct — NO SmsSender feature
+  "+16318746244": "63390330004", // Main line — POS Desk (ext 102, JWT owner)
+  "+16313668524": "63390330004", // Order & Sales — POS Desk (ext 102)
+  "+16313951661": "63390330004", // Adam direct — POS Desk (ext 102)
+  "+13153625323": "63390330004", // POS Desk direct — no SmsSender
 };
 
 // ─── Public API ──────────────────────────────────────────────────
@@ -79,7 +76,7 @@ async function sendViaRingCentral(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: { phoneNumber: "+16313668524" }, // Order & Sales Queue — SmsSender on JWT owner ext
+          from: { phoneNumber: "+16318746244" }, // Main line — SmsSender on JWT owner ext (102)
           to: [{ phoneNumber: to }],
           text: body,
         }),
