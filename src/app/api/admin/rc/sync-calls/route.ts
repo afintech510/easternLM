@@ -21,8 +21,9 @@ export async function POST() {
       Date.now() - 7 * 24 * 60 * 60 * 1000
     ).toISOString();
 
+    // Use extension-level call log (account-level requires admin permissions)
     const res = await fetch(
-      `${server}/restapi/v1.0/account/~/call-log?dateFrom=${sevenDaysAgo}&perPage=250&view=Detailed`,
+      `${server}/restapi/v1.0/account/~/extension/~/call-log?dateFrom=${sevenDaysAgo}&perPage=250&view=Detailed`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
