@@ -410,7 +410,7 @@ export function QuoteBuilder({
                                   if (e.key === "Enter") commitPriceEdit(item.id);
                                   if (e.key === "Escape") setEditingPriceId(null);
                                 }}
-                                className="w-20 h-6 bg-zinc-800 border border-amber-500 rounded px-1.5 text-xs text-amber-400 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-24 h-6 bg-zinc-800 border border-amber-500 rounded px-1.5 text-xs text-amber-400 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                                 autoFocus
                               />
                               <span className="text-xs text-zinc-500">/ {item.product.unit_label}</span>
@@ -445,7 +445,7 @@ export function QuoteBuilder({
                               const v = parseFloat(e.target.value);
                               if (!isNaN(v)) onUpdateQty(item.id, v);
                             }}
-                            className="w-16 h-8 rounded-lg border border-zinc-700 bg-zinc-900 text-center text-sm font-bold text-zinc-100 focus:outline-none focus:border-amber-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-20 h-8 rounded-lg border border-zinc-700 bg-zinc-900 text-center text-sm font-bold text-zinc-100 focus:outline-none focus:border-amber-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             onClick={() => onUpdateQty(item.id, item.quantity + step)}
@@ -455,7 +455,7 @@ export function QuoteBuilder({
                           </button>
                         </div>
 
-                        <p className="w-20 text-right text-sm font-bold text-zinc-100 shrink-0">
+                        <p className="w-28 text-right text-sm font-bold text-zinc-100 shrink-0 tabular-nums">
                           {formatUsd(item.quantity * item.price_cents)}
                         </p>
 

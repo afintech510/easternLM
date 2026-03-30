@@ -225,3 +225,20 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, orderId: order.id });
 }
+
+/**
+ * PATCH /api/pos/checkout — update order with payment details (e.g., Stripe PI ID)
+ * Called after card payment succeeds to store the PaymentIntent ID for future refunds.
+ */
+export async function PATCH(request: Request) {
+  const { orderId, payments } = await request.json();
+  if (!orderId) return NextResponse.json({ error: "orderId required" }, { status: 400 });
+
+  const supabase = getSupabaseAdminClient();
+  await (supabase as any)
+    .from("orders")
+    .update({ payments, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+
+  return NextResponse.json({ ok: true });
+}
