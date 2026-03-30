@@ -189,6 +189,11 @@ export default function PosRegisterPage() {
   const [showSaveQuote, setShowSaveQuote] = useState<"send" | "hold" | null>(null);
   const [showQuoteBuilder, setShowQuoteBuilder] = useState(false);
   const [showPhoneOrder, setShowPhoneOrder] = useState(false);
+  const [postQuoteResult, setPostQuoteResult] = useState<{ mode: string; quoteNumber: string } | null>(null);
+  const [showSaveCartDialog, setShowSaveCartDialog] = useState(false);
+  const [saveCartLabel, setSaveCartLabel] = useState("");
+  const [saveCartLoading, setSaveCartLoading] = useState(false);
+  const [recalledQuoteId, setRecalledQuoteId] = useState<string | null>(null);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
@@ -207,8 +212,10 @@ export default function PosRegisterPage() {
   const [editCust, setEditCust] = useState({ first_name: "", last_name: "", phone: "", email: "", address: "", city: "", company_name: "" });
 
   // Transactions tab state
+  const [txnType, setTxnType] = useState<"orders" | "saved" | "quotes">("orders");
   const [txnSearch, setTxnSearch] = useState("");
   const [txnDateFilter, setTxnDateFilter] = useState<"today" | "yesterday" | "week" | "all">("today");
+  const [savedCarts, setSavedCarts] = useState<Array<any>>([]);
   const [txnResults, setTxnResults] = useState<Array<{
     id: string;
     placed_at: string;
@@ -803,6 +810,15 @@ export default function PosRegisterPage() {
   }
 
   function resetRegister() {
+    // Mark recalled quote/cart as converted on checkout
+    if (recalledQuoteId) {
+      fetch("/api/pos/saved-carts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: recalledQuoteId, status: "converted" }),
+      }).catch(() => {});
+      setRecalledQuoteId(null);
+    }
     setItems([]);
     setCustomerName("Walk-in");
     setCustomerPhone("");
@@ -831,6 +847,153 @@ export default function PosRegisterPage() {
     setDiscountReason("");
     setShowDiscountModal(false);
     setShowAccountConfirm(false);
+  }
+
+  function fullReset() {
+    // If we're checking out a recalled cart/quote, mark it converted
+    if (recalledQuoteId) {
+      fetch(`/api/pos/saved-carts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: recalledQuoteId, status: "converted" }),
+      }).catch(() => {});
+    }
+    resetRegister();
+    setDeliveryFeeCents(0);
+    setRouteInfo(null);
+    setDelCustomerId(null);
+    setDelCustomerStatus("");
+    setAccessConstraints({});
+    setRecalledQuoteId(null);
+  }
+
+  async function handleSaveCart() {
+    if (items.length === 0) return;
+    setSaveCartLoading(true);
+    const itemSummary = items.slice(0, 2).map((i) =>
+      i.product.delivery_type === "bulk" ? `${i.quantity}yd ${i.product.name}` : `${i.quantity}x ${i.product.name}`
+    ).join(", ");
+    const autoLabel = saveCartLabel.trim() || `${delName || customerName || "Walk-in"} — ${itemSummary}`;
+    try {
+      const res = await fetch("/api/pos/save-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            name: i.product.name,
+            slug: i.product.slug,
+            quantity: i.quantity,
+            unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
+            unitPriceCents: i.price_cents,
+            price_cents: i.price_cents,
+            deliveryType: i.product.delivery_type,
+          })),
+          customer: {
+            name: delName || customerName,
+            phone: delPhone || customerPhone,
+            email: delEmail || "",
+            id: selectedCustomer?.id ?? delCustomerId ?? null,
+          },
+          delivery: {
+            method: deliveryMethod,
+            address: delAddress || deliveryAddress,
+            feeCents: deliveryFeeCents,
+            date: delDate,
+            timeWindow: delTimeWindow,
+            notes: delNotes,
+          },
+          accessConstraints,
+          routeInfo,
+          notes: autoLabel,
+          send: false,
+          saveAs: "saved",
+        }),
+      });
+      if (res.ok) {
+        setShowSaveCartDialog(false);
+        setSaveCartLabel("");
+        setPostQuoteResult({ mode: "saved", quoteNumber: autoLabel });
+      }
+    } catch {}
+    setSaveCartLoading(false);
+  }
+
+  async function fetchSavedCarts() {
+    try {
+      const res = await fetch(`/api/pos/saved-carts?type=${txnType}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSavedCarts(data.quotes || []);
+      }
+    } catch {}
+  }
+
+  async function recallCart(quote: any) {
+    if (items.length > 0 && !confirm("Replace current cart with saved cart?")) return;
+    fullReset();
+
+    // Set customer info
+    setCustomerName(quote.customer_name || "Walk-in");
+    setCustomerPhone(quote.customer_phone || "");
+    setDelName(quote.customer_name || "");
+    setDelPhone(quote.customer_phone || "");
+    setDelEmail(quote.customer_email || "");
+
+    // Set delivery info
+    if (quote.delivery_address) {
+      setDeliveryMethod("delivery");
+      setDelAddress(quote.delivery_address);
+      setDeliveryAddress(quote.delivery_address);
+      setDeliveryFeeCents(quote.delivery_fee_cents || 0);
+      if (quote.delivery_date) setDelDate(quote.delivery_date);
+      if (quote.delivery_time_window) setDelTimeWindow(quote.delivery_time_window);
+      if (quote.delivery_notes) setDelNotes(quote.delivery_notes);
+      if (quote.access_constraints) setAccessConstraints(quote.access_constraints);
+      if (quote.route_info) setRouteInfo(quote.route_info);
+    }
+
+    // Customer ID linking
+    if (quote.customer_id) {
+      setDelCustomerId(quote.customer_id);
+      setDelCustomerStatus("found");
+    }
+
+    // Rebuild cart items from line_items
+    const lineItems = quote.line_items || [];
+    const newItems: typeof items = [];
+    for (const li of lineItems) {
+      if (li.unit === "trip") continue; // skip delivery line
+      // Try to find the product in loaded catalog
+      const found = products.find((p) => p.name === li.description || p.slug === li.product_slug);
+      const fallbackProduct: PosProduct = {
+        id: `recalled-${Math.random().toString(36).slice(2)}`,
+        name: li.description || "Item",
+        slug: li.product_slug || "",
+        price_per_unit_cents: li.unit_price_cents || 0,
+        unit_label: li.unit || "ea",
+        delivery_type: li.delivery_type || (li.unit === "cu. yard" ? "bulk" : "non-bulk"),
+        category_slug: "",
+        category_name: "",
+        min_qty: 1,
+        qty_step: 1,
+        image_url: null,
+      };
+      newItems.push({
+        id: found?.id || fallbackProduct.id,
+        product: found || fallbackProduct,
+        quantity: li.quantity || 1,
+        price_cents: li.unit_price_cents || 0,
+      });
+    }
+    setItems(newItems);
+    setRecalledQuoteId(quote.id);
+    setMiddleTab("delivery");
+  }
+
+  async function deleteSavedCart(quoteId: string) {
+    if (!confirm("Delete this saved cart?")) return;
+    await fetch(`/api/pos/saved-carts?id=${quoteId}`, { method: "DELETE" });
+    fetchSavedCarts();
   }
 
   async function completeSale(method: "card" | "cash" | "cod" | "account") {
@@ -1144,13 +1307,7 @@ export default function PosRegisterPage() {
           onClose={() => setShowSaveQuote(null)}
           onSuccess={(result) => {
             setShowSaveQuote(null);
-            clearSale();
-            setDeliveryFeeCents(0);
-            setRouteInfo(null);
-            setDelAddress(""); setDelName(""); setDelPhone(""); setDelEmail("");
-            setDelDate(""); setDelNotes(""); setDelCustomerId(null); setDelCustomerStatus("");
-            setAccessConstraints({});
-            setCustomerName("Walk-in"); setCustomerPhone(""); setSelectedCustomer(null);
+            setPostQuoteResult({ mode: result.mode, quoteNumber: result.quoteNumber });
           }}
         />
       )}
@@ -1159,15 +1316,9 @@ export default function PosRegisterPage() {
       <QuoteBuilder
         open={showQuoteBuilder}
         onClose={() => setShowQuoteBuilder(false)}
-        onSuccess={() => {
+        onSuccess={(result) => {
           setShowQuoteBuilder(false);
-          clearSale();
-          setDeliveryFeeCents(0);
-          setRouteInfo(null);
-          setDelAddress(""); setDelName(""); setDelPhone(""); setDelEmail("");
-          setDelDate(""); setDelNotes(""); setDelCustomerId(null); setDelCustomerStatus("");
-          setAccessConstraints({});
-          setCustomerName("Walk-in"); setCustomerPhone(""); setSelectedCustomer(null);
+          setPostQuoteResult({ mode: result?.mode ?? "sent", quoteNumber: result?.quoteNumber ?? "" });
         }}
         products={products}
         items={items}
@@ -1686,6 +1837,16 @@ export default function PosRegisterPage() {
           {/* Transactions Tab */}
           {middleTab === "transactions" && (
             <div className="space-y-3">
+              {/* Type filter: Orders / Saved / Quotes */}
+              <div className="flex gap-1">
+                {(["orders", "saved", "quotes"] as const).map((t) => (
+                  <button key={t} onClick={() => { setTxnType(t); if (t !== "orders") fetchSavedCarts(); }} className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${txnType === t ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+                    {t === "orders" ? "Orders" : t === "saved" ? "Saved Carts" : "Quotes"}
+                  </button>
+                ))}
+              </div>
+
+              {txnType === "orders" && (<>
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -1817,6 +1978,49 @@ export default function PosRegisterPage() {
                       </button>
                     )}
                   </div>
+                </div>
+              )}
+              </>)}
+
+              {/* Saved Carts & Quotes list */}
+              {(txnType === "saved" || txnType === "quotes") && (
+                <div className="space-y-1 max-h-[calc(100vh-180px)] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+                  {savedCarts.length === 0 ? (
+                    <p className="text-xs text-zinc-500 text-center py-8">
+                      {txnType === "saved" ? "No saved carts" : "No quotes sent"}
+                    </p>
+                  ) : savedCarts.map((q: any) => (
+                    <div key={q.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate">{q.customer_name || "Walk-in"}</p>
+                          <p className="text-xs text-zinc-500 truncate mt-0.5">{q.title || q.quote_number}</p>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="text-sm font-bold text-amber-400">{formatUsd(q.total_cents || 0)}</p>
+                          <span className={`inline-block mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            q.status === "saved" ? "bg-amber-500/20 text-amber-400" :
+                            q.status === "draft" ? "bg-zinc-700 text-zinc-400" :
+                            q.status === "sent" ? "bg-blue-500/20 text-blue-400" :
+                            q.status === "viewed" ? "bg-purple-500/20 text-purple-400" :
+                            "bg-zinc-700 text-zinc-400"
+                          }`}>{q.status}</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-1">
+                        {q.created_at ? formatShortDateTime(q.created_at) : ""}
+                        {q.line_items?.length > 0 && ` · ${q.line_items.filter((li: any) => li.unit !== "trip").length} items`}
+                      </p>
+                      <div className="flex gap-1.5 mt-2">
+                        <button onClick={() => recallCart(q)} className="flex-1 h-8 rounded-lg bg-amber-600 text-xs font-semibold text-white hover:bg-amber-500">
+                          Recall to Cart
+                        </button>
+                        <button onClick={() => deleteSavedCart(q.id)} className="h-8 w-8 rounded-lg border border-zinc-700 text-zinc-500 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -2046,14 +2250,20 @@ export default function PosRegisterPage() {
             )}
           </div>
 
-          {/* Primary row: QUOTE + CHECKOUT */}
-          <div className="grid grid-cols-[1fr_2fr] gap-2">
+          {/* Primary row: QUOTE + SAVE + CHECKOUT */}
+          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
             <button
               onClick={() => setShowQuoteBuilder(true)}
-              disabled={false}
-              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-900/40 disabled:opacity-30"
+              className="rounded-lg border border-amber-600/50 bg-amber-900/20 py-3 text-xs font-semibold text-amber-400 hover:bg-amber-900/40"
             >
               QUOTE
+            </button>
+            <button
+              onClick={() => { setSaveCartLabel(""); setShowSaveCartDialog(true); }}
+              disabled={items.length === 0}
+              className="rounded-lg border border-zinc-600/50 bg-zinc-800 py-3 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 disabled:opacity-30"
+            >
+              SAVE
             </button>
             <button
               onClick={() => setShowCheckout(true)}
@@ -2072,6 +2282,66 @@ export default function PosRegisterPage() {
       </div>
 
       {/* ── OVERLAYS ── */}
+
+      {/* Post-quote/save dialog */}
+      {postQuoteResult && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">
+              {postQuoteResult.mode === "sent" ? "Quote Sent" : postQuoteResult.mode === "saved" ? "Cart Saved" : "Quote Held"} ✓
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">{postQuoteResult.quoteNumber}</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                onClick={() => setPostQuoteResult(null)}
+                className="h-11 rounded-lg bg-zinc-800 text-sm font-medium text-white hover:bg-zinc-700"
+              >
+                Keep Cart — continue working
+              </button>
+              <button
+                onClick={() => { fullReset(); setPostQuoteResult(null); }}
+                className="h-11 rounded-lg bg-amber-600 text-sm font-medium text-white hover:bg-amber-500"
+              >
+                Clear Cart — next customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Cart label dialog */}
+      {showSaveCartDialog && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">Save Cart</h3>
+            <p className="mt-1 text-xs text-zinc-500">Optional label (auto-generated if blank)</p>
+            <input
+              type="text"
+              value={saveCartLabel}
+              onChange={(e) => setSaveCartLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveCart(); }}
+              placeholder={`${delName || customerName || "Walk-in"} — ${items[0]?.product.name || "items"}...`}
+              className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              autoFocus
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setShowSaveCartDialog(false)}
+                className="flex-1 h-10 rounded-lg bg-zinc-800 text-sm text-zinc-400 hover:bg-zinc-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCart}
+                disabled={saveCartLoading}
+                className="flex-1 h-10 rounded-lg bg-amber-600 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {saveCartLoading ? "Saving..." : "Save Cart"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout overlay */}
       {showCheckout && (
