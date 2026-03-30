@@ -750,7 +750,8 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
 }) {
   const isService = (quote.deposit_required_cents ?? 0) > 0;
   // Separate delivery line items from material items first so we can derive fee from line items
-  const deliveryItem = quote.line_items.find((i: any) => i.unit === "trip" || i.description?.toLowerCase().startsWith("delivery"));
+  // Only match actual delivery FEE line items (unit="trip"), NOT labor like "Delivery & Installation"
+  const deliveryItem = quote.line_items.find((i: any) => i.unit === "trip");
   const materialItems = quote.line_items.filter((i: any) => i !== deliveryItem);
   const deliveryFeeCents = quote.delivery_fee_cents ?? deliveryItem?.total_cents ?? 0;
   // Recalculate totals from components so the breakdown always adds up

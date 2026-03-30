@@ -137,8 +137,10 @@ export default function QuoteDetailPage() {
 
   function recalcTotals(items: LineItem[]) {
     const subtotal = items.reduce((s, i) => s + i.total_cents, 0);
-    const tax = Math.round(subtotal * TAX_RATE);
-    return { subtotal, tax, total: subtotal + tax };
+    const delFee = deliveryMethod === "delivery" ? strToCents(deliveryFeeCents) : 0;
+    // NY: tax applies to materials + delivery
+    const tax = Math.round((subtotal + delFee) * TAX_RATE);
+    return { subtotal, tax, total: subtotal + delFee + tax };
   }
 
   function updateItem(idx: number, field: keyof LineItem, value: unknown) {
@@ -510,8 +512,8 @@ export default function QuoteDetailPage() {
             </div>
 
             {lineItems.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-5 space-y-1">
+              <div key={idx} className="grid gap-2 items-start" style={{ gridTemplateColumns: "1fr 70px 90px 110px 110px 36px" }}>
+                <div className="space-y-1">
                   {idx === 0 && <label className="text-xs text-muted-foreground">Description</label>}
                   <Input
                     value={item.description}
@@ -520,7 +522,7 @@ export default function QuoteDetailPage() {
                     placeholder="Item description"
                   />
                 </div>
-                <div className="col-span-2 space-y-1">
+                <div className="space-y-1">
                   {idx === 0 && <label className="text-xs text-muted-foreground">Qty</label>}
                   <Input
                     type="number"
@@ -529,7 +531,7 @@ export default function QuoteDetailPage() {
                     disabled={isReadOnly}
                   />
                 </div>
-                <div className="col-span-1 space-y-1">
+                <div className="space-y-1">
                   {idx === 0 && <label className="text-xs text-muted-foreground">Unit</label>}
                   <Input
                     value={item.unit}
@@ -537,7 +539,7 @@ export default function QuoteDetailPage() {
                     disabled={isReadOnly}
                   />
                 </div>
-                <div className="col-span-2 space-y-1">
+                <div className="space-y-1">
                   {idx === 0 && <label className="text-xs text-muted-foreground">Unit Price</label>}
                   <div className="relative">
                     <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
@@ -549,24 +551,25 @@ export default function QuoteDetailPage() {
                     />
                   </div>
                 </div>
-                <div className="col-span-2 space-y-1">
+                <div className="space-y-1">
                   {idx === 0 && <label className="text-xs text-muted-foreground">Total</label>}
-                  <div className="flex items-center gap-1">
-                    <div className="relative flex-1">
-                      <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
-                      <Input
-                        className="pl-5"
-                        value={centsToStr(item.total_cents)}
-                        onChange={(e) => updateItem(idx, "total_cents", strToCents(e.target.value))}
-                        disabled={isReadOnly}
-                      />
-                    </div>
-                    {!isReadOnly && (
-                      <Button variant="ghost" size="icon" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeItem(idx)}>
-                        <X className="size-4" />
-                      </Button>
-                    )}
+                  <div className="relative">
+                    <DollarSign className="absolute left-2 top-2.5 size-3 text-muted-foreground" />
+                    <Input
+                      className="pl-5"
+                      value={centsToStr(item.total_cents)}
+                      onChange={(e) => updateItem(idx, "total_cents", strToCents(e.target.value))}
+                      disabled={isReadOnly}
+                    />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  {idx === 0 && <label className="text-xs text-muted-foreground">&nbsp;</label>}
+                  {!isReadOnly && (
+                    <Button variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive" onClick={() => removeItem(idx)}>
+                      <X className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -656,6 +659,12 @@ export default function QuoteDetailPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatUsd(subtotal)}</span>
               </div>
+              {deliveryMethod === "delivery" && strToCents(deliveryFeeCents) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Delivery</span>
+                  <span>{formatUsd(strToCents(deliveryFeeCents))}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax (8.75%)</span>
                 <span>{formatUsd(tax)}</span>
