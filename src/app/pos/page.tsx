@@ -9,6 +9,7 @@ import {
   CreditCard,
   Edit3,
   MapPin,
+  MessageSquare,
   Minus,
   Package,
   Plus,
@@ -40,6 +41,7 @@ import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
 import { QuoteBuilder } from "@/components/pos/quote-builder";
 import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
 import { PhoneTab } from "@/components/pos/phone-tab";
+import { MessagesTab } from "@/components/pos/messages-tab";
 import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
@@ -72,7 +74,7 @@ type LineItem = {
 
 type PosCategory = { slug: string; name: string; count: number };
 
-type MiddleTab = "delivery" | "customer" | "transactions" | "phone";
+type MiddleTab = "delivery" | "customer" | "transactions" | "phone" | "messages";
 
 type RouteInfo = {
   roundTripMiles: number;
@@ -1441,6 +1443,7 @@ export default function PosRegisterPage() {
             { key: "customer" as MiddleTab, label: "Customer", icon: Users },
             { key: "transactions" as MiddleTab, label: "Transactions", icon: ClipboardList },
             { key: "phone" as MiddleTab, label: "Phone", icon: PhoneIcon },
+            { key: "messages" as MiddleTab, label: "Messages", icon: MessageSquare },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1839,6 +1842,10 @@ export default function PosRegisterPage() {
           {/* Phone Tab */}
           {middleTab === "phone" && (
             <PhoneTab />
+          )}
+          {/* Messages Tab */}
+          {middleTab === "messages" && (
+            <MessagesTab />
           )}
           {/* Transactions Tab */}
           {middleTab === "transactions" && (

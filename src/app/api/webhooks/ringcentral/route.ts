@@ -277,6 +277,30 @@ async function handleIncomingSms(supabase: any, msgBody: any) {
     session_id: `sms-${messageId}`,
   });
 
+  // Also store in sms_messages for the messaging suite
+  const customerName = customer
+    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ")
+    : null;
+  await supabase
+    .from("sms_messages")
+    .upsert(
+      {
+        rc_message_id: messageId?.toString(),
+        rc_conversation_id: msgBody.conversationId?.toString() ?? null,
+        direction: "inbound",
+        from_number: from,
+        to_number: to || "+16318746244",
+        body: text,
+        status: "received",
+        customer_id: customer?.id ?? null,
+        customer_name: customerName,
+        business_number: to || "+16318746244",
+      },
+      { onConflict: "rc_message_id", ignoreDuplicates: true }
+    )
+    .then(() => {})
+    .catch(() => {});
+
   // Check if it's a keyword command
   const upper = text.trim().toUpperCase();
   const isKeyword = ["STOP", "HELP", "START", "YES", "NO"].includes(upper);
