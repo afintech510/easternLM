@@ -194,6 +194,7 @@ export default function PosRegisterPage() {
   const [saveCartLabel, setSaveCartLabel] = useState("");
   const [saveCartLoading, setSaveCartLoading] = useState(false);
   const [recalledQuoteId, setRecalledQuoteId] = useState<string | null>(null);
+  const [pendingCardPaymentIntentId, setPendingCardPaymentIntentId] = useState<string | null>(null);
   const [accessConstraints, setAccessConstraints] = useState<Record<string, boolean>>({});
   const [terminalStatus, setTerminalStatus] = useState<"disconnected" | "simulated" | "connected">("disconnected");
   const [isOnline, setIsOnline] = useState(true);
@@ -1078,21 +1079,47 @@ export default function PosRegisterPage() {
       const { orderId } = await orderRes.json();
 
       if (method === "card") {
-        // Process card payment via Stripe Terminal
-        setCardPaymentStatus("Waiting for card...");
-        const totalForCard = cardTotalCents;
-        const result = await terminalRef.current.collectPayment({
-          amountCents: totalForCard,
-          orderId,
-        });
-
-        if (result.success) {
+        // Card payment was already collected by CheckoutOverlay via onProcessCard.
+        // The PaymentIntent ID is passed in via pendingCardPaymentIntentId.
+        // Do NOT call collectPayment again — that would create a second charge.
+        if (pendingCardPaymentIntentId) {
+          // Payment already succeeded — update order with PI ID and proceed
+          await fetch("/api/pos/checkout", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId,
+              payments: [{ method: "card_terminal", amountCents: cardTotalCents, stripe_payment_intent_id: pendingCardPaymentIntentId }],
+            }),
+          }).catch(() => {});
           setCardPaymentStatus("Payment approved!");
           await afterSale(method, orderPayload);
+          setPendingCardPaymentIntentId(null);
           setTimeout(resetRegister, 1500);
         } else {
-          setCardPaymentStatus("Payment failed: " + (result.error || "Unknown"));
-          setTimeout(() => setCardPaymentStatus(null), 3000);
+          // Fallback: direct card payment (shouldn't happen in normal flow)
+          setCardPaymentStatus("Waiting for card...");
+          const result = await terminalRef.current.collectPayment({
+            amountCents: cardTotalCents,
+            orderId,
+          });
+          if (result.success) {
+            // Store PI ID on the order for refunds
+            await fetch("/api/pos/checkout", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId,
+                payments: [{ method: "card_terminal", amountCents: cardTotalCents, stripe_payment_intent_id: result.paymentIntentId }],
+              }),
+            }).catch(() => {});
+            setCardPaymentStatus("Payment approved!");
+            await afterSale(method, orderPayload);
+            setTimeout(resetRegister, 1500);
+          } else {
+            setCardPaymentStatus("Payment failed: " + (result.error || "Unknown"));
+            setTimeout(() => setCardPaymentStatus(null), 3000);
+          }
         }
       } else if (method === "cod") {
         await afterSale("cod", orderPayload);
@@ -2375,6 +2402,7 @@ export default function PosRegisterPage() {
               } else if (first.method === "cod") {
                 await completeSale("cod");
               } else if (first.method === "card_terminal") {
+                setPendingCardPaymentIntentId(first.stripePaymentIntentId ?? null);
                 await completeSale("card");
               } else if (first.method === "account") {
                 setShowAccountConfirm(true);

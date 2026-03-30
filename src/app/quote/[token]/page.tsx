@@ -750,11 +750,17 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
 }) {
   const isService = (quote.deposit_required_cents ?? 0) > 0;
   // Separate delivery line items from material items first so we can derive fee from line items
-  const deliveryItem = quote.line_items.find(i => i.unit === "trip" || i.description.toLowerCase().startsWith("delivery"));
-  const materialItems = quote.line_items.filter(i => i !== deliveryItem);
+  const deliveryItem = quote.line_items.find((i: any) => i.unit === "trip" || i.description?.toLowerCase().startsWith("delivery"));
+  const materialItems = quote.line_items.filter((i: any) => i !== deliveryItem);
   const deliveryFeeCents = quote.delivery_fee_cents ?? deliveryItem?.total_cents ?? 0;
-  const ccSurchargeCents = quote.cc_surcharge_cents ?? Math.round(quote.total_cents * 0.03);
-  const cardTotal = quote.total_cents + ccSurchargeCents;
+  // Recalculate totals from components so the breakdown always adds up
+  const materialSubtotal = materialItems.reduce((s: number, i: any) => s + (i.total_cents ?? 0), 0);
+  const taxableAmount = materialSubtotal + deliveryFeeCents;
+  const recalcTax = Math.round(taxableAmount * 0.0875);
+  const displayTax = quote.tax_cents ?? recalcTax;
+  const cashTotal = materialSubtotal + deliveryFeeCents + displayTax;
+  const ccSurchargeCents = quote.cc_surcharge_cents ?? Math.round(cashTotal * 0.03);
+  const cardTotal = cashTotal + ccSurchargeCents;
   const laborItems = materialItems.filter(i => {
     const d = i.description.toLowerCase();
     return d.includes("labor") || d.includes("install") || d.includes("service") ||
@@ -973,7 +979,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
             )}
             <div className="flex justify-between">
               <span className="text-zinc-500">Tax (8.75%)</span>
-              <span className="text-zinc-800">{fmt(quote.tax_cents)}</span>
+              <span className="text-zinc-800">{fmt(displayTax)}</span>
             </div>
 
             <div className="border-t border-zinc-200 pt-2 mt-1 space-y-1.5">
@@ -981,7 +987,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                 <>
                   <div className="flex justify-between font-bold text-base">
                     <span className="text-zinc-900">Project Total</span>
-                    <span className="text-zinc-900">{fmt(quote.total_cents)}</span>
+                    <span className="text-zinc-900">{fmt(cashTotal)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-accent">
                     <span>Deposit Required</span>
@@ -989,14 +995,14 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                   </div>
                   <div className="flex justify-between text-zinc-400 text-xs">
                     <span>Balance due on completion</span>
-                    <span>{fmt(quote.total_cents - quote.deposit_required_cents)}</span>
+                    <span>{fmt(cashTotal - quote.deposit_required_cents)}</span>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex justify-between font-bold text-base">
                     <span className="text-zinc-900">Cash / COD</span>
-                    <span className="text-amber-700">{fmt(quote.total_cents)}</span>
+                    <span className="text-amber-700">{fmt(cashTotal)}</span>
                   </div>
                   <div className="flex justify-between text-zinc-400 text-xs">
                     <span>Card (incl. 3% fee)</span>
