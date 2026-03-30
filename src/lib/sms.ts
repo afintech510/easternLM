@@ -8,14 +8,19 @@ import {
   getRingCentralServerUrl,
 } from "@/lib/ringcentral/auth";
 
-const RC_DEFAULT_FROM = "+16318746244"; // main business line (ext 102)
+// The JWT authenticates as Ext 101 (Adam Larkin, id 63383649004).
+// SMS can only be sent from numbers with SmsSender feature on the JWT owner's extension.
+// Per RC API: +16313951661 has SmsSender on Ext 101, +16313668524 has SmsSender on Ext 101.
+// +16318746244 (main) has SmsSender on Ext 102 only — NOT on Ext 101 (JWT owner).
+// So we must send from a number with SmsSender on the JWT owner's extension.
+const RC_DEFAULT_FROM = "+16313951661"; // Adam's direct line — has SmsSender on JWT owner ext
 
 // Map from-numbers to their RingCentral extension IDs
 const RC_EXTENSION_MAP: Record<string, string> = {
-  "+16318746244": "63390330004", // POS Desk (ext 102)
-  "+13153625323": "63383649004", // Adam Larkin (ext 101 — JWT owner)
-  "+16313951661": "63390331004", // Megan B (ext 103)
-  "+16313668524": "63390330004", // shared on POS Desk (ext 102)
+  "+16313951661": "63383649004", // Adam Larkin (ext 101 — JWT owner, has SmsSender)
+  "+16313668524": "63383649004", // Also has SmsSender on ext 101
+  "+16318746244": "63390330004", // Main line — SmsSender on ext 102 only (cross-ext, may 403)
+  "+13153625323": "63390330004", // POS Desk direct — NO SmsSender feature
 };
 
 // ─── Public API ──────────────────────────────────────────────────
@@ -64,8 +69,9 @@ async function sendViaRingCentral(
     });
 
     // If cross-extension permission denied, fall back to JWT owner's extension
+    // with a number that has SmsSender on ext 101
     if (res.status === 403 && extensionId !== "~") {
-      console.warn(`[SMS:RC] Permission denied for ext ${extensionId}, falling back to default extension`);
+      console.warn(`[SMS:RC] Permission denied for ext ${extensionId}, falling back to JWT owner extension`);
       res = await fetch(`${server}/restapi/v1.0/account/~/extension/~/sms`, {
         method: "POST",
         headers: {
@@ -73,7 +79,7 @@ async function sendViaRingCentral(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: { phoneNumber: "+13153625323" }, // JWT owner's SMS number
+          from: { phoneNumber: "+16313951661" }, // Adam's line — SmsSender on JWT owner ext
           to: [{ phoneNumber: to }],
           text: body,
         }),
