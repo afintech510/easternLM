@@ -197,8 +197,9 @@ body { font-family: monospace; max-width: 380px; margin: 0 auto; padding: 20px; 
 .cod-banner {
   text-align: center; font-weight: bold; font-size: 26px;
   border: 3px solid #000; padding: 14px 4px; margin: 10px 0;
-  background: #000; color: #fff; letter-spacing: 2px;
+  background: #000 !important; color: #fff !important; letter-spacing: 2px;
   width: 100%; box-sizing: border-box;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
 }
 .cod-amount { font-size: 22px; }
 .paid-banner { text-align: center; font-weight: bold; font-size: 18px; margin: 8px 0; }
@@ -374,10 +375,10 @@ export function buildReceiptHtml(order: PrintableOrder): string {
     <div class="line"></div>
     <div class="center mt">Thank you for your business!<br/>easternlm.com</div>
     <div class="line"></div>
-    <div style="font-size:11px;color:#222;line-height:1.4;margin-top:8px;">
+    <div style="font-size:12px;color:#000;line-height:1.4;margin-top:8px;">
     <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
     <p style="margin-top:6px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
-    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.</p>
+    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
     </div>
     </body></html>`;
 }
@@ -441,10 +442,10 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     <div class="solid-line"></div>
     ${qrPlaceholder}
-    <div style="font-size:11px;color:#222;line-height:1.4;margin-top:8px;">
+    <div style="font-size:12px;color:#000;line-height:1.4;margin-top:8px;">
     <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
     <p style="margin-top:6px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
-    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.</p>
+    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
     </div>
     </body></html>`;
 }
