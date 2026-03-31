@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { OrderSummary } from "@/components/bulk-app/order-summary";
+import { DeliveryForm } from "@/components/bulk-app/delivery-form";
 import { PaymentSelector } from "@/components/bulk-app/payment-selector";
 import { useBulkOrderStore } from "@/stores/bulk-order-store";
 import { calcTotalCents } from "@/lib/bulk-pricing";
@@ -72,6 +73,9 @@ export default function BulkOrderPage() {
 
       <div className="space-y-6 px-5 py-5">
         <OrderSummary />
+
+        {/* Delivery form */}
+        <DeliveryForm />
 
         {/* Payment selector */}
         {items.length > 0 && (
