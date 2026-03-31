@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   MessageSquare,
   Phone,
+  RefreshCw,
   Search,
   Send,
   X,
@@ -374,8 +375,16 @@ export function MessagesTab() {
   const [numberFilter, setNumberFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessage, setShowNewMessage] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const unreadCount = conversations.filter((c) => c.unread).length;
+
+  async function handleSync() {
+    setSyncing(true);
+    await fetch("/api/cron/sync-sms").catch(() => {});
+    await fetchConversations();
+    setSyncing(false);
+  }
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -415,8 +424,8 @@ export function MessagesTab() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Number filter */}
-      <div className="flex gap-1 border-b border-zinc-800 px-2.5 py-2">
+      {/* Number filter + sync */}
+      <div className="flex items-center gap-1 border-b border-zinc-800 px-2.5 py-2">
         {[
           { key: "all", label: "All" },
           { key: "+16318746244", label: "874-6244" },
@@ -432,6 +441,14 @@ export function MessagesTab() {
             {label}
           </button>
         ))}
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="ml-auto flex size-7 items-center justify-center rounded-lg bg-zinc-800 text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
+          title="Sync messages from RingCentral"
+        >
+          <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
+        </button>
       </div>
 
       {/* Search */}
