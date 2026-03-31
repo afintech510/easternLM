@@ -49,7 +49,13 @@ jobs:
             source /opt/easternlm-web/.env.local
             set +a
 
-            echo "=== Building Docker image ==="
+            # Staging MUST use Stripe TEST keys (live keys are the .env.local default)
+            if [ -n "\${STRIPE_SECRET_KEY_TEST:-}" ]; then
+              export STRIPE_SECRET_KEY="\${STRIPE_SECRET_KEY_TEST}"
+              export NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="\${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST}"
+            fi
+
+            echo "=== Building Docker image (staging — test Stripe) ==="
             docker build \
               --build-arg NEXT_PUBLIC_SUPABASE_URL="\${NEXT_PUBLIC_SUPABASE_URL}" \
               --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
@@ -71,6 +77,7 @@ jobs:
               --env-file /opt/easternlm-web/.env.local \
               -e NODE_ENV=production \
               -e NEXT_PUBLIC_SITE_URL=https://staging.easternlm.com \
+              -e STRIPE_SECRET_KEY="\${STRIPE_SECRET_KEY}" \
               ${{ env.DOCKER_IMAGE }}:latest
 
             echo "=== Health check ==="
