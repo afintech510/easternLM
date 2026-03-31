@@ -13,7 +13,10 @@ import { PremiumToggle } from "./premium-toggle";
 import { CrushedUpgrade } from "./crushed-upgrade";
 import { SandQuickSelect } from "./sand-quick-select";
 import { calcPriceCents, calcTotalCents, calcSavingsCents, calcNextBreakpoint } from "@/lib/bulk-pricing";
+import { calcCoverageSqFt } from "@/lib/bulk-coverage";
 import { formatUsd } from "@/lib/format";
+import { useBulkOrderStore } from "@/stores/bulk-order-store";
+import { OrderBar } from "./order-bar";
 
 // Product type from DB query (matches Supabase row shape)
 interface DBProduct {
@@ -279,19 +282,36 @@ export function BulkCatalogView({ products }: { products: DBProduct[] }) {
               </div>
             )}
 
-            {/* Add to Order button — placeholder for Phase 03 */}
+            {/* Add to Order button */}
             <button
               onClick={() => {
-                alert(`Added ${sheetState.qty} cu yds of ${openProduct.name} to order — Phase 03 will wire this up`);
+                const store = useBulkOrderStore.getState();
+                store.addItem({
+                  slug: openProduct.slug,
+                  name: openProduct.name,
+                  qty: sheetState.qty,
+                  priceCents: sheetPricing.unitPrice,
+                  options: {
+                    size: sheetState.selectedSize ?? undefined,
+                    premium: sheetState.premiumEnabled,
+                    crushed: sheetState.crushedEnabled,
+                    application: sheetState.sandApp ?? undefined,
+                    depth: sheetState.depth,
+                  },
+                });
                 setOpenSlug(null);
               }}
               className="w-full rounded-xl bg-gradient-to-r from-bulk-primary to-bulk-medium py-4 text-center font-semibold text-white shadow-lg transition-transform active:scale-[0.98]"
             >
-              ★ ADD TO ORDER — {sheetState.qty} cu yds for {formatUsd(sheetPricing.total)}
+              {useBulkOrderStore.getState().items.find((i) => i.slug === openProduct.slug)
+                ? `UPDATE ORDER — ${sheetState.qty} cu yds for ${formatUsd(sheetPricing.total)}`
+                : `★ ADD TO ORDER — ${sheetState.qty} cu yds for ${formatUsd(sheetPricing.total)}`}
             </button>
           </div>
         </ProductSheet>
       )}
+      {/* Floating order bar */}
+      <OrderBar />
     </div>
   );
 }
