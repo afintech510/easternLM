@@ -13,7 +13,7 @@ export const defaultDeliveryPricingConfig: DeliveryPricingConfig = {
   localRadiusMiles: 5,
   maxServiceRadiusMiles: 50,
   taxRate: 0.0875,
-  ccSurchargeRate: 0.03,
+  ccSurchargeRate: 0,
   proDiscountRate: 0.05,
   proDiscountPickupOnly: true,
 };
