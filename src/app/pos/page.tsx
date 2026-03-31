@@ -15,6 +15,9 @@ import {
   Plus,
   Search,
   Printer,
+  ExternalLink,
+  Copy,
+  Link2,
   Trash2,
   Truck,
   UserPlus,
@@ -2024,14 +2027,40 @@ export default function PosRegisterPage() {
                         {q.created_at ? formatShortDateTime(q.created_at) : ""}
                         {q.line_items?.length > 0 && ` · ${q.line_items.filter((li: any) => li.unit !== "trip").length} items`}
                       </p>
-                      <div className="flex gap-1.5 mt-2">
-                        <button onClick={() => recallCart(q)} className="flex-1 h-8 rounded-lg bg-amber-600 text-xs font-semibold text-white hover:bg-amber-500">
-                          Recall to Cart
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <button onClick={() => recallCart(q)} className="h-8 px-3 rounded-lg bg-amber-600 text-xs font-semibold text-white hover:bg-amber-500 flex items-center gap-1">
+                          Recall
                         </button>
+                        {q.public_token && (
+                          <a
+                            href={q.short_code ? `/q/${q.short_code}` : `/quote/${q.public_token}`}
+                            target="_blank"
+                            rel="noopener"
+                            className="h-8 px-2.5 rounded-lg bg-zinc-800 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" /> View
+                          </a>
+                        )}
+                        {q.public_token && (
+                          <button
+                            onClick={() => {
+                              const url = q.short_code
+                                ? `${window.location.origin}/q/${q.short_code}`
+                                : `${window.location.origin}/quote/${q.public_token}`;
+                              navigator.clipboard.writeText(url);
+                            }}
+                            className="h-8 px-2.5 rounded-lg bg-zinc-800 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-1"
+                          >
+                            <Copy className="w-3 h-3" /> Link
+                          </button>
+                        )}
                         <button onClick={() => deleteSavedCart(q.id)} className="h-8 w-8 rounded-lg border border-zinc-700 text-zinc-500 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                      {q.viewed_at && (
+                        <p className="text-[10px] text-zinc-600 mt-1">Viewed {formatShortDateTime(q.viewed_at)}</p>
+                      )}
                     </div>
                   ))}
                 </div>

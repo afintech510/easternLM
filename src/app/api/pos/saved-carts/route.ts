@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("quotes")
     .select(
-      "id, quote_number, short_code, customer_id, customer_name, customer_phone, customer_email, customer_address, delivery_address, delivery_fee_cents, delivery_date, delivery_time_window, delivery_notes, access_constraints, route_info, title, line_items, subtotal_cents, tax_cents, total_cents, status, sent_at, created_at"
+      "id, quote_number, short_code, public_token, customer_id, customer_name, customer_phone, customer_email, customer_address, delivery_address, delivery_fee_cents, delivery_date, delivery_time_window, delivery_notes, access_constraints, route_info, title, line_items, subtotal_cents, tax_cents, total_cents, status, sent_at, viewed_at, created_at"
     )
     .in("status", statuses)
     .order("created_at", { ascending: false })
