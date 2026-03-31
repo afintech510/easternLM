@@ -25,6 +25,7 @@ type Product = {
   material_class: string; price_per_unit_cents: number; web_price_per_unit_cents?: number | null;
   unit: string; unit_display: string; is_active: boolean; visible_web: boolean; visible_pos: boolean;
   sort_order: number; min_qty: number; max_qty: number; step_qty: number;
+  pallet_qty: number | null; pallet_price_cents: number | null;
   description: string; images: string[]; recommended_uses: string[]; pairs_well_with: string[];
   is_taxable: boolean; categories: { name: string; slug: string } | null;
 };
