@@ -18,6 +18,8 @@ export const productSchema = z.object({
   images: z.array(z.string()),
   recommended_uses: z.array(z.string()),
   pairs_well_with: z.array(z.string()),
+  pallet_qty: z.number().int().positive().nullable().optional(),
+  pallet_price_cents: z.number().int().nonnegative().nullable().optional(),
   is_taxable: z.boolean(),
   is_active: z.boolean(),
   visible_web: z.boolean(),

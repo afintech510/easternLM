@@ -37,6 +37,8 @@ type ProductData = {
   images: string[];
   recommended_uses: string[];
   pairs_well_with: string[];
+  pallet_qty: number | null;
+  pallet_price_cents: number | null;
   is_taxable: boolean;
   is_active: boolean;
   visible_web: boolean;
@@ -85,6 +87,8 @@ export function ProductForm({
           min_qty: product.min_qty,
           max_qty: product.max_qty,
           step_qty: product.step_qty,
+          pallet_qty: product.pallet_qty ?? null,
+          pallet_price_cents: product.pallet_price_cents ?? null,
           description: product.description,
           images: product.images,
           recommended_uses: product.recommended_uses,
@@ -107,6 +111,8 @@ export function ProductForm({
           min_qty: 1,
           max_qty: 100,
           step_qty: 0.5,
+          pallet_qty: null,
+          pallet_price_cents: null,
           description: "",
           images: [],
           recommended_uses: [],
@@ -253,6 +259,19 @@ export function ProductForm({
         <div className="space-y-2">
           <Label htmlFor="stepQty">Step Qty</Label>
           <Input id="stepQty" type="number" step="0.5" {...register("step_qty", { valueAsNumber: true })} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="palletQty">Pallet Qty (units per pallet)</Label>
+          <Input id="palletQty" type="number" step="1" placeholder="e.g. 40, 108" {...register("pallet_qty", { setValueAs: (v: string) => v === "" ? null : Number(v) })} />
+          <p className="text-xs text-muted-foreground">Leave blank if product is not sold by the pallet</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="palletPrice">Pallet Price (cents per unit)</Label>
+          <Input id="palletPrice" type="number" step="1" placeholder="e.g. 850 = $8.50/unit" {...register("pallet_price_cents", { setValueAs: (v: string) => v === "" ? null : Number(v) })} />
+          <p className="text-xs text-muted-foreground">Discounted per-unit price when buying a full pallet</p>
         </div>
       </div>
 
