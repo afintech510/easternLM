@@ -23,6 +23,8 @@ type PosProduct = {
   delivery_type: string;
   min_qty: number;
   qty_step: number;
+  pallet_qty: number | null;
+  pallet_price_cents: number | null;
   image_url?: string | null | undefined;
 };
 
@@ -439,6 +441,11 @@ function ProductTile({
             {priceStr} <span className={`text-[10px] font-normal ${muted}`}>{unitShort}</span>
           </span>
         </div>
+        {product.pallet_qty && (
+          <p className="mt-0.5 text-[10px] text-green-400">
+            Pallet ({product.pallet_qty}): {product.pallet_price_cents ? formatUsd(product.pallet_price_cents) + "/ea" : "ask for price"}
+          </p>
+        )}
       </div>
 
       {/* Qty controls */}
