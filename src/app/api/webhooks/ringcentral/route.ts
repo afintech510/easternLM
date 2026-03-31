@@ -321,15 +321,7 @@ async function handleIncomingSms(supabase: any, msgBody: any) {
       notes: `Incoming SMS to ${to || "yard"}: "${text}"`,
     });
 
-    // Auto-reply via unified SMS sender (always sends from main number)
-    try {
-      await sendSms(
-        from,
-        `Thanks for reaching out to Eastern LM! We got your message and will follow up shortly. Call us anytime: (631) 874-6244`
-      );
-    } catch (err) {
-      console.error("[RC] Auto-reply failed:", err);
-    }
+    // Auto-reply disabled — staff handles replies manually via POS Messages tab
   }
 
   console.log(`[RC] Incoming SMS from ${from}: "${text.slice(0, 80)}"`);
