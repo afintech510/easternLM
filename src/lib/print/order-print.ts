@@ -185,23 +185,23 @@ export function toReceiptOrder(po: PrintableOrder): any {
 // ─── Shared Styles ────────────────────────────────────────────
 
 const PRINT_STYLES = `
-body { font-family: monospace; max-width: 380px; margin: 0 auto; padding: 20px; font-size: 12px; }
+body { font-family: monospace; max-width: 380px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.4; }
 .center { text-align: center; }
 .bold { font-weight: bold; }
 .line { border-top: 1px dashed #000; margin: 8px 0; }
 .solid-line { border-top: 2px solid #000; margin: 8px 0; }
 .row { display: flex; justify-content: space-between; }
 .mt { margin-top: 6px; }
-.big { font-size: 16px; }
-.warn { background: #fff3cd; padding: 6px; border: 1px solid #ffc107; margin: 4px 0; }
+.big { font-size: 18px; }
+.warn { background: #fff3cd; padding: 8px; border: 1px solid #ffc107; margin: 6px 0; font-size: 14px; }
 .cod-banner {
-  text-align: center; font-weight: bold; font-size: 24px;
-  border: 3px solid #000; padding: 12px 4px; margin: 10px 0;
+  text-align: center; font-weight: bold; font-size: 26px;
+  border: 3px solid #000; padding: 14px 4px; margin: 10px 0;
   background: #000; color: #fff; letter-spacing: 2px;
   width: 100%; box-sizing: border-box;
 }
-.cod-amount { font-size: 20px; }
-.paid-banner { text-align: center; font-weight: bold; font-size: 16px; margin: 8px 0; }
+.cod-amount { font-size: 22px; }
+.paid-banner { text-align: center; font-weight: bold; font-size: 18px; margin: 8px 0; }
 @media print { body { width: 80mm; } }
 `;
 
@@ -282,7 +282,7 @@ export function buildReceiptHtml(order: PrintableOrder): string {
       const { unitSingular, unitPlural } = formatItemUnit(i);
       const bulk = isBulkItem(i);
       return `<div class="mt">
-        <div style="font-size:14px;font-weight:bold;">${i.quantity} ${unitPlural} ${bulk ? "of " : ""}${i.product_name}</div>
+        <div style="font-size:16px;font-weight:bold;">${i.quantity} ${unitPlural} ${bulk ? "of " : ""}${i.product_name}</div>
         <div class="row"><span>@ ${formatUsd(i.unit_price_cents)} per ${unitSingular}</span><span>${formatUsd(i.line_total_cents)}</span></div>
       </div>`;
     })
@@ -344,8 +344,8 @@ export function buildReceiptHtml(order: PrintableOrder): string {
 
   return `<!DOCTYPE html><html><head><title>Receipt</title>
     <style>${PRINT_STYLES}</style></head><body>
-    <div class="center bold" style="font-size:14px;">EASTERN LANDSCAPE<br/>& MASON SUPPLY</div>
-    <div class="center" style="font-size:11px;">110 Frowein Road<br/>Center Moriches, NY 11934<br/>(631) 874-6244</div>
+    <div class="center bold" style="font-size:16px;">EASTERN LANDSCAPE<br/>& MASON SUPPLY</div>
+    <div class="center" style="font-size:13px;">110 Frowein Road<br/>Center Moriches, NY 11934<br/>(631) 874-6244</div>
     <div class="line"></div>
     ${orderRef}
     <div class="row"><span>Date:</span><span>${formatOrderDateTime(order.created_at)}</span></div>
@@ -368,16 +368,16 @@ export function buildReceiptHtml(order: PrintableOrder): string {
     ${taxLine}
     ${ccFeeLine}
     <div class="line"></div>
-    <div class="row bold" style="font-size:14px;"><span>TOTAL</span><span>${formatUsd(order.grand_total_cents)}</span></div>
+    <div class="row bold" style="font-size:18px;"><span>TOTAL</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     ${paymentHtml}
     ${splitHtml}
     <div class="line"></div>
     <div class="center mt">Thank you for your business!<br/>easternlm.com</div>
     <div class="line"></div>
-    <div style="font-size:9px;color:#444;line-height:1.3;margin-top:6px;">
+    <div style="font-size:11px;color:#222;line-height:1.4;margin-top:8px;">
     <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
-    <p style="margin-top:4px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
-    <p style="margin-top:4px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
+    <p style="margin-top:6px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
+    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.</p>
     </div>
     </body></html>`;
 }
@@ -394,7 +394,7 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
   const materialsHtml = items
     .map((i) => {
       const { unitPlural } = formatItemUnit(i);
-      return `<div class="mt bold" style="font-size:16px;">${i.quantity} ${unitPlural}<br/>${i.product_name}</div>`;
+      return `<div class="mt bold" style="font-size:18px;">${i.quantity} ${unitPlural}<br/>${i.product_name}</div>`;
     })
     .join('<div style="border-top:1px dashed #000;margin:8px 0;"></div>');
 
@@ -426,8 +426,8 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     ${order.customer_phone ? `<div>Phone: ${formatPhone(order.customer_phone)}</div>` : ""}
     <div class="solid-line"></div>
     <div class="bold big">DELIVER TO:</div>
-    <div class="bold" style="font-size:16px;">${cleanAddress(addr)}</div>
-    ${zip ? `<div class="bold" style="font-size:16px;">ZIP: ${zip}</div>` : ""}
+    <div class="bold" style="font-size:18px;">${cleanAddress(addr)}</div>
+    ${zip ? `<div class="bold" style="font-size:18px;">ZIP: ${zip}</div>` : ""}
     ${order.delivery_date ? `<div class="mt bold">DATE: ${formatDeliveryDate(order.delivery_date)}</div>` : ""}
     ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
     ${flags.length > 0 || constraintNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, constraintNotes].filter(Boolean).join(" · ")}</div>` : ""}
@@ -441,10 +441,10 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     <div class="row bold"><span>ORDER TOTAL:</span><span>${formatUsd(order.grand_total_cents)}</span></div>
     <div class="solid-line"></div>
     ${qrPlaceholder}
-    <div style="font-size:9px;color:#444;line-height:1.3;margin-top:6px;">
+    <div style="font-size:11px;color:#222;line-height:1.4;margin-top:8px;">
     <p><strong>PICKUP:</strong> All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape &amp; Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.</p>
-    <p style="margin-top:4px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
-    <p style="margin-top:4px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure. &bull; A 3% surcharge applies to all credit card transactions.</p>
+    <p style="margin-top:6px;"><strong>DELIVERY:</strong> Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.</p>
+    <p style="margin-top:6px;">&bull; All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt. &bull; No returns on loose bulk materials, special-order items, or cement/masonry products. &bull; We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.</p>
     </div>
     </body></html>`;
 }
