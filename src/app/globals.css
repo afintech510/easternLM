@@ -47,10 +47,54 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --color-warm-bg: var(--warm-bg);
+
+  /* Bulk App — /app ordering experience */
+  --color-bulk-dark: var(--bulk-dark);
+  --color-bulk-primary: var(--bulk-primary);
+  --color-bulk-medium: var(--bulk-medium);
+  --color-bulk-bg: var(--bulk-bg);
+  --color-bulk-sage: var(--bulk-sage);
+  --color-bulk-text: var(--bulk-text);
+  --color-bulk-muted: var(--bulk-muted);
+  --color-bulk-faded: var(--bulk-faded);
+  --color-bulk-border: var(--bulk-border);
+  --color-bulk-card: var(--bulk-card);
+  --color-bulk-warn-bg: var(--bulk-warn-bg);
+  --color-bulk-warn-border: var(--bulk-warn-border);
+  --color-bulk-warn-text: var(--bulk-warn-text);
+  --color-bulk-premium-bg: var(--bulk-premium-bg);
+  --color-bulk-premium-text: var(--bulk-premium-text);
+  --color-bulk-bnpl-bg: var(--bulk-bnpl-bg);
+  --color-bulk-bnpl-text: var(--bulk-bnpl-text);
+  --color-bulk-bnpl-border: var(--bulk-bnpl-border);
+  --font-bulk-display: var(--font-bulk-display);
+  --font-bulk-body: var(--font-bulk-body);
+  --font-bulk-mono: var(--font-bulk-mono);
 }
 
 :root {
   --radius: 0.625rem;
+
+  /* Bulk App design tokens — earth-green palette */
+  --bulk-dark: #0f1f0f;
+  --bulk-primary: #1a2e1a;
+  --bulk-medium: #2d4a2d;
+  --bulk-bg: #FAFAF7;
+  --bulk-sage: #8BC68B;
+  --bulk-text: #1a2e1a;
+  --bulk-muted: #6b7c6b;
+  --bulk-faded: #9a9a8e;
+  --bulk-border: #e2dfd8;
+  --bulk-card: #f0ede6;
+  --bulk-warn-bg: #FFF8E1;
+  --bulk-warn-border: #FFE082;
+  --bulk-warn-text: #5D4037;
+  --bulk-premium-bg: #FFF3E0;
+  --bulk-premium-text: #E65100;
+  --bulk-bnpl-bg: #f5f0ff;
+  --bulk-bnpl-text: #5e35b1;
+  --bulk-bnpl-border: #e0d6ff;
+
   /* Eastern LM — Logo blue + earthy warmth palette */
   /* Primary: deep navy-teal from the logo (#0d4f6b area) */
   --background: oklch(0.975 0.006 75);
