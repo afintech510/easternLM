@@ -365,8 +365,10 @@ function StripePaymentForm({
 function PaymentSection({
   quote, token, onAccepted, onDeclined,
 }: { quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void }) {
-  const isService = (quote.deposit_required_cents ?? 0) > 0;
-  const baseAmount = isService ? (quote.deposit_required_cents ?? 0) : quote.total_cents;
+  const hasDeposit = (quote.deposit_required_cents ?? 0) > 0;
+  const isService = hasDeposit; // Quotes with a deposit use the accept flow
+  const depositAmount = quote.deposit_required_cents ?? 0;
+  const baseAmount = hasDeposit ? depositAmount : quote.total_cents;
   // No CC surcharge — fee eliminated
   const cardTotal = baseAmount;
 
@@ -492,41 +494,49 @@ function PaymentSection({
       {mode === "choose" && (
         <div className="p-5 space-y-4">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            {isService ? "Accept & Pay Deposit" : "How would you like to pay?"}
+            Accept &amp; Pay
           </h2>
 
           {/* Card option */}
           {isService ? (
             <div className="space-y-3">
-              {/* Pay Deposit */}
-              <button
-                onClick={() => { setPayFullAmount(false); setMode("accept-verify"); }}
-                className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
-                  <Lock className="size-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-zinc-900">Accept &amp; Pay Deposit</p>
-                  <p className="text-xs text-accent mt-0.5">
-                    {fmt(cardTotal)} by card · Deposit secures your project
-                  </p>
-                </div>
-              </button>
+              {/* Pay Deposit — only shown when deposit is set */}
+              {hasDeposit && (
+                <>
+                  <button
+                    onClick={() => { setPayFullAmount(false); setMode("accept-verify"); }}
+                    className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
+                      <Lock className="size-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-zinc-900">Pay Deposit — {fmt(depositAmount)}</p>
+                      <p className="text-xs text-accent mt-0.5">
+                        Deposit secures your project · Balance of {fmt(quote.total_cents - depositAmount)} due on completion
+                      </p>
+                    </div>
+                  </button>
 
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-zinc-200" />
-                <span className="text-xs text-zinc-400 font-medium">or</span>
-                <div className="flex-1 h-px bg-zinc-200" />
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-zinc-200" />
+                    <span className="text-xs text-zinc-400 font-medium">or</span>
+                    <div className="flex-1 h-px bg-zinc-200" />
+                  </div>
+                </>
+              )}
 
-              {/* Pay in Full */}
+              {/* Pay in Full — always shown for service quotes */}
               <button
                 onClick={() => { setPayFullAmount(true); setMode("accept-verify"); }}
-                className="w-full flex items-center gap-4 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 text-left hover:border-accent/40 active:border-accent transition-colors"
+                className={`w-full flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-colors ${
+                  hasDeposit
+                    ? "border-zinc-200 bg-zinc-50 hover:border-accent/40 active:border-accent"
+                    : "border-accent/30 bg-accent/5 hover:border-accent/60 active:border-accent"
+                }`}
               >
-                <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center shrink-0">
-                  <CheckCircle className="size-5 text-white" />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${hasDeposit ? "bg-green-600" : "bg-accent"}`}>
+                  {hasDeposit ? <CheckCircle className="size-5 text-white" /> : <Lock className="size-5 text-white" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-zinc-900">Pay in Full — {fmt(quote.total_cents)}</p>
@@ -612,15 +622,15 @@ function PaymentSection({
       {mode === "accept-verify" && (
         <div className="p-5 space-y-5">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            {payFullAmount ? "Accept & Pay in Full" : "Accept Quote"}
+            {payFullAmount ? "Accept & Pay in Full" : "Accept & Pay Deposit"}
           </h2>
 
           {/* Payment amount indicator */}
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-center">
-            <p className="text-xs text-zinc-500">{payFullAmount ? "Paying full amount" : "Deposit amount"}</p>
+            <p className="text-xs text-zinc-500">{payFullAmount ? "Full project total" : "Deposit amount"}</p>
             <p className="text-xl font-bold text-zinc-900 mt-0.5">{fmt(effectiveCharge)}</p>
-            {!payFullAmount && isService && (
-              <p className="text-[11px] text-zinc-400 mt-1">Balance of {fmt(quote.total_cents - baseAmount)} due on completion</p>
+            {!payFullAmount && hasDeposit && (
+              <p className="text-[11px] text-zinc-400 mt-1">Balance of {fmt(quote.total_cents - depositAmount)} due on completion</p>
             )}
           </div>
 
