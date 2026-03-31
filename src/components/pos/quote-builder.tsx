@@ -20,6 +20,8 @@ type PosProduct = {
   delivery_type: string;
   min_qty: number;
   qty_step: number;
+  pallet_qty: number | null;
+  pallet_price_cents: number | null;
   image_url?: string | null;
 };
 

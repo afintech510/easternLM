@@ -6,7 +6,7 @@ export async function GET() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, images, unit_display, material_class, category_id, barcode, sku, sort_order, pos_sort_order, categories(slug, name)")
+    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, max_qty, step_qty, pallet_qty, pallet_price_cents, images, unit_display, material_class, category_id, barcode, sku, sort_order, pos_sort_order, categories(slug, name)")
     .eq("visible_pos", true)
     .order("pos_sort_order")
     .order("sort_order")
@@ -22,8 +22,10 @@ export async function GET() {
       unit_label: p.unit_display || (p.delivery_type === "bulk" ? "yd" : "ea"),
       delivery_type: p.delivery_type,
       material_class: p.material_class || "default",
-      min_qty: p.min_qty || 1,
-      qty_step: 1,
+      min_qty: Number(p.min_qty) || 1,
+      qty_step: Number(p.step_qty) || 1,
+      pallet_qty: p.pallet_qty || null,
+      pallet_price_cents: p.pallet_price_cents || null,
       category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
       category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
       image_url: images[0] || null,

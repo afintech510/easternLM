@@ -63,6 +63,8 @@ type PosProduct = {
   delivery_type: string;
   min_qty: number;
   qty_step: number;
+  pallet_qty: number | null;
+  pallet_price_cents: number | null;
   order_count?: number;
   image_url?: string | null;
 };
@@ -410,8 +412,17 @@ export default function PosRegisterPage() {
     [items]
   );
 
+  // Effective unit price: use pallet price when qty >= pallet_qty
+  function effectivePrice(item: LineItem): number {
+    const p = item.product;
+    if (p.pallet_qty && p.pallet_price_cents && item.quantity >= p.pallet_qty) {
+      return p.pallet_price_cents;
+    }
+    return item.price_cents;
+  }
+
   // Totals
-  const subtotalCents = items.reduce((sum, item) => sum + item.price_cents * item.quantity, 0);
+  const subtotalCents = items.reduce((sum, item) => sum + effectivePrice(item) * item.quantity, 0);
   const proDiscountCents = proDiscount ? Math.round(subtotalCents * 0.05) : 0;
   const manualDiscountCents = discountType === "percentage"
     ? Math.round(subtotalCents * (parseFloat(discountValue) || 0) / 100)
@@ -741,6 +752,8 @@ export default function PosRegisterPage() {
       delivery_type: "non-bulk",
       min_qty: 1,
       qty_step: 1,
+      pallet_qty: null,
+      pallet_price_cents: null,
     };
     addItem(customProduct, 1);
     setCustomItemName("");
@@ -981,6 +994,8 @@ export default function PosRegisterPage() {
         category_name: "",
         min_qty: 1,
         qty_step: 1,
+        pallet_qty: null,
+        pallet_price_cents: null,
         image_url: null,
       };
       newItems.push({
@@ -1028,8 +1043,8 @@ export default function PosRegisterPage() {
           product_name: i.product.name,
           product_slug: i.product.slug,
           quantity: i.quantity,
-          unit_price_cents: i.price_cents,
-          line_total_cents: i.price_cents * i.quantity,
+          unit_price_cents: effectivePrice(i),
+          line_total_cents: effectivePrice(i) * i.quantity,
           unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
           delivery_type: i.product.delivery_type,
         })),
@@ -1137,7 +1152,7 @@ export default function PosRegisterPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.price_cents * i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: effectivePrice(i) * i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
         customer_name: customerName,
         customer_phone: customerPhone || null,
         delivery_method: deliveryMethod,
@@ -1183,6 +1198,8 @@ export default function PosRegisterPage() {
             delivery_type: "non-bulk",
             min_qty: 1,
             qty_step: 1,
+            pallet_qty: null,
+            pallet_price_cents: null,
           },
           quantity: item.quantity as number,
           price_cents: item.unit_price_cents as number,
@@ -1259,8 +1276,8 @@ export default function PosRegisterPage() {
                   product_name: i.product.name,
                   product_slug: i.product.slug,
                   quantity: i.quantity,
-                  unit_price_cents: i.price_cents,
-                  line_total_cents: i.price_cents * i.quantity,
+                  unit_price_cents: effectivePrice(i),
+                  line_total_cents: effectivePrice(i) * i.quantity,
                   unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
                   delivery_type: i.product.delivery_type,
                 })),
@@ -2122,11 +2139,16 @@ export default function PosRegisterPage() {
             <div className="divide-y divide-zinc-800">
               {items.map((item) => (
                 <div key={item.id} className="px-3 py-2.5">
-                  {/* Line 1: Full product name + unit price */}
+                  {/* Line 1: Full product name + unit price + pallet badge */}
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold leading-tight">{item.product.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold leading-tight">{item.product.name}</p>
+                      {item.product.pallet_qty && item.product.pallet_price_cents && item.quantity >= item.product.pallet_qty && (
+                        <span className="shrink-0 rounded bg-green-600 px-1.5 py-0.5 text-[9px] font-bold text-white">PALLET</span>
+                      )}
+                    </div>
                     <span className="shrink-0 text-xs text-zinc-500">
-                      {formatUsd(item.price_cents)}/{item.product.unit_label}
+                      {formatUsd(effectivePrice(item))}/{item.product.unit_label}
                     </span>
                   </div>
                   {/* Line 2: Qty selector left, line total + delete right */}
@@ -2147,7 +2169,7 @@ export default function PosRegisterPage() {
                       </button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{formatUsd(item.price_cents * item.quantity)}</span>
+                      <span className="text-sm font-bold">{formatUsd(effectivePrice(item) * item.quantity)}</span>
                       <button onClick={() => removeItem(item.id)} className="p-1 text-zinc-600 hover:text-red-400">
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -2425,7 +2447,7 @@ export default function PosRegisterPage() {
               // Split payment — create order directly
               const effectiveTotal = payments.reduce((s, p) => s + p.amountCents, 0);
               const orderPayload: any = {
-                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
                 cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.03 / 1.03), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
