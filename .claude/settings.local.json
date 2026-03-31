@@ -3,5 +3,9 @@
     "allow": [
       "Bash(curl -s -X GET \"https://api.supabase.com/v1/projects/qnwevkgrhdrjqvvabcit/config/auth\" -H \"Authorization: Bearer REDACTED_SUPABASE_PAT\" -H \"Content-Type: application/json\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase",
+    "stitch"
+  ]
 }
