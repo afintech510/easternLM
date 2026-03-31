@@ -489,7 +489,7 @@ export function CartPageClient() {
                   <span>Total</span>
                   <span>{formatUsd(cashTotal)}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">A 3% credit card processing fee will be added at checkout.</p>
+                <p className="text-[11px] text-muted-foreground">All major credit and debit cards accepted.</p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">

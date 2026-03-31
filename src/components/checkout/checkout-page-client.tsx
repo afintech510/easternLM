@@ -383,14 +383,10 @@ export function CheckoutPageClient() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">CC processing fee (3%)</span><span>{formatUsd(calculation.ccSurchargeCents)}</span></div>
               <div className="flex justify-between border-t pt-2 text-lg font-bold text-primary">
                 <span>Total</span>
                 <span>{formatUsd(calculation.grandTotalCents)}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                A 3% credit card surcharge is applied per New York State law.
-              </p>
             </div>
 
             <a href={siteConfig.phoneHref} className="flex items-center justify-center gap-2 pt-2 text-sm text-muted-foreground hover:text-accent">

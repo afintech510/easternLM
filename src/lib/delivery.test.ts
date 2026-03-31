@@ -26,7 +26,7 @@ const pricingConfig: DeliveryPricingConfig = {
   localRadiusMiles: 5,
   maxServiceRadiusMiles: 50,
   taxRate: 0.0875,
-  ccSurchargeRate: 0.03,
+  ccSurchargeRate: 0,
   proDiscountRate: 0.05,
   proDiscountPickupOnly: true,
 };
@@ -352,7 +352,7 @@ describe("calculateDeliveryFees", () => {
     expect(result.discountedSubtotalCents).toBe(9500);
   });
 
-  test("Test 21: credit card surcharge is 3% of subtotal + delivery + tax", () => {
+  test("Test 21: no credit card surcharge (rate set to 0)", () => {
     const result = calculateDeliveryFees({
       cartItems: [item({ unitPriceCents: 10000, quantity: 1 })],
       distanceResult: distance(8, 35),
@@ -363,10 +363,9 @@ describe("calculateDeliveryFees", () => {
     });
 
     const expectedTax = Math.round((10000 + 11000) * 0.0875);
-    const expectedSurcharge = Math.round((10000 + 11000 + expectedTax) * 0.03);
 
     expect(result.taxCents).toBe(expectedTax);
-    expect(result.ccSurchargeCents).toBe(expectedSurcharge);
+    expect(result.ccSurchargeCents).toBe(0);
   });
 
   test("Test 23: repeated calculation is idempotent", () => {
