@@ -375,20 +375,25 @@ function PaymentSection({
   const [chargeAmount, setChargeAmount] = useState(0);
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [payFullAmount, setPayFullAmount] = useState(false); // Pay full vs deposit
 
   // Accept verification state
   const [typedName, setTypedName] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [smsCode, setSmsCode] = useState("");
   const [smsSent, setSmsSent] = useState(false);
   const [smsVerified, setSmsVerified] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
+
+  // Effective charge amount: full or deposit
+  const effectiveCharge = isService && !payFullAmount ? baseAmount : quote.total_cents;
 
   async function startCardPayment() {
     setProcessing(true); setError("");
     try {
       const res = await fetch(`/api/quote/${token}/payment-intent`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ payFullAmount }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to initiate payment");
@@ -492,38 +497,83 @@ function PaymentSection({
 
           {/* Card option */}
           {isService ? (
-            <button
-              onClick={() => setMode("accept-verify")}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
-                <Lock className="size-5 text-white" />
+            <div className="space-y-3">
+              {/* Pay Deposit */}
+              <button
+                onClick={() => { setPayFullAmount(false); setMode("accept-verify"); }}
+                className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
+                  <Lock className="size-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-zinc-900">Accept &amp; Pay Deposit</p>
+                  <p className="text-xs text-accent mt-0.5">
+                    {fmt(cardTotal)} by card · Deposit secures your project
+                  </p>
+                </div>
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-zinc-200" />
+                <span className="text-xs text-zinc-400 font-medium">or</span>
+                <div className="flex-1 h-px bg-zinc-200" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-zinc-900">Accept &amp; Pay Deposit</p>
-                <p className="text-xs text-accent mt-0.5">
-                  {fmt(cardTotal)} by card · Deposit secures your project
-                </p>
-              </div>
-            </button>
+
+              {/* Pay in Full */}
+              <button
+                onClick={() => { setPayFullAmount(true); setMode("accept-verify"); }}
+                className="w-full flex items-center gap-4 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 text-left hover:border-accent/40 active:border-accent transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center shrink-0">
+                  <CheckCircle className="size-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-zinc-900">Pay in Full — {fmt(quote.total_cents)}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Pay the full project total now
+                  </p>
+                </div>
+              </button>
+
+              {/* BNPL teaser */}
+              {quote.total_cents > 15000 && (
+                <div className="rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3">
+                  <p className="text-xs font-medium text-purple-700">
+                    💳 Buy now, pay later available — split into 4 interest-free payments with Klarna, Affirm, or Afterpay at checkout.
+                  </p>
+                </div>
+              )}
+            </div>
           ) : (
-            <button
-              onClick={startCardPayment}
-              disabled={processing}
-              className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors disabled:opacity-50"
-            >
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
-                {processing
-                  ? <Loader2 className="size-5 text-white animate-spin" />
-                  : <Lock className="size-5 text-white" />}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-zinc-900">Pay by Card — {fmt(cardTotal)}</p>
-                <p className="text-xs text-accent mt-0.5">
-                  Card · Apple Pay · Klarna · Affirm · Afterpay
-                </p>
-              </div>
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={startCardPayment}
+                disabled={processing}
+                className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
+                  {processing
+                    ? <Loader2 className="size-5 text-white animate-spin" />
+                    : <Lock className="size-5 text-white" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-zinc-900">Pay by Card — {fmt(cardTotal)}</p>
+                  <p className="text-xs text-accent mt-0.5">
+                    Card · Apple Pay · Klarna · Affirm · Afterpay
+                  </p>
+                </div>
+              </button>
+
+              {/* BNPL teaser for material quotes */}
+              {quote.total_cents > 15000 && (
+                <div className="rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3">
+                  <p className="text-xs font-medium text-purple-700">
+                    💳 Buy now, pay later — split into 4 interest-free payments with Klarna, Affirm, or Afterpay.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* COD option — material quotes only */}
@@ -562,10 +612,19 @@ function PaymentSection({
       {mode === "accept-verify" && (
         <div className="p-5 space-y-5">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            Accept Quote
+            {payFullAmount ? "Accept & Pay in Full" : "Accept Quote"}
           </h2>
 
-          {/* Step 1: Type full name */}
+          {/* Payment amount indicator */}
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-center">
+            <p className="text-xs text-zinc-500">{payFullAmount ? "Paying full amount" : "Deposit amount"}</p>
+            <p className="text-xl font-bold text-zinc-900 mt-0.5">{fmt(effectiveCharge)}</p>
+            {!payFullAmount && isService && (
+              <p className="text-[11px] text-zinc-400 mt-1">Balance of {fmt(quote.total_cents - baseAmount)} due on completion</p>
+            )}
+          </div>
+
+          {/* Step 1: Type full name as signature */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1.5">
               Type your full legal name to accept
@@ -577,6 +636,9 @@ function PaymentSection({
               placeholder={quote.customer_name || "Full Name"}
               className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-accent focus:ring-1 focus:ring-accent outline-none"
             />
+            {typedName.trim() && (
+              <p className="mt-1.5 font-serif text-lg italic text-zinc-600 px-1">{typedName}</p>
+            )}
           </div>
 
           {/* Step 2: SMS verification */}
@@ -629,17 +691,36 @@ function PaymentSection({
             )}
           </div>
 
-          <p className="text-[11px] text-zinc-400 leading-relaxed">
-            By typing your name and verifying your phone, you accept the scope and terms of this quote.
-            {isService ? " The deposit is non-refundable." : ""}
-          </p>
+          {/* Acceptance checkbox */}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-0.5 size-4 rounded border-zinc-300 text-accent focus:ring-accent shrink-0"
+            />
+            <span className="text-[12px] text-zinc-600 leading-relaxed">
+              I accept the scope, terms, and pricing of this quote. I authorize Eastern Landscape &amp; Mason Supply to contact me by phone, text, and email regarding this project.
+              {isService && !payFullAmount ? " I understand the deposit is non-refundable." : ""}
+              {payFullAmount ? " I understand the full amount will be charged." : ""}
+            </span>
+          </label>
+
+          {/* BNPL note */}
+          {effectiveCharge > 15000 && (
+            <div className="rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-2.5">
+              <p className="text-[11px] text-purple-700">
+                💳 Pay later options available at checkout — split into 4 interest-free payments with Klarna, Affirm, or Afterpay.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={submitAcceptAndPay}
-            disabled={processing || !typedName.trim() || !smsVerified}
+            disabled={processing || !typedName.trim() || !smsVerified || !acceptTerms}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-4 text-base font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
           >
-            {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment →</>}
+            {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment — {fmt(effectiveCharge)} →</>}
           </button>
           <button
             onClick={() => setMode("choose")}
@@ -654,7 +735,7 @@ function PaymentSection({
       {mode === "card" && clientSecret && (
         <div className="p-5 space-y-4">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            {isService ? `Pay ${fmt(chargeAmount)} Deposit` : "Payment Details"}
+            {isService && !payFullAmount ? `Pay ${fmt(chargeAmount)} Deposit` : `Pay ${fmt(chargeAmount)}`}
           </h2>
           {!stripePromise ? (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">

@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 /**
  * POST /api/quote/[token]/payment-intent
  * Creates a PaymentIntent for the quote amount (embedded checkout on our domain).
+ * Supports: deposit-only, pay-in-full, or material quote full payment.
  */
 export async function POST(
   request: Request,
@@ -13,6 +14,7 @@ export async function POST(
   const { token } = await context.params;
   const body = await request.json().catch(() => ({}));
   const customerEmail = body.email;
+  const payFullAmount = body.payFullAmount === true;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseAdminClient() as any;
@@ -32,12 +34,14 @@ export async function POST(
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-  // Material quotes: charge full total + CC surcharge
-  // Service quotes: charge deposit amount + CC surcharge on deposit
+  // Determine charge amount:
+  // - Material quotes: always full total
+  // - Service quotes with payFullAmount: full total
+  // - Service quotes with deposit: deposit amount only
   const isService = quote.type === "service" && quote.deposit_required_cents > 0;
-  const baseAmount = isService ? quote.deposit_required_cents : quote.total_cents;
-  const ccSurcharge = Math.round(baseAmount * 0.03);
-  const chargeAmount = baseAmount + ccSurcharge;
+  const chargeAmount = (isService && !payFullAmount)
+    ? quote.deposit_required_cents
+    : quote.total_cents;
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: chargeAmount,
@@ -51,8 +55,8 @@ export async function POST(
       customer_name: quote.customer_name,
       customer_phone: quote.customer_phone ?? "",
       source: "quote_checkout",
-      base_amount: String(baseAmount),
-      cc_surcharge: String(ccSurcharge),
+      base_amount: String(chargeAmount),
+      pay_full_amount: payFullAmount ? "true" : "false",
     },
   });
 
@@ -65,7 +69,7 @@ export async function POST(
     clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
     chargeAmountCents: chargeAmount,
-    baseAmountCents: baseAmount,
-    ccSurchargeCents: ccSurcharge,
+    baseAmountCents: chargeAmount,
+    ccSurchargeCents: 0,
   });
 }
