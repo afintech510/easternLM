@@ -125,7 +125,7 @@ export class ReceiptPrinter {
       await printClient.print(receiptData, "receipt", orderId);
       if (order.deliveryMethod === "delivery" && order.deliveryAddress) {
         await new Promise((r) => setTimeout(r, 800));
-        const ticketData = new Uint8Array(this.buildDeliveryTicket(order));
+        const ticketData = new Uint8Array(this.buildDeliveryTicket(order, orderId));
         await printClient.print(ticketData, "delivery_ticket", orderId);
       }
       return true;
@@ -136,7 +136,7 @@ export class ReceiptPrinter {
       const ok = await this.sendBytes(this.buildReceipt(order));
       if (ok && order.deliveryMethod === "delivery" && order.deliveryAddress) {
         await new Promise((r) => setTimeout(r, 500));
-        await this.sendBytes(this.buildDeliveryTicket(order));
+        await this.sendBytes(this.buildDeliveryTicket(order, orderId));
       }
       return ok;
     }
@@ -153,12 +153,12 @@ export class ReceiptPrinter {
   /** Print a single delivery ticket (for extra copies). */
   async printDeliveryTicketOnly(order: ReceiptOrder, orderId?: string): Promise<boolean> {
     if (printClient.isConnected) {
-      const data = new Uint8Array(this.buildDeliveryTicket(order));
+      const data = new Uint8Array(this.buildDeliveryTicket(order, orderId));
       await printClient.print(data, "delivery_ticket", orderId);
       return true;
     }
     if (this.device && this._connected) {
-      return this.sendBytes(this.buildDeliveryTicket(order));
+      return this.sendBytes(this.buildDeliveryTicket(order, orderId));
     }
     return false;
   }
@@ -191,6 +191,24 @@ export class ReceiptPrinter {
   private bold(cmd: number[], on: boolean) { cmd.push(ESC, 0x45, on ? 0x01 : 0x00); }
   private dblH(cmd: number[], on: boolean) { cmd.push(GS, 0x21, on ? 0x01 : 0x00); }
   private align(cmd: number[], a: "L" | "C" | "R") { cmd.push(ESC, 0x61, a === "L" ? 0 : a === "C" ? 1 : 2); }
+  /** White-on-black inverted mode */
+  private invert(cmd: number[], on: boolean) { cmd.push(GS, 0x42, on ? 0x01 : 0x00); }
+  /** Print a QR code using GS ( k — native printer QR generation */
+  private qr(cmd: number[], data: string) {
+    const d = [];
+    for (let i = 0; i < data.length; i++) d.push(data.charCodeAt(i));
+    // QR model 2
+    cmd.push(GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
+    // QR size (module size 6)
+    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06);
+    // QR error correction L
+    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x30);
+    // Store QR data
+    const len = d.length + 3;
+    cmd.push(GS, 0x28, 0x6b, len & 0xff, (len >> 8) & 0xff, 0x31, 0x50, 0x30, ...d);
+    // Print QR
+    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);
+  }
   /** Init printer + disable buzzer (Sunmi NT311 beeps on cut by default) */
   private init(cmd: number[]) {
     cmd.push(ESC, 0x40); // reset printer
@@ -331,12 +349,16 @@ export class ReceiptPrinter {
       if (o.changeDueCents != null) this.txt(c, line("Change:", fmt(o.changeDueCents)));
     } else if (o.paymentMethod === "cod") {
       this.txt(c, ddiv());
+      this.invert(c, true);
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
-      this.txt(c, "CASH ON DELIVERY");
-      this.txt(c, `COLLECT: ${fmt(o.totalCents)}`);
+      this.txt(c, "                                                ");
+      this.txt(c, "     CASH ON DELIVERY      ");
+      this.txt(c, `     COLLECT: ${fmt(o.totalCents)}      `);
+      this.txt(c, "                                                ");
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
+      this.invert(c, false);
       this.txt(c, ddiv());
     } else if (o.paymentMethod === "account") {
       this.txt(c, "Payment: Charge Account");
@@ -350,7 +372,7 @@ export class ReceiptPrinter {
 
   // ── DELIVERY TICKET ─────────────────────────────────────
 
-  private buildDeliveryTicket(o: ReceiptOrder): number[] {
+  private buildDeliveryTicket(o: ReceiptOrder, orderId?: string): number[] {
     const c: number[] = [];
     this.init(c);
 
@@ -445,14 +467,17 @@ export class ReceiptPrinter {
 
     // Payment status for driver
     if (o.paymentMethod === "cod") {
+      this.invert(c, true);
       this.bold(c, true); this.dblH(c, true);
       this.align(c, "C");
-      this.txt(c, ddiv());
-      this.txt(c, "CASH ON DELIVERY");
-      this.txt(c, `COLLECT: ${fmt(o.totalCents)}`);
-      this.txt(c, ddiv());
+      this.txt(c, "                                                ");
+      this.txt(c, "     CASH ON DELIVERY      ");
+      this.txt(c, `     COLLECT: ${fmt(o.totalCents)}      `);
+      this.txt(c, "                                                ");
       this.align(c, "L");
       this.dblH(c, false); this.bold(c, false);
+      this.invert(c, false);
+      this.txt(c, "");
       this.txt(c, "  [ ] CASH  [ ] CHECK  Amount: ________");
     } else {
       this.txt(c, `PAYMENT: ${o.paymentMethod === "cash" ? "PAID (Cash)" : o.paymentMethod === "card_terminal" ? "PAID (Card)" : o.paymentMethod === "account" ? `CHARGE ACCOUNT: ${o.accountName ?? ""}` : "PAID"}`);
@@ -467,7 +492,17 @@ export class ReceiptPrinter {
       this.txt(c, "  [ ] SPREAD COMPLETE");
     }
 
-    this.txt(c, ""); this.txt(c, ddiv());
+    // QR code for delivery confirmation
+    if (orderId) {
+      this.txt(c, ""); this.txt(c, ddiv());
+      this.align(c, "C");
+      this.txt(c, "Scan to confirm delivery:");
+      this.qr(c, `https://easternlm.com/delivery/confirm/${orderId}`);
+      this.txt(c, "");
+    }
+
+    this.txt(c, ddiv());
+    this.align(c, "L");
     this.txt(c, "Driver signature: ___________________");
     this.txt(c, "Date completed:   ___________________");
     this.txt(c, "");
