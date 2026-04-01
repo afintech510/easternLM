@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Search, ArrowUpDown } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, MoreHorizontal, Plus, Search, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,17 @@ export function ProductList({ initialProducts, categories }: { initialProducts: 
 
   async function toggleActive(product: Product) {
     await quickSave(product.id, "is_active", !product.is_active);
+  }
+
+  async function handleDuplicate(productId: string) {
+    const res = await fetch(`/api/admin/products/${productId}/duplicate`, { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      toast.success(data.message);
+      handleSaved();
+    } else {
+      toast.error(data.error ?? "Failed to duplicate");
+    }
   }
 
   function handleSaved() {
@@ -261,6 +272,9 @@ export function ProductList({ initialProducts, categories }: { initialProducts: 
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setExpandedId(isExpanded ? null : product.id)}>
                           {isExpanded ? "Collapse" : "Expand & Edit"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicate(product.id)}>
+                          <Copy className="mr-2 size-4" /> Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toggleActive(product)}>
                           {product.is_active ? "Deactivate" : "Activate"}

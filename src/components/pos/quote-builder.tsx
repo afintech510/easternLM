@@ -22,6 +22,8 @@ type PosProduct = {
   qty_step: number;
   pallet_qty: number | null;
   pallet_price_cents: number | null;
+  half_yard_enabled: boolean;
+  half_yard_adder_cents: number;
   image_url?: string | null;
 };
 

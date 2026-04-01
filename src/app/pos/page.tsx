@@ -33,6 +33,7 @@ declare global {
   }
 }
 import { formatUsd } from "@/lib/format";
+import { calculateLineTotal } from "@/lib/half-yard";
 import { formatShortDateTime, formatDeliveryDate, formatShortDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod } from "@/lib/format-date";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
@@ -67,6 +68,8 @@ type PosProduct = {
   qty_step: number;
   pallet_qty: number | null;
   pallet_price_cents: number | null;
+  half_yard_enabled: boolean;
+  half_yard_adder_cents: number;
   order_count?: number;
   image_url?: string | null;
 };
@@ -434,8 +437,18 @@ export default function PosRegisterPage() {
     return item.price_cents;
   }
 
+  // Line total including half-yard adder when applicable
+  function lineTotal(item: LineItem): number {
+    return calculateLineTotal(
+      item.quantity,
+      effectivePrice(item),
+      item.product.half_yard_adder_cents,
+      item.product.half_yard_enabled,
+    );
+  }
+
   // Totals
-  const subtotalCents = items.reduce((sum, item) => sum + effectivePrice(item) * item.quantity, 0);
+  const subtotalCents = items.reduce((sum, item) => sum + lineTotal(item), 0);
   const proDiscountCents = proDiscount ? Math.round(subtotalCents * 0.05) : 0;
   const manualDiscountCents = discountType === "percentage"
     ? Math.round(subtotalCents * (parseFloat(discountValue) || 0) / 100)
@@ -767,6 +780,8 @@ export default function PosRegisterPage() {
       qty_step: 1,
       pallet_qty: null,
       pallet_price_cents: null,
+      half_yard_enabled: false,
+      half_yard_adder_cents: 0,
     };
     addItem(customProduct, 1);
     setCustomItemName("");
@@ -790,6 +805,7 @@ export default function PosRegisterPage() {
         unit_price_cents: i.unit_price_cents as number,
         line_total_cents: i.line_total_cents as number,
         delivery_type: i.delivery_type as string | undefined,
+        half_yard_adder_cents: (i.half_yard_adder_cents as number) || 0,
       })),
       materials_subtotal_cents: orderPayload.subtotal_cents as number,
       delivery_total_cents: (orderPayload.delivery_fee_cents as number) || 0,
@@ -923,6 +939,7 @@ export default function PosRegisterPage() {
             unitPriceCents: i.price_cents,
             price_cents: i.price_cents,
             deliveryType: i.product.delivery_type,
+            halfYardAdderCents: i.product.half_yard_enabled ? i.product.half_yard_adder_cents : 0,
           })),
           customer: {
             name: delName || customerName,
@@ -1014,6 +1031,8 @@ export default function PosRegisterPage() {
         qty_step: 1,
         pallet_qty: null,
         pallet_price_cents: null,
+        half_yard_enabled: li.half_yard_adder_cents > 0,
+        half_yard_adder_cents: li.half_yard_adder_cents || 0,
         image_url: null,
       };
       newItems.push({
@@ -1062,7 +1081,8 @@ export default function PosRegisterPage() {
           product_slug: i.product.slug,
           quantity: i.quantity,
           unit_price_cents: effectivePrice(i),
-          line_total_cents: effectivePrice(i) * i.quantity,
+          line_total_cents: lineTotal(i),
+          half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0,
           unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
           delivery_type: i.product.delivery_type,
         })),
@@ -1170,7 +1190,7 @@ export default function PosRegisterPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: effectivePrice(i) * i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: lineTotal(i), half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
         customer_name: customerName,
         customer_phone: customerPhone || null,
         delivery_method: deliveryMethod,
@@ -1213,11 +1233,13 @@ export default function PosRegisterPage() {
             unit_label: "ea",
             category_slug: "custom",
             category_name: "Custom",
-            delivery_type: "non-bulk",
+            delivery_type: (item.delivery_type as string) || "non-bulk",
             min_qty: 1,
             qty_step: 1,
             pallet_qty: null,
             pallet_price_cents: null,
+            half_yard_enabled: ((item.half_yard_adder_cents as number) || 0) > 0,
+            half_yard_adder_cents: (item.half_yard_adder_cents as number) || 0,
           },
           quantity: item.quantity as number,
           price_cents: item.unit_price_cents as number,
@@ -1295,7 +1317,8 @@ export default function PosRegisterPage() {
                   product_slug: i.product.slug,
                   quantity: i.quantity,
                   unit_price_cents: effectivePrice(i),
-                  line_total_cents: effectivePrice(i) * i.quantity,
+                  line_total_cents: lineTotal(i),
+                  half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0,
                   unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
                   delivery_type: i.product.delivery_type,
                 })),
@@ -2168,6 +2191,9 @@ export default function PosRegisterPage() {
                     </div>
                     <span className="shrink-0 text-xs text-zinc-500">
                       {formatUsd(effectivePrice(item))}/{item.product.unit_label}
+                      {item.product.half_yard_enabled && item.quantity % 1 !== 0 && item.product.half_yard_adder_cents > 0 && (
+                        <span className="text-amber-400"> +{formatUsd(item.product.half_yard_adder_cents)}</span>
+                      )}
                     </span>
                   </div>
                   {/* Line 2: Qty selector left, line total + delete right */}
@@ -2186,9 +2212,21 @@ export default function PosRegisterPage() {
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </button>
+                      {item.product.half_yard_enabled && (
+                        <button
+                          onClick={() => {
+                            const hasHalf = item.quantity % 1 !== 0;
+                            const newQty = hasHalf ? Math.floor(item.quantity) || 0.5 : item.quantity + 0.5;
+                            updateQuantity(item.id, Math.max(0.5, newQty));
+                          }}
+                          className={`ml-1 rounded px-1.5 py-1 text-[10px] font-bold transition-colors ${item.quantity % 1 !== 0 ? "bg-amber-500 text-white" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+                        >
+                          +½
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{formatUsd(effectivePrice(item) * item.quantity)}</span>
+                      <span className="text-sm font-bold">{formatUsd(lineTotal(item))}</span>
                       <button onClick={() => removeItem(item.id)} className="p-1 text-zinc-600 hover:text-red-400">
                         <Trash2 className="h-4 w-4" />
                       </button>

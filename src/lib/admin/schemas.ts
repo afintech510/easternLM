@@ -20,6 +20,8 @@ export const productSchema = z.object({
   pairs_well_with: z.array(z.string()),
   pallet_qty: z.number().int().positive().nullable().optional(),
   pallet_price_cents: z.number().int().nonnegative().nullable().optional(),
+  half_yard_enabled: z.boolean().optional(),
+  half_yard_adder_cents: z.number().int().nonnegative().optional(),
   is_taxable: z.boolean(),
   is_active: z.boolean(),
   visible_web: z.boolean(),

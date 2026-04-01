@@ -75,6 +75,7 @@ export interface PrintableItem {
   unit_price_cents: number;
   line_total_cents: number;
   delivery_type?: string;
+  half_yard_adder_cents?: number;
 }
 
 // ─── Mappers ──────────────────────────────────────────────────
@@ -109,6 +110,7 @@ export function mapDatabaseOrderToUnified(order: Record<string, any>): Printable
         unit_price_cents: i.unit_price_cents || 0,
         line_total_cents: i.line_subtotal_cents ?? i.line_total_cents ?? i.quantity * (i.unit_price_cents || 0),
         delivery_type: i.delivery_type || null,
+        half_yard_adder_cents: i.half_yard_adder_cents ?? 0,
       }),
     ),
     delivery_method: order.delivery_method || "pickup",
@@ -154,6 +156,7 @@ export function toReceiptOrder(po: PrintableOrder): any {
       unitPriceCents: i.unit_price_cents,
       lineTotalCents: i.line_total_cents,
       deliveryType: i.delivery_type,
+      halfYardAdderCents: i.half_yard_adder_cents ?? 0,
     })),
     subtotalCents: po.materials_subtotal_cents,
     taxCents: po.tax_cents,
@@ -282,9 +285,13 @@ export function buildReceiptHtml(order: PrintableOrder): string {
     .map((i) => {
       const { unitSingular, unitPlural } = formatItemUnit(i);
       const bulk = isBulkItem(i);
+      const adder = i.half_yard_adder_cents ?? 0;
+      const hasAdder = adder > 0 && i.quantity % 1 !== 0;
+      const baseTotal = Math.round(i.quantity * i.unit_price_cents);
       return `<div class="mt">
         <div style="font-size:16px;font-weight:bold;">${i.quantity} ${unitPlural} ${bulk ? "of " : ""}${i.product_name}</div>
-        <div class="row"><span>@ ${formatUsd(i.unit_price_cents)} per ${unitSingular}</span><span>${formatUsd(i.line_total_cents)}</span></div>
+        <div class="row"><span>@ ${formatUsd(i.unit_price_cents)} per ${unitSingular}</span><span>${formatUsd(hasAdder ? baseTotal : i.line_total_cents)}</span></div>
+        ${hasAdder ? `<div class="row" style="color:#b45309;"><span>Half-yard fee</span><span>${formatUsd(adder)}</span></div>` : ""}
       </div>`;
     })
     .join("");
