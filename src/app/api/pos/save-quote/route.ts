@@ -88,13 +88,22 @@ export async function POST(request: Request) {
   }
 
   // 2. Build line items
-  const lineItems = items.map((item: any) => ({
-    description: item.name ?? "Item",
-    quantity: item.quantity ?? 1,
-    unit: item.unit ?? "each",
-    unit_price_cents: item.unitPriceCents ?? item.price_cents ?? 0,
-    total_cents: (item.quantity ?? 1) * (item.unitPriceCents ?? item.price_cents ?? 0),
-  }));
+  const lineItems = items.map((item: any) => {
+    const qty = item.quantity ?? 1;
+    const unitPrice = item.unitPriceCents ?? item.price_cents ?? 0;
+    const adder = item.halfYardAdderCents ?? item.half_yard_adder_cents ?? 0;
+    const hasHalf = adder > 0 && qty % 1 !== 0;
+    return {
+      description: item.name ?? "Item",
+      quantity: qty,
+      unit: item.unit ?? "each",
+      unit_price_cents: unitPrice,
+      half_yard_adder_cents: adder,
+      total_cents: Math.round(qty * unitPrice) + (hasHalf ? adder : 0),
+      delivery_type: item.deliveryType ?? item.delivery_type ?? null,
+      product_slug: item.slug ?? item.product_slug ?? null,
+    };
+  });
 
   const deliveryFeeCents = delivery?.feeCents ?? 0;
   if (deliveryFeeCents > 0) {

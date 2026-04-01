@@ -39,6 +39,8 @@ type ProductData = {
   pairs_well_with: string[];
   pallet_qty: number | null;
   pallet_price_cents: number | null;
+  half_yard_enabled?: boolean;
+  half_yard_adder_cents?: number;
   is_taxable: boolean;
   is_active: boolean;
   visible_web: boolean;
@@ -89,6 +91,8 @@ export function ProductForm({
           step_qty: product.step_qty,
           pallet_qty: product.pallet_qty ?? null,
           pallet_price_cents: product.pallet_price_cents ?? null,
+          half_yard_enabled: product.half_yard_enabled ?? false,
+          half_yard_adder_cents: product.half_yard_adder_cents ?? 0,
           description: product.description,
           images: product.images,
           recommended_uses: product.recommended_uses,
@@ -113,6 +117,8 @@ export function ProductForm({
           step_qty: 0.5,
           pallet_qty: null,
           pallet_price_cents: null,
+          half_yard_enabled: false,
+          half_yard_adder_cents: 0,
           description: "",
           images: [],
           recommended_uses: [],
@@ -274,6 +280,38 @@ export function ProductForm({
           <p className="text-xs text-muted-foreground">Discounted per-unit price when buying a full pallet</p>
         </div>
       </div>
+
+      {watch("delivery_type") === "bulk" && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="halfYardEnabled" {...register("half_yard_enabled")} className="h-4 w-4 rounded border-zinc-300" />
+            <Label htmlFor="halfYardEnabled" className="cursor-pointer">Half-yard pricing (POS only)</Label>
+          </div>
+          {watch("half_yard_enabled") && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="halfYardAdder">Half-Yard Adder (cents)</Label>
+                <Input id="halfYardAdder" type="number" step="50" min="0" placeholder="e.g. 500 = $5.00" {...register("half_yard_adder_cents", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground">Extra charge when POS qty includes a half yard</p>
+              </div>
+              <div className="space-y-1 rounded bg-muted/50 p-3">
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Preview</p>
+                {[0.5, 1, 1.5, 2, 2.5, 5].map((q) => {
+                  const price = watch("price_per_unit_cents") || 0;
+                  const adder = watch("half_yard_adder_cents") || 0;
+                  const total = Math.round(q * price) + (q % 1 !== 0 ? adder : 0);
+                  return (
+                    <div key={q} className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">{q} yd:</span>
+                      <span className="font-mono">${(total / 100).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>

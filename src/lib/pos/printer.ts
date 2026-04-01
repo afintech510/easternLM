@@ -23,6 +23,7 @@ export type ReceiptOrder = {
     lineTotalCents: number;
     deliveryType?: string;
     materialClass?: string;
+    halfYardAdderCents?: number;
   }>;
   subtotalCents: number;
   taxCents: number;
@@ -232,9 +233,13 @@ export class ReceiptPrinter {
     this.txt(c, div());
     for (const item of o.items) {
       const isBulk = item.deliveryType === "bulk";
+      const adder = item.halfYardAdderCents ?? 0;
+      const hasAdder = adder > 0 && item.quantity % 1 !== 0;
       if (isBulk) {
         this.txt(c, `${item.quantity} cu. yards of ${item.productName.substring(0, W - 18)}`);
-        this.txt(c, line(`  @ ${fmt(item.unitPriceCents)} per cu. yard`, fmt(item.lineTotalCents)));
+        const baseTotal = Math.round(item.quantity * item.unitPriceCents);
+        this.txt(c, line(`  @ ${fmt(item.unitPriceCents)} per cu. yard`, fmt(baseTotal)));
+        if (hasAdder) this.txt(c, line("  Half-yard fee", fmt(adder)));
       } else {
         const unitLabel = item.unit === "yard" ? "cu. yards" : item.unit === "each" ? "" : ` ${item.unit}`;
         this.txt(c, `${item.quantity}${unitLabel} ${item.productName.substring(0, W - 10)}`);

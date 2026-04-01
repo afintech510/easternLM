@@ -6,7 +6,7 @@ export async function GET() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, max_qty, step_qty, pallet_qty, pallet_price_cents, images, unit_display, material_class, category_id, barcode, sku, sort_order, pos_sort_order, categories(slug, name)")
+    .select("id, name, slug, price_per_unit_cents, delivery_type, min_qty, max_qty, step_qty, pallet_qty, pallet_price_cents, half_yard_enabled, half_yard_adder_cents, images, unit_display, material_class, category_id, barcode, sku, sort_order, pos_sort_order, categories(slug, name)")
     .eq("visible_pos", true)
     .order("pos_sort_order")
     .order("sort_order")
@@ -26,6 +26,8 @@ export async function GET() {
       qty_step: Number(p.step_qty) || 1,
       pallet_qty: p.pallet_qty || null,
       pallet_price_cents: p.pallet_price_cents || null,
+      half_yard_enabled: p.half_yard_enabled ?? false,
+      half_yard_adder_cents: p.half_yard_adder_cents ?? 0,
       category_slug: (p.categories as { slug: string; name: string } | null)?.slug || "other",
       category_name: (p.categories as { slug: string; name: string } | null)?.name || "Other",
       image_url: images[0] || null,

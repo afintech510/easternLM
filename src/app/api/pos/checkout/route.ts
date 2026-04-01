@@ -106,6 +106,7 @@ export async function POST(request: Request) {
       unit: (item.unit as string) || (item.delivery_type === "bulk" ? "cu. yard" : "ea"),
       unit_price_cents: (item.unit_price_cents as number) || 0,
       line_subtotal_cents: (item.line_total_cents as number) || 0,
+      half_yard_adder_cents: (item.half_yard_adder_cents as number) || 0,
       delivery_type: (item.delivery_type as string) || null,
       material_class: (item.material_class as string) || null,
     }));
