@@ -2364,20 +2364,16 @@ export default function PosRegisterPage() {
                 Reset
               </button>
             )}
-            <span className="flex items-center gap-1">
-              <Printer className={`h-3 w-3 ${printerConnected ? "text-green-500" : "text-zinc-600"}`} />
-              {printerConnected ? "Printer OK" : "No Printer"}
+            <span
+              className={`flex items-center gap-1 cursor-pointer ${printerConnected && printClient.isAnyPrinterOnline ? "text-green-500" : printerConnected ? "text-amber-500" : "text-zinc-600"}`}
+              title={printerConnected
+                ? Object.values(printClient.printerStatuses).map((p: { name: string; online: boolean }) => `${p.name}: ${p.online ? "Online" : "Offline"}`).join("\n") || "Print server connected"
+                : "Print server offline"}
+              onClick={() => { if (printerConnected) { try { printClient.testPrint(); } catch {} } }}
+            >
+              <Printer className="h-3 w-3" />
+              {printerConnected && printClient.isAnyPrinterOnline ? "NT311" : printerConnected ? "Printer?" : "No Printer"}
             </span>
-            {printerConnected && (
-              <button
-                onClick={() => {
-                  try { printClient.testPrint(); } catch {}
-                }}
-                className="text-zinc-600 hover:text-zinc-300 text-[10px]"
-              >
-                Test
-              </button>
-            )}
             {!isOnline && (
               <span className="flex items-center gap-1 font-semibold text-amber-400">
                 <span className="size-2 rounded-full bg-amber-400 animate-pulse" /> OFFLINE

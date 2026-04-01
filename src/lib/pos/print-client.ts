@@ -2,7 +2,8 @@
  * WebSocket client for the local ELM Print Server.
  *
  * Connects to ws://localhost:9111 (the Node.js print server running on the
- * POS Windows desktop) and sends ESC/POS binary data for thermal printing.
+ * POS Windows desktop) and sends ESC/POS binary data for thermal printing
+ * to a Sunmi NT311 via TCP/Ethernet.
  *
  * Usage:
  *   import { printClient } from "@/lib/pos/print-client";
@@ -10,6 +11,7 @@
  *   await printClient.print(escPosBytes, "receipt", orderId);
  */
 
+type PrinterStatus = { name: string; ip: string; online: boolean };
 type PrintResult = { type: string; success: boolean; error?: string; jobId?: string };
 type PendingJob = { resolve: (ok: boolean) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> };
 type ConnectionListener = (connected: boolean) => void;
@@ -24,7 +26,7 @@ class PrintClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingJobs = new Map<string, PendingJob>();
   private listeners = new Set<ConnectionListener>();
-  private _printerName = "";
+  private _printerStatuses: Record<string, PrinterStatus> = {};
 
   static getInstance(): PrintClient {
     if (!PrintClient.instance) {
@@ -37,8 +39,14 @@ class PrintClient {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  get printerName(): string {
-    return this._printerName;
+  /** Per-printer online/offline statuses from the print server. */
+  get printerStatuses(): Record<string, PrinterStatus> {
+    return this._printerStatuses;
+  }
+
+  /** True if at least one printer is online. */
+  get isAnyPrinterOnline(): boolean {
+    return Object.values(this._printerStatuses).some((p) => p.online);
   }
 
   /** Subscribe to connection state changes. Returns unsubscribe fn. */
@@ -65,17 +73,21 @@ class PrintClient {
       this.ws.onopen = () => {
         console.log("[PrintClient] Connected to print server");
         this.notifyListeners();
-        // Ping to get printer name
         this.ws?.send(JSON.stringify({ type: "ping" }));
       };
 
       this.ws.onmessage = (event) => {
         try {
-          const msg: PrintResult = JSON.parse(event.data);
+          const msg = JSON.parse(event.data);
 
           if (msg.type === "pong") {
-            this._printerName = (msg as unknown as { printer: string }).printer || "";
-            console.log(`[PrintClient] Printer: ${this._printerName}`);
+            // Multi-printer statuses from Sunmi TCP server
+            this._printerStatuses = msg.printers ?? {};
+            const summary = Object.entries(this._printerStatuses)
+              .map(([, v]) => `${(v as PrinterStatus).name}: ${(v as PrinterStatus).online ? "online" : "offline"}`)
+              .join(", ");
+            console.log(`[PrintClient] Printers: ${summary}`);
+            this.notifyListeners();
             return;
           }
 
@@ -93,12 +105,10 @@ class PrintClient {
             }
           }
 
-          // Test result
           if (msg.type === "test_result") {
             console.log(`[PrintClient] Test print: ${msg.success ? "OK" : msg.error}`);
           }
 
-          // Cash drawer result
           if (msg.type === "cash_drawer_result") {
             console.log(`[PrintClient] Cash drawer: ${msg.success ? "OK" : msg.error}`);
           }
@@ -107,6 +117,7 @@ class PrintClient {
 
       this.ws.onclose = () => {
         console.log("[PrintClient] Disconnected — reconnecting in 5s");
+        this._printerStatuses = {};
         this.notifyListeners();
         this.scheduleReconnect();
       };
@@ -129,12 +140,13 @@ class PrintClient {
 
   /**
    * Send ESC/POS binary data to the print server.
-   * Returns true on success, throws on failure.
+   * @param printer - target printer key (default: "counter")
    */
   async print(
     escPosData: Uint8Array | number[],
     docType: string,
-    orderId?: string
+    orderId?: string,
+    printer: string = "counter",
   ): Promise<boolean> {
     if (!this.isConnected) {
       throw new Error("Print server not connected");
@@ -160,21 +172,22 @@ class PrintClient {
           docType,
           orderId,
           jobId,
+          printer,
         })
       );
     });
   }
 
   /** Send a test print to verify the printer is working. */
-  testPrint(): void {
+  testPrint(printer: string = "counter"): void {
     if (!this.isConnected) throw new Error("Print server not connected");
-    this.ws!.send(JSON.stringify({ type: "test" }));
+    this.ws!.send(JSON.stringify({ type: "test", printer }));
   }
 
   /** Open the cash drawer via the print server. */
-  openCashDrawer(): void {
+  openCashDrawer(printer: string = "counter"): void {
     if (!this.isConnected) return;
-    this.ws!.send(JSON.stringify({ type: "cash_drawer" }));
+    this.ws!.send(JSON.stringify({ type: "cash_drawer", printer }));
   }
 
   disconnect(): void {
@@ -187,6 +200,7 @@ class PrintClient {
       this.ws.close();
       this.ws = null;
     }
+    this._printerStatuses = {};
     this.notifyListeners();
   }
 }
