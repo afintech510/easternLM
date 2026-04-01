@@ -10,6 +10,7 @@ const { WebSocketServer } = require("ws");
 const net = require("net");
 
 // ── Configuration ─────────────────────────────────────────────
+const VERSION = "1.2.0";
 const WS_PORT = parseInt(process.env.WS_PORT || "9111", 10);
 
 const PRINTERS = {
@@ -73,7 +74,9 @@ function buildTestReceipt() {
   const buf = [];
 
   buf.push(ESC, 0x40); // init
-  buf.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // Sunmi buzzer off
+  buf.push(ESC, 0x63, 0x35, 0x00);                         // ESC c 5 0 — panel buzzer off
+  buf.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00);  // GS ( E — buzzer off
+  buf.push(0x1C, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // FS ( E — Sunmi variant
   buf.push(ESC, 0x61, 0x01); // center
 
   buf.push(GS, 0x21, 0x01); // double height
@@ -124,7 +127,8 @@ const wss = new WebSocketServer({ port: WS_PORT });
 
 console.log("");
 console.log("========================================");
-console.log("  ELM PRINT SERVER — Sunmi NT311");
+console.log("  ELM PRINT SERVER v" + VERSION);
+console.log("  Sunmi NT311 via TCP");
 console.log("========================================");
 console.log("  WebSocket: ws://localhost:" + WS_PORT);
 for (const [, p] of Object.entries(PRINTERS)) {

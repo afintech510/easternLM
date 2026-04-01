@@ -194,8 +194,10 @@ export class ReceiptPrinter {
   /** Init printer + disable buzzer (Sunmi NT311 beeps on cut by default) */
   private init(cmd: number[]) {
     cmd.push(ESC, 0x40); // reset printer
-    // Sunmi buzzer off: GS ( E pL pH fn m — fn=97 (buzzer), m=0 (off)
-    cmd.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00);
+    // Try multiple buzzer-off commands — different Sunmi firmware versions respond to different ones
+    cmd.push(ESC, 0x63, 0x35, 0x00);                         // ESC c 5 0 — panel buzzer off
+    cmd.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // GS ( E — buzzer setting off
+    cmd.push(0x1c, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // FS ( E — Sunmi variant
   }
   /** Feed extra paper then partial cut — extra lines so receipt clears the cutter */
   private cut(cmd: number[]) { cmd.push(0x0a, 0x0a, 0x0a, 0x0a, GS, 0x56, 0x01); }
