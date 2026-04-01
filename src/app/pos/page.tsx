@@ -49,6 +49,8 @@ import { POSProductGrid } from "@/components/pos/product-grid";
 import { initBarcodeScanner } from "@/lib/pos/barcode-scanner";
 import { CheckoutOverlay } from "@/components/pos/checkout/checkout-overlay";
 import { RefundModal } from "@/components/pos/refund/refund-modal";
+import { AutoPrintListener } from "@/components/pos/auto-print-listener";
+import { printClient } from "@/lib/pos/print-client";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -280,6 +282,17 @@ export default function PosRegisterPage() {
     dark: { bg: "bg-zinc-950", card: "bg-zinc-900", border: "border-zinc-800", text: "text-zinc-100", muted: "text-zinc-500", accent: "text-amber-400", accentBg: "bg-amber-600", input: "bg-zinc-800 border-zinc-700", hover: "hover:bg-zinc-800" },
   };
   const t = themes[theme];
+
+  // Connect to local print server (WebSocket) and track connection state
+  useEffect(() => {
+    printClient.connect();
+    const unsub = printClient.onConnectionChange((connected) => {
+      setPrinterConnected(connected);
+    });
+    // Set initial state
+    setPrinterConnected(printClient.isConnected);
+    return unsub;
+  }, []);
 
   // Register POS service worker for offline support + network status
   useEffect(() => {
@@ -803,22 +816,27 @@ export default function PosRegisterPage() {
 
   async function afterSale(method: string, orderPayload: Record<string, unknown>) {
     const printOrder = buildPrintableOrder(method, orderPayload);
+    const orderId = orderPayload.id as string | undefined;
+    const receiptOrder = toReceiptOrder(printOrder);
 
-    // Print receipt: use thermal ESC/POS if connected, otherwise unified HTML template.
-    // We bypass the printer's internal HTML fallback (which has a truncated template)
-    // and always use printReceiptWindow for browser printing.
+    // Print receipt (+ 1st delivery ticket if delivery) via ESC/POS or HTML fallback.
+    // printOrderDocuments routes through print server → WebUSB → HTML fallback.
     if (autoPrint && printerRef.current.connected) {
-      await printerRef.current.printReceipt(toReceiptOrder(printOrder));
+      await printerRef.current.printReceipt(receiptOrder, orderId);
+      // 2nd delivery ticket (dispatch copy) via print server
+      if (printOrder.delivery_address && printOrder.delivery_method === "delivery") {
+        await new Promise(r => setTimeout(r, 800));
+        await printerRef.current.printDeliveryTicketOnly(receiptOrder, orderId);
+      }
     } else {
       printReceiptWindow(printOrder);
-    }
-
-    // Print delivery tickets for delivery orders (2 copies: driver + dispatch)
-    if (printOrder.delivery_address && printOrder.delivery_method === "delivery") {
-      await new Promise(r => setTimeout(r, 800));
-      await printDeliveryTicketWindow(printOrder);
-      await new Promise(r => setTimeout(r, 800));
-      await printDeliveryTicketWindow(printOrder);
+      // HTML fallback delivery tickets (2 copies)
+      if (printOrder.delivery_address && printOrder.delivery_method === "delivery") {
+        await new Promise(r => setTimeout(r, 800));
+        await printDeliveryTicketWindow(printOrder);
+        await new Promise(r => setTimeout(r, 800));
+        await printDeliveryTicketWindow(printOrder);
+      }
     }
 
     // Open cash drawer on cash sales (not COD — money collected on delivery)
@@ -1440,6 +1458,7 @@ export default function PosRegisterPage() {
             .catch(() => {});
         }}
       />
+      <AutoPrintListener />
       {/* ── LEFT: Product Catalog ── */}
       <div className={`flex min-w-0 flex-1 flex-col border-r ${t.border}`}>
         <POSProductGrid
@@ -2305,6 +2324,20 @@ export default function PosRegisterPage() {
                 className="text-zinc-600 hover:text-zinc-300 text-[10px]"
               >
                 Reset
+              </button>
+            )}
+            <span className="flex items-center gap-1">
+              <Printer className={`h-3 w-3 ${printerConnected ? "text-green-500" : "text-zinc-600"}`} />
+              {printerConnected ? "Printer OK" : "No Printer"}
+            </span>
+            {printerConnected && (
+              <button
+                onClick={() => {
+                  try { printClient.testPrint(); } catch {}
+                }}
+                className="text-zinc-600 hover:text-zinc-300 text-[10px]"
+              >
+                Test
               </button>
             )}
             {!isOnline && (

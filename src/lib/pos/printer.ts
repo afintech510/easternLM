@@ -3,6 +3,8 @@
  * Prints: customer receipt (cut) → delivery ticket (cut) for delivery orders.
  */
 
+import { printClient } from "./print-client";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Navigator { usb: any; }
@@ -91,7 +93,8 @@ export class ReceiptPrinter {
   private device: USBDevice | null = null;
   private _connected = false;
 
-  get connected() { return this._connected; }
+  /** True if either the WebSocket print server or WebUSB device is available. */
+  get connected() { return printClient.isConnected || this._connected; }
 
   async connect(): Promise<boolean> {
     if (!("usb" in navigator)) return false;
@@ -114,7 +117,20 @@ export class ReceiptPrinter {
   disconnect() { this.device?.close(); this.device = null; this._connected = false; }
 
   /** Print customer receipt + delivery ticket (if delivery). Auto-cuts between them. */
-  async printOrderDocuments(order: ReceiptOrder): Promise<boolean> {
+  async printOrderDocuments(order: ReceiptOrder, orderId?: string): Promise<boolean> {
+    // Priority 1: WebSocket print server (most reliable for USB printers)
+    if (printClient.isConnected) {
+      const receiptData = new Uint8Array(this.buildReceipt(order));
+      await printClient.print(receiptData, "receipt", orderId);
+      if (order.deliveryMethod === "delivery" && order.deliveryAddress) {
+        await new Promise((r) => setTimeout(r, 800));
+        const ticketData = new Uint8Array(this.buildDeliveryTicket(order));
+        await printClient.print(ticketData, "delivery_ticket", orderId);
+      }
+      return true;
+    }
+
+    // Priority 2: WebUSB direct
     if (this.device && this._connected) {
       const ok = await this.sendBytes(this.buildReceipt(order));
       if (ok && order.deliveryMethod === "delivery" && order.deliveryAddress) {
@@ -123,15 +139,36 @@ export class ReceiptPrinter {
       }
       return ok;
     }
+
+    // Priority 3: HTML fallback (browser print dialog)
     this.printHtml(order);
     return true;
   }
 
-  async printReceipt(order: ReceiptOrder): Promise<boolean> {
-    return this.printOrderDocuments(order);
+  async printReceipt(order: ReceiptOrder, orderId?: string): Promise<boolean> {
+    return this.printOrderDocuments(order, orderId);
+  }
+
+  /** Print a single delivery ticket (for extra copies). */
+  async printDeliveryTicketOnly(order: ReceiptOrder, orderId?: string): Promise<boolean> {
+    if (printClient.isConnected) {
+      const data = new Uint8Array(this.buildDeliveryTicket(order));
+      await printClient.print(data, "delivery_ticket", orderId);
+      return true;
+    }
+    if (this.device && this._connected) {
+      return this.sendBytes(this.buildDeliveryTicket(order));
+    }
+    return false;
   }
 
   async openCashDrawer(): Promise<boolean> {
+    // Try print server first
+    if (printClient.isConnected) {
+      printClient.openCashDrawer();
+      return true;
+    }
+    // Fallback to WebUSB
     if (!this.device || !this._connected) return false;
     try { await this.device.transferOut(1, new Uint8Array([ESC, 0x70, 0x00, 0x19, 0xfa])); return true; } catch { return false; }
   }
