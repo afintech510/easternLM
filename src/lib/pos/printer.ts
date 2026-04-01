@@ -192,7 +192,11 @@ export class ReceiptPrinter {
   private dblH(cmd: number[], on: boolean) { cmd.push(GS, 0x21, on ? 0x01 : 0x00); }
   private align(cmd: number[], a: "L" | "C" | "R") { cmd.push(ESC, 0x61, a === "L" ? 0 : a === "C" ? 1 : 2); }
   /** Init printer + disable buzzer (Sunmi NT311 beeps on cut by default) */
-  private init(cmd: number[]) { cmd.push(ESC, 0x40, ESC, 0x42, 0x00, 0x00); }
+  private init(cmd: number[]) {
+    cmd.push(ESC, 0x40); // reset printer
+    // Sunmi buzzer off: GS ( E pL pH fn m — fn=97 (buzzer), m=0 (off)
+    cmd.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00);
+  }
   /** Feed extra paper then partial cut — extra lines so receipt clears the cutter */
   private cut(cmd: number[]) { cmd.push(0x0a, 0x0a, 0x0a, 0x0a, GS, 0x56, 0x01); }
 
