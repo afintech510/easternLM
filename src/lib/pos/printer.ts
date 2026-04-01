@@ -191,13 +191,16 @@ export class ReceiptPrinter {
   private bold(cmd: number[], on: boolean) { cmd.push(ESC, 0x45, on ? 0x01 : 0x00); }
   private dblH(cmd: number[], on: boolean) { cmd.push(GS, 0x21, on ? 0x01 : 0x00); }
   private align(cmd: number[], a: "L" | "C" | "R") { cmd.push(ESC, 0x61, a === "L" ? 0 : a === "C" ? 1 : 2); }
-  private cut(cmd: number[]) { cmd.push(GS, 0x56, 0x01); }
+  /** Init printer + disable buzzer (Sunmi NT311 beeps on cut by default) */
+  private init(cmd: number[]) { cmd.push(ESC, 0x40, ESC, 0x42, 0x00, 0x00); }
+  /** Feed extra paper then partial cut — extra lines so receipt clears the cutter */
+  private cut(cmd: number[]) { cmd.push(0x0a, 0x0a, 0x0a, 0x0a, GS, 0x56, 0x01); }
 
   // ── CUSTOMER RECEIPT ────────────────────────────────────
 
   private buildReceipt(o: ReceiptOrder): number[] {
     const c: number[] = [];
-    c.push(ESC, 0x40); // init
+    this.init(c);
 
     // Header
     this.align(c, "C"); this.bold(c, true);
@@ -297,11 +300,10 @@ export class ReceiptPrinter {
     }
 
     // Footer
-    this.txt(c, ""); this.txt(c, "");
+    this.txt(c, "");
     this.align(c, "C");
     this.txt(c, "Thank you for your business!");
     this.txt(c, "easternlm.com");
-    this.txt(c, ""); this.txt(c, "");
     this.cut(c);
     return c;
   }
@@ -344,7 +346,7 @@ export class ReceiptPrinter {
 
   private buildDeliveryTicket(o: ReceiptOrder): number[] {
     const c: number[] = [];
-    c.push(ESC, 0x40);
+    this.init(c);
 
     this.align(c, "C"); this.bold(c, true); this.dblH(c, true);
     this.txt(c, "DELIVERY TICKET");
@@ -462,11 +464,10 @@ export class ReceiptPrinter {
     this.txt(c, ""); this.txt(c, ddiv());
     this.txt(c, "Driver signature: ___________________");
     this.txt(c, "Date completed:   ___________________");
-    this.txt(c, ""); this.txt(c, "");
+    this.txt(c, "");
     this.align(c, "C");
     this.txt(c, "Eastern Landscape & Mason Supply");
     this.txt(c, "(631) 874-6244");
-    this.txt(c, ""); this.txt(c, "");
     this.cut(c);
     return c;
   }

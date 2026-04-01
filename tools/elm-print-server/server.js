@@ -73,6 +73,7 @@ function buildTestReceipt() {
   const buf = [];
 
   buf.push(ESC, 0x40); // init
+  buf.push(ESC, 0x42, 0x00, 0x00); // disable buzzer
   buf.push(ESC, 0x61, 0x01); // center
 
   buf.push(GS, 0x21, 0x01); // double height

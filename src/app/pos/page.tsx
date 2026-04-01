@@ -2035,14 +2035,24 @@ export default function PosRegisterPage() {
 
                   {/* Actions — uses shared mapDatabaseOrderToUnified for identical output */}
                   <div className="flex gap-2 pt-1">
-                    <button onClick={() => {
-                      printReceiptWindow(mapDatabaseOrderToUnified(txnDetail));
+                    <button onClick={async () => {
+                      const po = mapDatabaseOrderToUnified(txnDetail);
+                      if (printClient.isConnected) {
+                        await printerRef.current.printReceipt(toReceiptOrder(po), txnDetail.id);
+                      } else {
+                        printReceiptWindow(po);
+                      }
                     }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                       <Printer className="w-3.5 h-3.5" /> Receipt
                     </button>
                     {txnDetail.delivery_method === "delivery" && (
-                      <button onClick={() => {
-                        printDeliveryTicketWindow(mapDatabaseOrderToUnified(txnDetail));
+                      <button onClick={async () => {
+                        const po = mapDatabaseOrderToUnified(txnDetail);
+                        if (printClient.isConnected) {
+                          await printerRef.current.printDeliveryTicketOnly(toReceiptOrder(po), txnDetail.id);
+                        } else {
+                          printDeliveryTicketWindow(po);
+                        }
                       }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
                         <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                       </button>
