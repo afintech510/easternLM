@@ -1,0 +1,13 @@
+{
+  "name": "elm-print-server",
+  "version": "1.0.0",
+  "description": "Eastern LM receipt printer server — receives ESC/POS via WebSocket, sends to Sunmi NT311 over TCP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
