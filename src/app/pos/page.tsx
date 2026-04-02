@@ -123,6 +123,8 @@ export default function PosRegisterPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showRefund, setShowRefund] = useState<any>(null);
   const [showAddCredit, setShowAddCredit] = useState(false);
+  const [disableQuoteTarget, setDisableQuoteTarget] = useState<{ id: string; action: "disable" | "flag_scammer" } | null>(null);
+  const [disableQuoteReason, setDisableQuoteReason] = useState("");
   const [customerCreditBalance, setCustomerCreditBalance] = useState(0);
   const [addCreditType, setAddCreditType] = useState<"return_credit" | "prepayment">("return_credit");
   const [addCreditAmount, setAddCreditAmount] = useState("");
@@ -1002,6 +1004,10 @@ export default function PosRegisterPage() {
   }
 
   async function recallCart(quote: any) {
+    if (quote.status === "disabled" || quote.status === "scammer") {
+      alert("This quote has been disabled and cannot be recalled. Create a new quote if needed.");
+      return;
+    }
     if (items.length > 0 && !confirm("Replace current cart with saved cart?")) return;
     fullReset();
 
@@ -1469,6 +1475,64 @@ export default function PosRegisterPage() {
         />
       )}
 
+      {/* Disable Quote / Flag Scammer Modal */}
+      {disableQuoteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setDisableQuoteTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            {disableQuoteTarget.action === "flag_scammer" ? (
+              <>
+                <h3 className="text-lg font-bold text-red-400">Flag as Fraudulent</h3>
+                <p className="text-sm text-zinc-400">This will disable the payment link and mark the customer record as fraudulent.</p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-white">Disable Quote</h3>
+                <p className="text-sm text-zinc-400">The payment link will stop working immediately.</p>
+              </>
+            )}
+            <div>
+              <label className="text-xs text-zinc-500">{disableQuoteTarget.action === "flag_scammer" ? "Reason (required)" : "Reason (optional)"}</label>
+              <input type="text" value={disableQuoteReason} onChange={(e) => setDisableQuoteReason(e.target.value)}
+                placeholder={disableQuoteTarget.action === "flag_scammer" ? "Describe the fraud attempt..." : "e.g., Customer unresponsive, duplicate quote..."}
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" autoFocus />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (disableQuoteTarget.action === "flag_scammer" && !disableQuoteReason.trim()) {
+                    alert("Reason is required when flagging as scammer.");
+                    return;
+                  }
+                  const res = await fetch(`/api/pos/quotes/${disableQuoteTarget.id}/disable`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: disableQuoteTarget.action, reason: disableQuoteReason.trim() || undefined, disabled_by: "pos" }),
+                  });
+                  if (res.ok) {
+                    // Optimistic update
+                    setSavedCarts((prev: any[]) => prev.map((q: any) =>
+                      q.id === disableQuoteTarget.id
+                        ? { ...q, status: disableQuoteTarget.action === "flag_scammer" ? "scammer" : "disabled", disable_reason: disableQuoteReason.trim() }
+                        : q
+                    ));
+                    setDisableQuoteTarget(null);
+                    alert(disableQuoteTarget.action === "flag_scammer" ? "Quote disabled and customer flagged." : "Quote disabled.");
+                  } else {
+                    alert("Failed to update quote.");
+                  }
+                }}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white ${
+                  disableQuoteTarget.action === "flag_scammer" ? "bg-red-600 hover:bg-red-500" : "bg-zinc-600 hover:bg-zinc-500"
+                }`}
+              >
+                {disableQuoteTarget.action === "flag_scammer" ? "Flag as Scammer" : "Disable Quote"}
+              </button>
+              <button onClick={() => setDisableQuoteTarget(null)} className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm text-zinc-400 hover:bg-zinc-800">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Store Credit Modal */}
       {showAddCredit && selectedCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => !addCreditLoading && setShowAddCredit(false)}>
@@ -1934,6 +1998,16 @@ export default function PosRegisterPage() {
                 </div>
               )}
 
+              {/* Scammer warning banner */}
+              {selectedCustomer && (selectedCustomer as any).is_scammer && (
+                <div className="rounded-lg border border-red-600 bg-red-950/40 p-3 space-y-1">
+                  <p className="text-sm font-bold text-red-400">⚠️ FRAUD ALERT — This customer has been flagged for fraudulent activity.</p>
+                  {(selectedCustomer as any).scammer_note && (
+                    <p className="text-xs text-red-300/70">{(selectedCustomer as any).scammer_note}</p>
+                  )}
+                </div>
+              )}
+
               {/* Selected customer card */}
               {selectedCustomer && (
                 <div className="rounded-lg border border-amber-600/30 bg-amber-900/20 p-3 space-y-1.5">
@@ -2218,7 +2292,11 @@ export default function PosRegisterPage() {
                       {txnType === "saved" ? "No saved carts" : "No quotes sent"}
                     </p>
                   ) : savedCarts.map((q: any) => (
-                    <div key={q.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                    <div key={q.id} className={`rounded-lg border p-3 ${
+                      q.status === "scammer" ? "border-red-600 bg-red-950/20" :
+                      q.status === "disabled" ? "border-zinc-800 bg-zinc-900 opacity-50" :
+                      "border-zinc-800 bg-zinc-900"
+                    }`}>
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{q.customer_name || "Walk-in"}</p>
@@ -2231,8 +2309,10 @@ export default function PosRegisterPage() {
                             q.status === "draft" ? "bg-zinc-700 text-zinc-400" :
                             q.status === "sent" ? "bg-blue-500/20 text-blue-400" :
                             q.status === "viewed" ? "bg-purple-500/20 text-purple-400" :
+                            q.status === "disabled" ? "bg-zinc-700 text-zinc-400" :
+                            q.status === "scammer" ? "bg-red-900/50 text-red-400" :
                             "bg-zinc-700 text-zinc-400"
-                          }`}>{q.status}</span>
+                          }`}>{q.status === "disabled" ? "\u{1F6AB} Disabled" : q.status === "scammer" ? "\u26A0\uFE0F Fraud Flag" : q.status}</span>
                         </div>
                       </div>
                       <p className="text-[10px] text-zinc-600 mt-1">
@@ -2266,12 +2346,29 @@ export default function PosRegisterPage() {
                             <Copy className="w-3 h-3" /> Link
                           </button>
                         )}
+                        {/* Disable Quote button */}
+                        {q.status !== "disabled" && q.status !== "scammer" && q.status !== "converted" && (
+                          <button onClick={() => { setDisableQuoteTarget({ id: q.id, action: "disable" }); setDisableQuoteReason(""); }}
+                            className="h-8 px-2.5 rounded-lg bg-zinc-800 text-xs text-zinc-400 hover:bg-zinc-700 flex items-center gap-1">
+                            Disable
+                          </button>
+                        )}
+                        {/* Flag as Scammer button */}
+                        {q.status !== "scammer" && q.status !== "converted" && (
+                          <button onClick={() => { setDisableQuoteTarget({ id: q.id, action: "flag_scammer" }); setDisableQuoteReason(""); }}
+                            className="h-8 px-2.5 rounded-lg bg-red-900/30 border border-red-600/20 text-xs text-red-400 hover:bg-red-900/50 flex items-center gap-1">
+                            Flag Scammer
+                          </button>
+                        )}
                         <button onClick={() => deleteSavedCart(q.id)} className="h-8 w-8 rounded-lg border border-zinc-700 text-zinc-500 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       {q.viewed_at && (
                         <p className="text-[10px] text-zinc-600 mt-1">Viewed {formatShortDateTime(q.viewed_at)}</p>
+                      )}
+                      {q.disable_reason && (
+                        <p className="text-[10px] text-zinc-500 mt-1">Reason: {q.disable_reason}</p>
                       )}
                     </div>
                   ))}

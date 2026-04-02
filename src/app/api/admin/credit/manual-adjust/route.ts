@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
       p_type: type,
       p_note: note.trim(),
       p_created_by: created_by || "admin",
-      p_order_id: null,
-      p_stripe_payment_intent_id: null,
+      p_order_id: undefined,
+      p_stripe_payment_intent_id: undefined,
     });
 
     if (error) {

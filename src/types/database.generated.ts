@@ -618,6 +618,7 @@ export type Database = {
           first_order_at: string | null
           id: string
           is_charge_account: boolean
+          is_scammer: boolean
           last_name: string | null
           last_order_at: string | null
           last_statement_date: string | null
@@ -626,6 +627,7 @@ export type Database = {
           opted_in_sms: boolean
           payment_terms: string | null
           phone: string | null
+          scammer_note: string | null
           source: string
           state: string | null
           tags: string[]
@@ -653,6 +655,7 @@ export type Database = {
           first_order_at?: string | null
           id?: string
           is_charge_account?: boolean
+          is_scammer?: boolean
           last_name?: string | null
           last_order_at?: string | null
           last_statement_date?: string | null
@@ -661,6 +664,7 @@ export type Database = {
           opted_in_sms?: boolean
           payment_terms?: string | null
           phone?: string | null
+          scammer_note?: string | null
           source?: string
           state?: string | null
           tags?: string[]
@@ -688,6 +692,7 @@ export type Database = {
           first_order_at?: string | null
           id?: string
           is_charge_account?: boolean
+          is_scammer?: boolean
           last_name?: string | null
           last_order_at?: string | null
           last_statement_date?: string | null
@@ -696,6 +701,7 @@ export type Database = {
           opted_in_sms?: boolean
           payment_terms?: string | null
           phone?: string | null
+          scammer_note?: string | null
           source?: string
           state?: string | null
           tags?: string[]
@@ -2235,6 +2241,9 @@ export type Database = {
           deposit_required_cents: number
           deposit_stripe_payment_id: string | null
           description: string | null
+          disable_reason: string | null
+          disabled_at: string | null
+          disabled_by: string | null
           estimated_timeline: string | null
           id: string
           internal_notes: string | null
@@ -2289,6 +2298,9 @@ export type Database = {
           deposit_required_cents?: number
           deposit_stripe_payment_id?: string | null
           description?: string | null
+          disable_reason?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           estimated_timeline?: string | null
           id?: string
           internal_notes?: string | null
@@ -2343,6 +2355,9 @@ export type Database = {
           deposit_required_cents?: number
           deposit_stripe_payment_id?: string | null
           description?: string | null
+          disable_reason?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           estimated_timeline?: string | null
           id?: string
           internal_notes?: string | null

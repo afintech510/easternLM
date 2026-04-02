@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { MapPin, Phone, Search, ShoppingCart, Tag, User, CreditCard, ChevronDown, ChevronUp } from "lucide-react";
+import { MapPin, Phone, Search, ShoppingCart, Tag, User, CreditCard, ChevronDown, ChevronUp, AlertTriangle, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,8 @@ type Customer = {
   billing_email: string | null;
   billing_address: string | null;
   current_balance_cents: number | null;
+  is_scammer: boolean;
+  scammer_note: string | null;
 };
 
 function formatUsd(cents: number) {
@@ -77,6 +79,9 @@ export default function AdminCustomersPage() {
     billing_address: "",
   });
   const [savingCharge, setSavingCharge] = useState(false);
+  const [showFlagged, setShowFlagged] = useState(false);
+  const [flaggedCustomers, setFlaggedCustomers] = useState<Customer[]>([]);
+  const [loadingFlagged, setLoadingFlagged] = useState(false);
 
   const search = useCallback(async () => {
     if (query.trim().length < 2) return;
@@ -92,7 +97,7 @@ export default function AdminCustomersPage() {
     }
   }, [query]);
 
-  const selected = customers.find((c) => c.id === selectedId);
+  const selected = customers.find((c) => c.id === selectedId) || flaggedCustomers.find((c) => c.id === selectedId);
 
   function openChargeEdit(c: Customer) {
     setChargeForm({
@@ -136,8 +141,22 @@ export default function AdminCustomersPage() {
       <h1 className="text-2xl font-semibold">Customer Search</h1>
       <p className="text-sm text-muted-foreground">Search by phone number, name, address, or company.</p>
 
+      {/* Flagged filter toggle */}
+      <div className="flex gap-2">
+        <button onClick={() => { setShowFlagged(false); }} className={`rounded-lg px-3 py-1.5 text-sm font-medium ${!showFlagged ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>All Customers</button>
+        <button onClick={async () => {
+          setShowFlagged(true);
+          setLoadingFlagged(true);
+          const res = await fetch("/api/admin/customers/search?flagged=true");
+          if (res.ok) { const data = await res.json(); setFlaggedCustomers(data.customers ?? []); }
+          setLoadingFlagged(false);
+        }} className={`rounded-lg px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 ${showFlagged ? "bg-red-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+          <AlertTriangle className="size-3.5" /> Flagged
+        </button>
+      </div>
+
       {/* Search bar */}
-      <form onSubmit={(e) => { e.preventDefault(); search(); }} className="flex gap-2">
+      {!showFlagged && <form onSubmit={(e) => { e.preventDefault(); search(); }} className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
@@ -151,42 +170,81 @@ export default function AdminCustomersPage() {
         <Button type="submit" disabled={loading || query.trim().length < 2}>
           {loading ? "Searching..." : "Search"}
         </Button>
-      </form>
+      </form>}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         {/* Results list */}
         <div className="space-y-1">
-          {customers.length > 0 ? customers.map((c) => {
-            const name = c.company_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "(unnamed)";
-            const isSelected = selectedId === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedId(isSelected ? null : c.id)}
-                className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${isSelected ? "border-accent bg-accent/5" : "hover:bg-muted/50"}`}
-              >
-                <User className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{name}</p>
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    {c.phone && <span>{formatPhone(c.phone)}</span>}
-                    {c.city && <span>{c.city}</span>}
+          {(() => {
+            const displayList = showFlagged ? flaggedCustomers : customers;
+            const isLoading = showFlagged ? loadingFlagged : loading;
+            if (isLoading) return <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>;
+            if (displayList.length === 0) {
+              if (showFlagged) return <p className="py-8 text-center text-sm text-muted-foreground">No flagged customers</p>;
+              if (query) return <p className="py-8 text-center text-sm text-muted-foreground">No customers found for &ldquo;{query}&rdquo;</p>;
+              return null;
+            }
+            return displayList.map((c) => {
+              const name = c.company_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "(unnamed)";
+              const isSelected = selectedId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedId(isSelected ? null : c.id)}
+                  className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${c.is_scammer ? "border-red-500/30" : ""} ${isSelected ? "border-accent bg-accent/5" : "hover:bg-muted/50"}`}
+                >
+                  <User className={`mt-0.5 size-4 shrink-0 ${c.is_scammer ? "text-red-500" : "text-muted-foreground"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{name}</p>
+                      {c.is_scammer && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">FRAUD</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                      {c.phone && <span>{formatPhone(c.phone)}</span>}
+                      {c.city && <span>{c.city}</span>}
+                    </div>
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold">{c.total_orders} orders</p>
-                  <p className="text-xs text-muted-foreground">{formatUsd(c.total_spent_cents)}</p>
-                </div>
-              </button>
-            );
-          }) : query && !loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No customers found for &ldquo;{query}&rdquo;</p>
-          ) : null}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold">{c.total_orders} orders</p>
+                    <p className="text-xs text-muted-foreground">{formatUsd(c.total_spent_cents)}</p>
+                  </div>
+                </button>
+              );
+            });
+          })()}
         </div>
 
         {/* Customer detail */}
         {selected && (
           <div className="rounded-lg border bg-card p-5 space-y-5 lg:sticky lg:top-20 lg:self-start">
+            {/* Scammer warning */}
+            {selected.is_scammer && (
+              <div className="rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/30 p-3 space-y-2">
+                <p className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                  <AlertTriangle className="size-4" /> FRAUD FLAG
+                </p>
+                {selected.scammer_note && <p className="text-xs text-red-600 dark:text-red-300">{selected.scammer_note}</p>}
+                <button
+                  onClick={async () => {
+                    if (!confirm("Remove fraud flag from this customer? This will allow their quotes to work again.")) return;
+                    await fetch(`/api/admin/customers/${selected.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ is_scammer: false, scammer_note: null }),
+                    });
+                    // Refresh
+                    if (showFlagged) {
+                      setFlaggedCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, is_scammer: false, scammer_note: null } : c));
+                    }
+                    setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, is_scammer: false, scammer_note: null } : c));
+                  }}
+                  className="rounded border border-red-300 dark:border-red-700 px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
+                >
+                  <Shield className="inline size-3 mr-1" /> Remove Fraud Flag
+                </button>
+              </div>
+            )}
+
             <div>
               <h2 className="text-lg font-semibold">
                 {selected.company_name || `${selected.first_name || ""} ${selected.last_name || ""}`.trim() || "(unnamed)"}

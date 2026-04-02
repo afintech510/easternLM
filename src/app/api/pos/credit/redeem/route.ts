@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       p_note: `Applied to order`,
       p_created_by: "pos",
       p_order_id: order_id || null,
-      p_stripe_payment_intent_id: null,
+      p_stripe_payment_intent_id: undefined,
     });
 
     if (error) {
