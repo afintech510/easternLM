@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
         p_type: "prepayment",
         p_note: note || "Card prepayment",
         p_created_by: created_by || "admin",
-        p_order_id: null,
+        p_order_id: undefined,
         p_stripe_payment_intent_id: payment_intent_id,
       });
 
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         p_type: "prepayment",
         p_note: note || "Card prepayment (saved card)",
         p_created_by: created_by || "admin",
-        p_order_id: null,
+        p_order_id: undefined,
         p_stripe_payment_intent_id: pi.id,
       });
 

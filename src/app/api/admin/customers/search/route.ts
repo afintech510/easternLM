@@ -8,6 +8,20 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
+  const flagged = searchParams.get("flagged");
+
+  // Flagged customers filter — return all scammer-flagged customers
+  if (flagged === "true") {
+    const supabase = getSupabaseAdminClient();
+    const { data: customers, error } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("is_scammer", true)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ customers: (customers || []).map(c => ({ ...c, recent_orders: [] })) });
+  }
 
   if (!q || q.length < 2) {
     return NextResponse.json({ error: "Query must be at least 2 characters" }, { status: 400 });

@@ -1174,6 +1174,24 @@ function PublicQuoteInner() {
     );
   }
 
+  // Disabled / fraud-flagged quotes — neutral block, no payment UI
+  if (quote.status === "disabled" || quote.status === "scammer") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md rounded-xl border bg-card p-8 text-center shadow-sm space-y-4">
+          <h1 className="text-xl font-bold text-foreground">Quote Unavailable</h1>
+          <p className="text-sm text-muted-foreground">
+            This quote is no longer available.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            If you believe this is an error, please call us at{" "}
+            <a href="tel:+16318746244" className="font-semibold text-accent hover:underline">(631) 874-6244</a>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Already-accepted / already-declined states (server-side or just completed)
   const isAccepted = quote.status === "accepted" || quote.status === "converted" ||
     outcome === "accepted" || depositSuccess;

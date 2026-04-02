@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
       p_customer_id: customer_id,
       p_amount_cents: amount_cents,
       p_type: type,
-      p_note: note || null,
+      p_note: note || undefined,
       p_created_by: created_by || "staff",
-      p_order_id: null,
-      p_stripe_payment_intent_id: stripe_payment_intent_id || null,
+      p_order_id: undefined,
+      p_stripe_payment_intent_id: stripe_payment_intent_id || undefined,
     });
 
     if (error) {
