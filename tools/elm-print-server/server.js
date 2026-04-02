@@ -73,10 +73,7 @@ function buildTestReceipt() {
   const GS = 0x1d;
   const buf = [];
 
-  buf.push(ESC, 0x40); // init
-  buf.push(ESC, 0x63, 0x35, 0x00);                         // ESC c 5 0 — panel buzzer off
-  buf.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00);  // GS ( E — buzzer off
-  buf.push(0x1C, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // FS ( E — Sunmi variant
+  buf.push(ESC, 0x40); // init — buzzer-off commands removed (NT311 prints their bytes as text "5aa")
   buf.push(ESC, 0x61, 0x01); // center
 
   buf.push(GS, 0x21, 0x01); // double height

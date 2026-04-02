@@ -209,13 +209,14 @@ export class ReceiptPrinter {
     // Print QR
     cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);
   }
-  /** Init printer + disable buzzer (Sunmi NT311 beeps on cut by default) */
+  /** Set character spacing (right-side, in dots). Reset to 0 after use. */
+  private charSpacing(cmd: number[], dots: number) { cmd.push(ESC, 0x20, dots); }
+  /** Set font size — byte encodes width multiplier (high nibble) + height multiplier (low nibble).
+   *  0x00=1x1, 0x01=1x2h, 0x10=2w×1h, 0x11=2w×2h (double), 0x22=3w×3h */
+  private fontSize(cmd: number[], size: number) { cmd.push(GS, 0x21, size); }
+  /** Init printer — ESC @ only. Buzzer-off commands removed: NT311 prints their payload bytes as text ("5aa"). */
   private init(cmd: number[]) {
     cmd.push(ESC, 0x40); // reset printer
-    // Try multiple buzzer-off commands — different Sunmi firmware versions respond to different ones
-    cmd.push(ESC, 0x63, 0x35, 0x00);                         // ESC c 5 0 — panel buzzer off
-    cmd.push(GS, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // GS ( E — buzzer setting off
-    cmd.push(0x1c, 0x28, 0x45, 0x03, 0x00, 0x61, 0x61, 0x00); // FS ( E — Sunmi variant
   }
   /** Feed extra paper then partial cut — extra lines so receipt clears the cutter */
   private cut(cmd: number[]) { cmd.push(0x0a, 0x0a, 0x0a, 0x0a, GS, 0x56, 0x01); }
@@ -226,27 +227,33 @@ export class ReceiptPrinter {
     const c: number[] = [];
     this.init(c);
 
-    // Header
-    this.align(c, "C"); this.bold(c, true);
+    // Header — double size bold
+    this.align(c, "C"); this.bold(c, true); this.fontSize(c, 0x11);
     this.txt(c, "EASTERN LANDSCAPE");
     this.txt(c, "& MASON SUPPLY");
-    this.bold(c, false);
+    this.fontSize(c, 0x00); this.bold(c, false);
     this.txt(c, "110 Frowein Road");
     this.txt(c, "Center Moriches, NY 11934");
     this.txt(c, "(631) 874-6244");
     this.txt(c, ddiv());
 
     // Order info
-    this.align(c, "L");
-    if (o.orderNumber) this.txt(c, `Order: #${o.orderNumber}`);
+    this.align(c, "L"); this.bold(c, true);
+    const orderNum = (o.orderNumber || "").replace(/^#/, "");
+    if (orderNum) this.txt(c, `Order: #${orderNum}`);
+    this.bold(c, false);
     const dt = new Date(o.createdAt);
     this.txt(c, `Date:  ${dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} ${dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`);
     if (o.staffName) this.txt(c, `Staff: ${o.staffName}`);
     this.txt(c, "");
-    // Customer name — clean up raw phone / SMS prefix
+    // Customer name — clean up raw phone / SMS prefix — double size
     const cleanName = (o.customerName ?? "Walk-in")
       .replace(/^SMS:\s*/i, "").replace(/^\+1/, "").trim();
-    if (cleanName && cleanName !== "Walk-in") this.txt(c, `Customer: ${cleanName}`);
+    if (cleanName && cleanName !== "Walk-in") {
+      this.fontSize(c, 0x11);
+      this.txt(c, cleanName);
+      this.fontSize(c, 0x00);
+    }
     if (o.customerPhone) {
       const ph = o.customerPhone.replace(/\D/g, "").slice(-10);
       const fmtPhone = ph.length === 10 ? `(${ph.slice(0,3)}) ${ph.slice(3,6)}-${ph.slice(6)}` : o.customerPhone;
@@ -255,9 +262,10 @@ export class ReceiptPrinter {
     if (o.customerEmail) this.txt(c, `Email:    ${o.customerEmail}`);
     this.txt(c, div());
 
-    // Items — proper unit formatting
+    // Items — proper unit formatting — 2× height
     this.bold(c, true); this.txt(c, "ITEMS"); this.bold(c, false);
     this.txt(c, div());
+    this.fontSize(c, 0x01); // 2× height for item lines
     for (const item of o.items) {
       const isBulk = item.deliveryType === "bulk";
       const adder = item.halfYardAdderCents ?? 0;
@@ -273,10 +281,13 @@ export class ReceiptPrinter {
         this.txt(c, line(`  @ ${fmt(item.unitPriceCents)} each`, fmt(item.lineTotalCents)));
       }
     }
+    this.fontSize(c, 0x00); // back to normal
     this.txt(c, div());
 
-    // Totals
+    // Totals — 2× height bold
+    this.fontSize(c, 0x01); this.bold(c, true);
     this.txt(c, line("Subtotal:", fmt(o.subtotalCents)));
+    this.bold(c, false);
     if (o.discountAmountCents && o.discountAmountCents > 0) {
       this.txt(c, line(`Discount${o.discountReason ? ` (${o.discountReason})` : ""}:`, `-${fmt(o.discountAmountCents)}`));
     }
@@ -290,27 +301,40 @@ export class ReceiptPrinter {
     if (o.ccSurchargeCents > 0) this.txt(c, line("CC Fee (3%):", fmt(o.ccSurchargeCents)));
 
     this.txt(c, ddiv());
-    this.bold(c, true); this.dblH(c, true);
+    this.bold(c, true); this.fontSize(c, 0x11);
     this.txt(c, line("TOTAL:", fmt(o.totalCents)));
-    this.dblH(c, false); this.bold(c, false);
+    this.fontSize(c, 0x00); this.bold(c, false);
     this.txt(c, "");
 
     // Payment
     this.printPaymentSection(c, o);
 
-    // Delivery info (summary on receipt)
-    if (o.deliveryMethod === "delivery" && o.deliveryAddress) {
+    // Delivery info (summary on receipt) — show for ALL delivery orders, even if some fields are null (BUG 5)
+    if (o.deliveryMethod === "delivery") {
       this.txt(c, div());
       this.bold(c, true); this.txt(c, "DELIVERY"); this.bold(c, false);
       this.txt(c, div());
-      const cleanAddr = o.deliveryAddress.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ");
-      this.txt(c, cleanAddr.substring(0, W));
+      // Address — EXTRA LARGE (double size bold)
+      if (o.deliveryAddress) {
+        this.fontSize(c, 0x11); this.bold(c, true);
+        const cleanAddr = o.deliveryAddress.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ");
+        // Wrap at ~24 chars (half width at double size)
+        for (let i = 0; i < cleanAddr.length; i += 24) this.txt(c, cleanAddr.substring(i, i + 24));
+        this.fontSize(c, 0x00); this.bold(c, false);
+      }
+      // Date & Time — EXTRA LARGE
       if (o.deliveryDate) {
         const dd = new Date(o.deliveryDate + (o.deliveryDate.includes("T") ? "" : "T12:00:00"));
-        this.txt(c, `Date:    ${dd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`);
+        this.fontSize(c, 0x11); this.bold(c, true);
+        this.txt(c, dd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
+        this.fontSize(c, 0x00); this.bold(c, false);
       }
-      const twMap: Record<string, string> = { morning: "Morning (7 AM-10 AM)", midday: "Midday (10 AM-1 PM)", afternoon: "Afternoon (1 PM-5 PM)", flexible: "Flexible (7 AM-5 PM)" };
-      if (o.deliveryTimeWindow) this.txt(c, `Time:    ${twMap[o.deliveryTimeWindow] ?? o.deliveryTimeWindow}`);
+      const twMap: Record<string, string> = { morning: "Morning (7-10 AM)", midday: "Midday (10-1 PM)", afternoon: "Afternoon (1-5 PM)", flexible: "Flexible (7-5)" };
+      if (o.deliveryTimeWindow) {
+        this.fontSize(c, 0x11); this.bold(c, true);
+        this.txt(c, twMap[o.deliveryTimeWindow] ?? o.deliveryTimeWindow);
+        this.fontSize(c, 0x00); this.bold(c, false);
+      }
       const ac = this.getActiveConstraints(o);
       if (ac.length > 0) this.txt(c, `Access:  ${ac.join(", ")}`);
       if (o.deliveryNotes) this.txt(c, `Notes:   ${o.deliveryNotes.substring(0, W - 9)}`);
@@ -328,6 +352,12 @@ export class ReceiptPrinter {
     this.align(c, "C");
     this.txt(c, "Thank you for your business!");
     this.txt(c, "easternlm.com");
+    this.txt(c, "");
+
+    // Disclaimers — smallest font, left-aligned
+    this.align(c, "L");
+    this.txt(c, "................................................");
+    this.printDisclaimers(c);
     this.cut(c);
     return c;
   }
@@ -350,14 +380,16 @@ export class ReceiptPrinter {
     } else if (o.paymentMethod === "cod") {
       this.txt(c, ddiv());
       this.invert(c, true);
-      this.bold(c, true); this.dblH(c, true);
+      this.bold(c, true); this.fontSize(c, 0x11);
+      this.charSpacing(c, 3); // extra letter spacing for readability
       this.align(c, "C");
       this.txt(c, "                                                ");
-      this.txt(c, "     CASH ON DELIVERY      ");
-      this.txt(c, `     COLLECT: ${fmt(o.totalCents)}      `);
+      this.txt(c, "  C A S H  O N  D E L I V E R Y  ");
+      this.txt(c, `  COLLECT: ${fmt(o.totalCents)}  `);
       this.txt(c, "                                                ");
+      this.charSpacing(c, 0); // reset spacing
       this.align(c, "L");
-      this.dblH(c, false); this.bold(c, false);
+      this.fontSize(c, 0x00); this.bold(c, false);
       this.invert(c, false);
       this.txt(c, ddiv());
     } else if (o.paymentMethod === "account") {
@@ -376,35 +408,56 @@ export class ReceiptPrinter {
     const c: number[] = [];
     this.init(c);
 
-    this.align(c, "C"); this.bold(c, true); this.dblH(c, true);
+    this.align(c, "C"); this.bold(c, true); this.fontSize(c, 0x11);
     this.txt(c, "DELIVERY TICKET");
-    this.dblH(c, false); this.bold(c, false);
+    this.fontSize(c, 0x00); this.bold(c, false);
     this.txt(c, "EASTERN LANDSCAPE & MASON SUPPLY");
     this.txt(c, ddiv());
 
-    this.align(c, "L");
-    if (o.orderNumber) this.txt(c, `Order: #${o.orderNumber}`);
-    this.txt(c, `Date:  ${new Date(o.createdAt).toLocaleDateString()}`);
+    this.align(c, "L"); this.bold(c, true);
+    const dtOrderNum = (o.orderNumber || "").replace(/^#/, "");
+    if (dtOrderNum) this.txt(c, `Order: #${dtOrderNum}`);
+    this.bold(c, false);
+    const dtDate = new Date(o.createdAt);
+    this.txt(c, `Date:  ${dtDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`);
     this.txt(c, "");
 
-    // Customer
+    // Customer — double size name
     this.bold(c, true); this.txt(c, "CUSTOMER:"); this.bold(c, false);
-    if (o.customerName) this.txt(c, `  ${o.customerName}`);
+    if (o.customerName) {
+      this.fontSize(c, 0x11);
+      this.txt(c, `  ${o.customerName}`);
+      this.fontSize(c, 0x00);
+    }
     if (o.customerPhone) this.txt(c, `  Phone: ${o.customerPhone}`);
     if (o.siteContactPhone && o.siteContactPhone !== o.customerPhone) {
       this.txt(c, `  Site:  ${o.siteContactPhone}`);
     }
     this.txt(c, ddiv());
 
-    // Delivery address
-    this.bold(c, true); this.txt(c, "DELIVER TO:"); this.bold(c, false);
+    // Delivery address — EXTRA LARGE (double size bold)
+    this.bold(c, true); this.txt(c, "DELIVER TO:");
     if (o.deliveryAddress) {
-      const addr = o.deliveryAddress;
-      for (let i = 0; i < addr.length; i += W - 2) this.txt(c, `  ${addr.substring(i, i + W - 2)}`);
+      this.fontSize(c, 0x11);
+      const addr = o.deliveryAddress.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ");
+      for (let i = 0; i < addr.length; i += 24) this.txt(c, `${addr.substring(i, i + 24)}`);
+      this.fontSize(c, 0x00);
     }
+    this.bold(c, false);
     this.txt(c, "");
-    if (o.deliveryDate) this.txt(c, `DATE:   ${o.deliveryDate}`);
-    if (o.deliveryTimeWindow) this.txt(c, `WINDOW: ${o.deliveryTimeWindow}`);
+    // Delivery date/time — EXTRA LARGE
+    if (o.deliveryDate) {
+      const dd = new Date(o.deliveryDate + (o.deliveryDate.includes("T") ? "" : "T12:00:00"));
+      this.fontSize(c, 0x11); this.bold(c, true);
+      this.txt(c, dd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
+      this.fontSize(c, 0x00); this.bold(c, false);
+    }
+    const dtTwMap: Record<string, string> = { morning: "Morning (7-10 AM)", midday: "Midday (10-1 PM)", afternoon: "Afternoon (1-5 PM)", flexible: "Flexible (7-5)" };
+    if (o.deliveryTimeWindow) {
+      this.fontSize(c, 0x11); this.bold(c, true);
+      this.txt(c, dtTwMap[o.deliveryTimeWindow] ?? o.deliveryTimeWindow);
+      this.fontSize(c, 0x00); this.bold(c, false);
+    }
     this.txt(c, ddiv());
 
     // Access warnings
@@ -427,40 +480,38 @@ export class ReceiptPrinter {
     this.bold(c, true); this.txt(c, "MATERIAL TO LOAD:"); this.bold(c, false);
     this.txt(c, ddiv());
 
-    // Delivery loads
+    // Delivery loads — EXTRA LARGE (double size bold)
     if (o.deliveryLoads && o.deliveryLoads.length > 0) {
       for (const load of o.deliveryLoads) {
         this.txt(c, "");
         this.bold(c, true);
-        this.txt(c, `DELIVERY ${load.loadNumber}${o.deliveryLoads.length > 1 ? ` of ${o.deliveryLoads.length}` : ""}:`);
-        this.bold(c, false);
-        this.txt(c, `  Product:  ${load.materialName}`);
-        this.txt(c, `  Quantity: ${load.yards} cubic yards`);
-        this.txt(c, `  Truck:    ${load.truckType}`);
-        this.txt(c, `  Fee:      ${fmt(load.feeCents)}`);
-        this.txt(c, "");
-        this.txt(c, "  [ ] LOADED    [ ] DELIVERED");
+        this.txt(c, `LOAD ${load.loadNumber}${o.deliveryLoads.length > 1 ? ` of ${o.deliveryLoads.length}` : ""}:`);
+        this.fontSize(c, 0x11);
+        this.txt(c, load.materialName);
+        this.txt(c, `${load.yards} cubic yards`);
+        this.fontSize(c, 0x00); this.bold(c, false);
+        this.txt(c, `  Truck: ${load.truckType}`);
       }
     } else {
-      // Fallback: list bulk items
+      // Fallback: list bulk items — EXTRA LARGE
       const bulk = o.items.filter((i) => i.deliveryType === "bulk");
+      this.fontSize(c, 0x11); this.bold(c, true);
       for (const item of bulk) {
-        this.txt(c, `  ${item.quantity} ${item.unit} ${item.productName}`);
+        this.txt(c, `${item.quantity} ${item.unit} ${item.productName}`);
       }
-      this.txt(c, "");
-      this.txt(c, "  [ ] LOADED    [ ] DELIVERED");
+      this.fontSize(c, 0x00); this.bold(c, false);
     }
 
     // Non-bulk items
     const nonBulk = o.items.filter((i) => i.deliveryType !== "bulk");
     if (nonBulk.length > 0) {
       this.txt(c, ""); this.txt(c, ddiv());
-      this.txt(c, "ADDITIONAL ITEMS (ride with delivery):");
+      this.txt(c, "ADDITIONAL ITEMS:");
+      this.fontSize(c, 0x11); this.bold(c, true);
       for (const item of nonBulk) {
-        this.txt(c, `  ${item.quantity}x ${item.productName}`);
+        this.txt(c, `${item.quantity}x ${item.productName}`);
       }
-      this.txt(c, "");
-      this.txt(c, "  [ ] LOADED    [ ] DELIVERED");
+      this.fontSize(c, 0x00); this.bold(c, false);
     }
 
     this.txt(c, ddiv());
@@ -468,20 +519,22 @@ export class ReceiptPrinter {
     // Payment status for driver
     if (o.paymentMethod === "cod") {
       this.invert(c, true);
-      this.bold(c, true); this.dblH(c, true);
+      this.bold(c, true); this.fontSize(c, 0x11);
+      this.charSpacing(c, 3);
       this.align(c, "C");
       this.txt(c, "                                                ");
-      this.txt(c, "     CASH ON DELIVERY      ");
-      this.txt(c, `     COLLECT: ${fmt(o.totalCents)}      `);
+      this.txt(c, "  C A S H  O N  D E L I V E R Y  ");
+      this.txt(c, `  COLLECT: ${fmt(o.totalCents)}  `);
       this.txt(c, "                                                ");
+      this.charSpacing(c, 0);
       this.align(c, "L");
-      this.dblH(c, false); this.bold(c, false);
+      this.fontSize(c, 0x00); this.bold(c, false);
       this.invert(c, false);
-      this.txt(c, "");
-      this.txt(c, "  [ ] CASH  [ ] CHECK  Amount: ________");
     } else {
-      this.txt(c, `PAYMENT: ${o.paymentMethod === "cash" ? "PAID (Cash)" : o.paymentMethod === "card_terminal" ? "PAID (Card)" : o.paymentMethod === "account" ? `CHARGE ACCOUNT: ${o.accountName ?? ""}` : "PAID"}`);
+      this.bold(c, true); this.fontSize(c, 0x01);
+      this.txt(c, `PAYMENT: ${o.paymentMethod === "cash" ? "PAID (Cash)" : o.paymentMethod === "card_terminal" ? "PAID (Card)" : o.paymentMethod === "account" ? `CHARGE ACCT: ${o.accountName ?? ""}` : "PAID"}`);
       this.txt(c, line("TOTAL:", fmt(o.totalCents)));
+      this.fontSize(c, 0x00); this.bold(c, false);
     }
 
     // Spreading
@@ -489,7 +542,6 @@ export class ReceiptPrinter {
       this.txt(c, ""); this.txt(c, ddiv());
       this.bold(c, true); this.txt(c, "SPREADING SERVICE: YES"); this.bold(c, false);
       if (o.spreadingYards) this.txt(c, `  Quantity: ${o.spreadingYards} cubic yards`);
-      this.txt(c, "  [ ] SPREAD COMPLETE");
     }
 
     // QR code for delivery confirmation
@@ -501,16 +553,67 @@ export class ReceiptPrinter {
       this.txt(c, "");
     }
 
-    this.txt(c, ddiv());
+    // Disclaimers
+    this.txt(c, "");
     this.align(c, "L");
-    this.txt(c, "Driver signature: ___________________");
-    this.txt(c, "Date completed:   ___________________");
+    this.txt(c, "................................................");
+    this.printDisclaimers(c);
+
+    // Footer
     this.txt(c, "");
     this.align(c, "C");
     this.txt(c, "Eastern Landscape & Mason Supply");
     this.txt(c, "(631) 874-6244");
     this.cut(c);
     return c;
+  }
+
+  /** Word-wrap text to fit line width, respecting word boundaries */
+  private wrapText(text: string, width: number): string[] {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      if (current.length + word.length + 1 > width) {
+        if (current) lines.push(current);
+        current = word;
+      } else {
+        current = current ? current + " " + word : word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  /** Print disclaimers — smallest font, left-aligned, word-wrapped */
+  private printDisclaimers(c: number[]) {
+    // Use Font B (smaller) if available, otherwise normal size
+    c.push(ESC, 0x4d, 0x01); // ESC M 1 — select Font B (smaller)
+
+    const disclaimers = [
+      "PICKUP: All bulk and hard materials are loaded into customer vehicles at the customer's own risk. Eastern Landscape & Mason Supply is not responsible for any damage to vehicles, trailers, or property resulting from loading.",
+      "DELIVERY: Delivery trucks may travel over sidewalks, curbs, lawns, and driveways to access the drop site. The customer assumes all risk of damage to property, landscaping, sprinkler systems, septic systems, and underground utilities resulting from delivery access. By accepting delivery, the customer acknowledges and accepts these terms.",
+    ];
+    const bullets = [
+      "All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt.",
+      "No returns on loose bulk materials, special-order items, or cement/masonry products.",
+      "We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.",
+      "A 3% surcharge applies to all credit card transactions.",
+    ];
+
+    this.txt(c, "");
+    for (const d of disclaimers) {
+      for (const l of this.wrapText(d, W)) this.txt(c, l);
+      this.txt(c, "");
+    }
+    for (const b of bullets) {
+      const wrapped = this.wrapText(b, W - 2);
+      for (let i = 0; i < wrapped.length; i++) {
+        this.txt(c, (i === 0 ? "* " : "  ") + wrapped[i]);
+      }
+    }
+
+    c.push(ESC, 0x4d, 0x00); // Reset to Font A
   }
 
   private getActiveConstraints(o: ReceiptOrder): string[] {
