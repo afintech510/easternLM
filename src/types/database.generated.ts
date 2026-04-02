@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       accounts: {
@@ -571,6 +546,60 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_ledger: {
+        Row: {
+          amount_cents: number
+          balance_after_cents: number
+          created_at: string
+          created_by: string
+          customer_id: string
+          id: string
+          note: string | null
+          order_id: string | null
+          stripe_payment_intent_id: string | null
+          type: string
+        }
+        Insert: {
+          amount_cents: number
+          balance_after_cents: number
+          created_at?: string
+          created_by?: string
+          customer_id: string
+          id?: string
+          note?: string | null
+          order_id?: string | null
+          stripe_payment_intent_id?: string | null
+          type: string
+        }
+        Update: {
+          amount_cents?: number
+          balance_after_cents?: number
+          created_at?: string
+          created_by?: string
+          customer_id?: string
+          id?: string
+          note?: string | null
+          order_id?: string | null
+          stripe_payment_intent_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_ledger_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -580,6 +609,7 @@ export type Database = {
           city: string | null
           company_name: string | null
           created_at: string
+          credit_balance_cents: number
           credit_limit_cents: number | null
           current_balance_cents: number
           customer_type: string
@@ -614,6 +644,7 @@ export type Database = {
           city?: string | null
           company_name?: string | null
           created_at?: string
+          credit_balance_cents?: number
           credit_limit_cents?: number | null
           current_balance_cents?: number
           customer_type?: string
@@ -648,6 +679,7 @@ export type Database = {
           city?: string | null
           company_name?: string | null
           created_at?: string
+          credit_balance_cents?: number
           credit_limit_cents?: number | null
           current_balance_cents?: number
           customer_type?: string
@@ -1318,6 +1350,7 @@ export type Database = {
           created_at: string
           delivery_day: number | null
           delivery_type: string | null
+          half_yard_adder_cents: number | null
           id: string
           line_subtotal_cents: number
           load_number: number | null
@@ -1335,6 +1368,7 @@ export type Database = {
           created_at?: string
           delivery_day?: number | null
           delivery_type?: string | null
+          half_yard_adder_cents?: number | null
           id?: string
           line_subtotal_cents: number
           load_number?: number | null
@@ -1352,6 +1386,7 @@ export type Database = {
           created_at?: string
           delivery_day?: number | null
           delivery_type?: string | null
+          half_yard_adder_cents?: number | null
           id?: string
           line_subtotal_cents?: number
           load_number?: number | null
@@ -1429,6 +1464,7 @@ export type Database = {
           customer_phone: string | null
           delivery_address: string | null
           delivery_date: string | null
+          delivery_discount_pct: number | null
           delivery_method: string
           delivery_notes: string | null
           delivery_schedule: Json
@@ -1445,8 +1481,10 @@ export type Database = {
           grand_total_cents: number
           id: string
           license_photo_url: string | null
+          linked_order_id: string | null
           materials_subtotal_cents: number
           metadata: Json
+          order_source: string | null
           payment_method: string | null
           payments: Json | null
           placed_at: string
@@ -1459,6 +1497,7 @@ export type Database = {
           source: string
           status: string
           stripe_checkout_session_id: string | null
+          stripe_payment_method_id: string | null
           tax_cents: number
           tax_exempt: boolean
           tax_exempt_certificate: string | null
@@ -1480,6 +1519,7 @@ export type Database = {
           customer_phone?: string | null
           delivery_address?: string | null
           delivery_date?: string | null
+          delivery_discount_pct?: number | null
           delivery_method: string
           delivery_notes?: string | null
           delivery_schedule?: Json
@@ -1496,8 +1536,10 @@ export type Database = {
           grand_total_cents: number
           id?: string
           license_photo_url?: string | null
+          linked_order_id?: string | null
           materials_subtotal_cents: number
           metadata?: Json
+          order_source?: string | null
           payment_method?: string | null
           payments?: Json | null
           placed_at?: string
@@ -1510,6 +1552,7 @@ export type Database = {
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
+          stripe_payment_method_id?: string | null
           tax_cents: number
           tax_exempt?: boolean
           tax_exempt_certificate?: string | null
@@ -1531,6 +1574,7 @@ export type Database = {
           customer_phone?: string | null
           delivery_address?: string | null
           delivery_date?: string | null
+          delivery_discount_pct?: number | null
           delivery_method?: string
           delivery_notes?: string | null
           delivery_schedule?: Json
@@ -1547,8 +1591,10 @@ export type Database = {
           grand_total_cents?: number
           id?: string
           license_photo_url?: string | null
+          linked_order_id?: string | null
           materials_subtotal_cents?: number
           metadata?: Json
+          order_source?: string | null
           payment_method?: string | null
           payments?: Json | null
           placed_at?: string
@@ -1561,6 +1607,7 @@ export type Database = {
           source?: string
           status?: string
           stripe_checkout_session_id?: string | null
+          stripe_payment_method_id?: string | null
           tax_cents?: number
           tax_exempt?: boolean
           tax_exempt_certificate?: string | null
@@ -1581,6 +1628,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_linked_order_id_fkey"
+            columns: ["linked_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
@@ -1679,6 +1733,44 @@ export type Database = {
           },
         ]
       }
+      product_sizes: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          price_delta_cents: number
+          product_id: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          price_delta_cents?: number
+          product_id: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          price_delta_cents?: number
+          product_id?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sizes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_town_pages: {
         Row: {
           calculator_type: string | null
@@ -1755,29 +1847,50 @@ export type Database = {
       }
       products: {
         Row: {
+          application_quick_selects: Json | null
           barcode: string | null
           category_id: string
+          category_tag: string | null
+          ceiling_price_cents: number | null
           created_at: string
+          crushed_upgrade: Json | null
+          default_depth_inches: number | null
           delivery_type: string
+          depth_helper_text: string | null
           description: string
+          floor_price_cents: number | null
+          floor_qty: number | null
+          half_yard_adder_cents: number | null
+          half_yard_enabled: boolean | null
           id: string
           images: string[]
           is_active: boolean
+          is_bulk_app_enabled: boolean | null
           is_taxable: boolean
+          local_badge: string | null
+          low_stock_message: string | null
           low_stock_threshold: number | null
           material_class: string
           max_qty: number
           min_qty: number
           name: string
+          origin_story: string | null
+          pair_position: string | null
+          pair_slug: string | null
           pairs_well_with: string[]
+          pallet_price_cents: number | null
+          pallet_qty: number | null
           pos_sort_order: number | null
+          premium_upgrade: Json | null
           price_note: string
           price_per_unit_cents: number
           recommended_uses: string[]
+          row_order: number | null
           sku: string | null
           slug: string
           sort_order: number
           step_qty: number
+          stock_level: string | null
           stock_qty: number | null
           stock_unit: string | null
           track_inventory: boolean
@@ -1790,29 +1903,50 @@ export type Database = {
           web_price_per_unit_cents: number | null
         }
         Insert: {
+          application_quick_selects?: Json | null
           barcode?: string | null
           category_id: string
+          category_tag?: string | null
+          ceiling_price_cents?: number | null
           created_at?: string
+          crushed_upgrade?: Json | null
+          default_depth_inches?: number | null
           delivery_type: string
+          depth_helper_text?: string | null
           description?: string
+          floor_price_cents?: number | null
+          floor_qty?: number | null
+          half_yard_adder_cents?: number | null
+          half_yard_enabled?: boolean | null
           id?: string
           images?: string[]
           is_active?: boolean
+          is_bulk_app_enabled?: boolean | null
           is_taxable?: boolean
+          local_badge?: string | null
+          low_stock_message?: string | null
           low_stock_threshold?: number | null
           material_class: string
           max_qty: number
           min_qty: number
           name: string
+          origin_story?: string | null
+          pair_position?: string | null
+          pair_slug?: string | null
           pairs_well_with?: string[]
+          pallet_price_cents?: number | null
+          pallet_qty?: number | null
           pos_sort_order?: number | null
+          premium_upgrade?: Json | null
           price_note?: string
           price_per_unit_cents: number
           recommended_uses?: string[]
+          row_order?: number | null
           sku?: string | null
           slug: string
           sort_order?: number
           step_qty: number
+          stock_level?: string | null
           stock_qty?: number | null
           stock_unit?: string | null
           track_inventory?: boolean
@@ -1825,29 +1959,50 @@ export type Database = {
           web_price_per_unit_cents?: number | null
         }
         Update: {
+          application_quick_selects?: Json | null
           barcode?: string | null
           category_id?: string
+          category_tag?: string | null
+          ceiling_price_cents?: number | null
           created_at?: string
+          crushed_upgrade?: Json | null
+          default_depth_inches?: number | null
           delivery_type?: string
+          depth_helper_text?: string | null
           description?: string
+          floor_price_cents?: number | null
+          floor_qty?: number | null
+          half_yard_adder_cents?: number | null
+          half_yard_enabled?: boolean | null
           id?: string
           images?: string[]
           is_active?: boolean
+          is_bulk_app_enabled?: boolean | null
           is_taxable?: boolean
+          local_badge?: string | null
+          low_stock_message?: string | null
           low_stock_threshold?: number | null
           material_class?: string
           max_qty?: number
           min_qty?: number
           name?: string
+          origin_story?: string | null
+          pair_position?: string | null
+          pair_slug?: string | null
           pairs_well_with?: string[]
+          pallet_price_cents?: number | null
+          pallet_qty?: number | null
           pos_sort_order?: number | null
+          premium_upgrade?: Json | null
           price_note?: string
           price_per_unit_cents?: number
           recommended_uses?: string[]
+          row_order?: number | null
           sku?: string | null
           slug?: string
           sort_order?: number
           step_qty?: number
+          stock_level?: string | null
           stock_qty?: number | null
           stock_unit?: string | null
           track_inventory?: boolean
@@ -2518,6 +2673,7 @@ export type Database = {
           hourly_labor_rate: number
           id: number
           local_radius_miles: number
+          manual_review_threshold_cents: number | null
           marketing_approval_required: boolean
           marketing_enabled: boolean
           max_campaigns_per_month: number
@@ -2536,6 +2692,7 @@ export type Database = {
           profit_multiplier: number
           round_to_nearest: number
           same_day_cutoff_hour: number
+          second_delivery_discount_pct: number | null
           sms_quiet_hours_end: number
           sms_quiet_hours_start: number
           tax_rate: number
@@ -2556,6 +2713,7 @@ export type Database = {
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
+          manual_review_threshold_cents?: number | null
           marketing_approval_required?: boolean
           marketing_enabled?: boolean
           max_campaigns_per_month?: number
@@ -2574,6 +2732,7 @@ export type Database = {
           profit_multiplier?: number
           round_to_nearest?: number
           same_day_cutoff_hour?: number
+          second_delivery_discount_pct?: number | null
           sms_quiet_hours_end?: number
           sms_quiet_hours_start?: number
           tax_rate?: number
@@ -2594,6 +2753,7 @@ export type Database = {
           hourly_labor_rate?: number
           id?: number
           local_radius_miles?: number
+          manual_review_threshold_cents?: number | null
           marketing_approval_required?: boolean
           marketing_enabled?: boolean
           max_campaigns_per_month?: number
@@ -2612,6 +2772,7 @@ export type Database = {
           profit_multiplier?: number
           round_to_nearest?: number
           same_day_cutoff_hour?: number
+          second_delivery_discount_pct?: number | null
           sms_quiet_hours_end?: number
           sms_quiet_hours_start?: number
           tax_rate?: number
@@ -2659,6 +2820,71 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      sms_messages: {
+        Row: {
+          body: string | null
+          business_number: string
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          direction: string
+          from_number: string
+          id: string
+          media_urls: string[] | null
+          rc_conversation_id: string | null
+          rc_message_id: string | null
+          read_at: string | null
+          read_by: string | null
+          staff_sender: string | null
+          status: string
+          to_number: string
+        }
+        Insert: {
+          body?: string | null
+          business_number: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          direction: string
+          from_number: string
+          id?: string
+          media_urls?: string[] | null
+          rc_conversation_id?: string | null
+          rc_message_id?: string | null
+          read_at?: string | null
+          read_by?: string | null
+          staff_sender?: string | null
+          status?: string
+          to_number: string
+        }
+        Update: {
+          body?: string | null
+          business_number?: string
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          direction?: string
+          from_number?: string
+          id?: string
+          media_urls?: string[] | null
+          rc_conversation_id?: string | null
+          rc_message_id?: string | null
+          read_at?: string | null
+          read_by?: string | null
+          staff_sender?: string | null
+          status?: string
+          to_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       statements: {
         Row: {
@@ -3268,7 +3494,56 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_quote_number: { Args: never; Returns: string }
+      get_sms_conversations: {
+        Args: {
+          p_business_number?: string
+          p_limit?: number
+          p_search?: string
+        }
+        Returns: {
+          business_number: string
+          customer_id: string
+          customer_name: string
+          customer_phone: string
+          last_direction: string
+          last_message_at: string
+          last_message_body: string
+          message_count: number
+          unread: boolean
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
+      post_credit: {
+        Args: {
+          p_amount_cents: number
+          p_created_by?: string
+          p_customer_id: string
+          p_note?: string
+          p_order_id?: string
+          p_stripe_payment_intent_id?: string
+          p_type: string
+        }
+        Returns: {
+          amount_cents: number
+          balance_after_cents: number
+          created_at: string
+          created_by: string
+          customer_id: string
+          id: string
+          note: string | null
+          order_id: string | null
+          stripe_payment_intent_id: string | null
+          type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "credit_ledger"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sum_credit_balances: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
@@ -3397,9 +3672,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

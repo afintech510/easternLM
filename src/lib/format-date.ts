@@ -54,6 +54,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   account: "Charge Account",
   split: "Split Payment",
   paylink: "Payment Link",
+  store_credit: "Store Credit",
 };
 
 export function formatPaymentMethod(method: string | null | undefined): string {
