@@ -1952,117 +1952,121 @@ export default function PosRegisterPage() {
               ) : (
                 <div className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto" style={{ scrollbarWidth: "none" }}>
                   {txnResults.map((txn) => (
-                    <button
-                      key={txn.id}
-                      onClick={() => fetchTxnDetail(txn.id)}
-                      className={`w-full rounded-lg border p-2.5 text-left text-xs transition-colors ${
-                        selectedTxn === txn.id ? "border-amber-600 bg-amber-900/20" : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{txn.customer_name}</span>
-                        <span className="font-semibold text-amber-400">{formatUsd(txn.grand_total_cents)}</span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-zinc-500">
-                        <span>{formatShortDateTime(txn.placed_at)}</span>
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          txn.status === "paid" ? "bg-green-900/30 text-green-400" :
-                          txn.status === "confirmed" ? "bg-blue-900/30 text-blue-400" :
-                          txn.status === "held" ? "bg-yellow-900/30 text-yellow-400" :
-                          "bg-zinc-800 text-zinc-500"
-                        }`}>{txn.status}</span>
-                        <span className="text-zinc-600">{txn.payment_method}</span>
-                        <span className="text-zinc-600">{txn.delivery_method}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                    <div key={txn.id}>
+                      <button
+                        onClick={() => {
+                          if (selectedTxn === txn.id) { setSelectedTxn(null); setTxnDetail(null); }
+                          else fetchTxnDetail(txn.id);
+                        }}
+                        className={`w-full rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                          selectedTxn === txn.id ? "border-amber-600 bg-amber-900/20 rounded-b-none" : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{txn.customer_name}</span>
+                          <span className="font-semibold text-amber-400">{formatUsd(txn.grand_total_cents)}</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-zinc-500">
+                          <span>{formatShortDateTime(txn.placed_at)}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            txn.status === "paid" ? "bg-green-900/30 text-green-400" :
+                            txn.status === "confirmed" ? "bg-blue-900/30 text-blue-400" :
+                            txn.status === "held" ? "bg-yellow-900/30 text-yellow-400" :
+                            "bg-zinc-800 text-zinc-500"
+                          }`}>{txn.status}</span>
+                          <span className="text-zinc-600">{txn.payment_method}</span>
+                          <span className="text-zinc-600">{txn.delivery_method}</span>
+                        </div>
+                      </button>
 
-              {/* Transaction detail */}
-              {txnDetail && selectedTxn && (
-                <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-zinc-300">Order #{txnDetail.id.slice(0, 8).toUpperCase()}</p>
-                    <button onClick={() => { setSelectedTxn(null); setTxnDetail(null); }} className="text-xs text-zinc-500 hover:text-zinc-300">Close</button>
-                  </div>
+                      {/* Inline detail — expands directly below the selected card */}
+                      {txnDetail && selectedTxn === txn.id && (
+                        <div className="rounded-b-lg border border-t-0 border-amber-600 bg-zinc-900 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-zinc-300">Order #{txnDetail.id.slice(0, 8).toUpperCase()}</p>
+                            <button onClick={() => { setSelectedTxn(null); setTxnDetail(null); }} className="text-xs text-zinc-500 hover:text-zinc-300">Close</button>
+                          </div>
 
-                  {/* Items */}
-                  <div className="space-y-1">
-                    {txnDetail.items.map((item, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-zinc-400">{item.quantity} x {item.product_name}</span>
-                        <span>{formatUsd(item.line_subtotal_cents)}</span>
-                      </div>
-                    ))}
-                  </div>
+                          {/* Items */}
+                          <div className="space-y-1">
+                            {txnDetail.items.map((item, i) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-zinc-400">{item.quantity} x {item.product_name}</span>
+                                <span>{formatUsd(item.line_subtotal_cents)}</span>
+                              </div>
+                            ))}
+                          </div>
 
-                  <div className="border-t border-zinc-800 pt-2 space-y-0.5 text-xs">
-                    <div className="flex justify-between"><span className="text-zinc-500">Subtotal</span><span>{formatUsd(txnDetail.materials_subtotal_cents)}</span></div>
-                    {txnDetail.delivery_total_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">Delivery</span><span>{formatUsd(txnDetail.delivery_total_cents)}</span></div>}
-                    <div className="flex justify-between"><span className="text-zinc-500">Tax</span><span>{formatUsd(txnDetail.tax_cents)}</span></div>
-                    {txnDetail.cc_surcharge_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">CC Fee</span><span>{formatUsd(txnDetail.cc_surcharge_cents)}</span></div>}
-                    <div className="flex justify-between font-semibold text-amber-400"><span>Total</span><span>{formatUsd(txnDetail.grand_total_cents)}</span></div>
-                  </div>
+                          <div className="border-t border-zinc-800 pt-2 space-y-0.5 text-xs">
+                            <div className="flex justify-between"><span className="text-zinc-500">Subtotal</span><span>{formatUsd(txnDetail.materials_subtotal_cents)}</span></div>
+                            {txnDetail.delivery_total_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">Delivery</span><span>{formatUsd(txnDetail.delivery_total_cents)}</span></div>}
+                            <div className="flex justify-between"><span className="text-zinc-500">Tax</span><span>{formatUsd(txnDetail.tax_cents)}</span></div>
+                            {txnDetail.cc_surcharge_cents > 0 && <div className="flex justify-between"><span className="text-zinc-500">CC Fee</span><span>{formatUsd(txnDetail.cc_surcharge_cents)}</span></div>}
+                            <div className="flex justify-between font-semibold text-amber-400"><span>Total</span><span>{formatUsd(txnDetail.grand_total_cents)}</span></div>
+                          </div>
 
-                  {/* Customer */}
-                  <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
-                    <p className="font-medium text-zinc-300">{txnDetail.customer_name || "Walk-in"}</p>
-                    {txnDetail.customer_phone && (
-                      <a href={`tel:${txnDetail.customer_phone}`} className="text-amber-400 hover:underline">{formatPhone(txnDetail.customer_phone)}</a>
-                    )}
-                    {txnDetail.customer_email && <p className="text-zinc-500">{txnDetail.customer_email}</p>}
-                  </div>
+                          {/* Customer */}
+                          <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
+                            <p className="font-medium text-zinc-300">{txnDetail.customer_name || "Walk-in"}</p>
+                            {txnDetail.customer_phone && (
+                              <a href={`tel:${txnDetail.customer_phone}`} className="text-amber-400 hover:underline">{formatPhone(txnDetail.customer_phone)}</a>
+                            )}
+                            {txnDetail.customer_email && <p className="text-zinc-500">{txnDetail.customer_email}</p>}
+                          </div>
 
-                  {/* Delivery */}
-                  {txnDetail.delivery_method === "delivery" && (
-                    <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
-                      <p className="font-medium text-zinc-300">Delivery</p>
-                      {txnDetail.delivery_address && <p className="text-zinc-400">{txnDetail.delivery_address}</p>}
-                      {(() => {
-                        const dd = txnDetail.delivery_date || String((txnDetail.metadata as Record<string, unknown>)?.deliveryDate ?? "");
-                        return dd ? <p className="text-zinc-400">{formatDeliveryDate(dd)}</p> : null;
-                      })()}
-                      {txnDetail.delivery_time_window && <p className="text-zinc-400">{formatTimeWindow(txnDetail.delivery_time_window)}</p>}
-                      {txnDetail.delivery_notes && <p className="text-zinc-500">Notes: {txnDetail.delivery_notes}</p>}
+                          {/* Delivery */}
+                          {txnDetail.delivery_method === "delivery" && (
+                            <div className="border-t border-zinc-800 pt-2 text-xs space-y-0.5">
+                              <p className="font-medium text-zinc-300">Delivery</p>
+                              {txnDetail.delivery_address && <p className="text-zinc-400">{txnDetail.delivery_address}</p>}
+                              {(() => {
+                                const dd = txnDetail.delivery_date || String((txnDetail.metadata as Record<string, unknown>)?.deliveryDate ?? "");
+                                return dd ? <p className="text-zinc-400">{formatDeliveryDate(dd)}</p> : null;
+                              })()}
+                              {txnDetail.delivery_time_window && <p className="text-zinc-400">{formatTimeWindow(txnDetail.delivery_time_window)}</p>}
+                              {txnDetail.delivery_notes && <p className="text-zinc-500">Notes: {txnDetail.delivery_notes}</p>}
+                            </div>
+                          )}
+
+                          <div className="border-t border-zinc-800 pt-2 text-xs text-zinc-500 space-y-0.5">
+                            <p>{formatPaymentMethod(txnDetail.payment_method)} · {txnDetail.status}</p>
+                            <p>{formatShortDateTime(txnDetail.placed_at)}</p>
+                          </div>
+
+                          {/* Actions — uses shared mapDatabaseOrderToUnified for identical output */}
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={async () => {
+                              const po = mapDatabaseOrderToUnified(txnDetail);
+                              if (printClient.isConnected) {
+                                await printerRef.current.printReceipt(toReceiptOrder(po), txnDetail.id);
+                              } else {
+                                printReceiptWindow(po);
+                              }
+                            }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
+                              <Printer className="w-3.5 h-3.5" /> Receipt
+                            </button>
+                            {txnDetail.delivery_method === "delivery" && (
+                              <button onClick={async () => {
+                                const po = mapDatabaseOrderToUnified(txnDetail);
+                                if (printClient.isConnected) {
+                                  await printerRef.current.printDeliveryTicketOnly(toReceiptOrder(po), txnDetail.id);
+                                } else {
+                                  printDeliveryTicketWindow(po);
+                                }
+                              }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5" /> Delivery Ticket
+                              </button>
+                            )}
+                            {(txnDetail.status === "paid" || txnDetail.status === "delivered" || txnDetail.status === "confirmed") && (
+                              <button onClick={() => setShowRefund(txnDetail)} className="flex-1 rounded bg-red-900/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/50 flex items-center justify-center gap-1.5 border border-red-500/20">
+                                Refund
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  <div className="border-t border-zinc-800 pt-2 text-xs text-zinc-500 space-y-0.5">
-                    <p>{formatPaymentMethod(txnDetail.payment_method)} · {txnDetail.status}</p>
-                    <p>{formatShortDateTime(txnDetail.placed_at)}</p>
-                  </div>
-
-                  {/* Actions — uses shared mapDatabaseOrderToUnified for identical output */}
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={async () => {
-                      const po = mapDatabaseOrderToUnified(txnDetail);
-                      if (printClient.isConnected) {
-                        await printerRef.current.printReceipt(toReceiptOrder(po), txnDetail.id);
-                      } else {
-                        printReceiptWindow(po);
-                      }
-                    }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
-                      <Printer className="w-3.5 h-3.5" /> Receipt
-                    </button>
-                    {txnDetail.delivery_method === "delivery" && (
-                      <button onClick={async () => {
-                        const po = mapDatabaseOrderToUnified(txnDetail);
-                        if (printClient.isConnected) {
-                          await printerRef.current.printDeliveryTicketOnly(toReceiptOrder(po), txnDetail.id);
-                        } else {
-                          printDeliveryTicketWindow(po);
-                        }
-                      }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
-                        <Truck className="w-3.5 h-3.5" /> Delivery Ticket
-                      </button>
-                    )}
-                    {(txnDetail.status === "paid" || txnDetail.status === "delivered" || txnDetail.status === "confirmed") && (
-                      <button onClick={() => setShowRefund(txnDetail)} className="flex-1 rounded bg-red-900/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/50 flex items-center justify-center gap-1.5 border border-red-500/20">
-                        Refund
-                      </button>
-                    )}
-                  </div>
+                  ))}
                 </div>
               )}
               </>)}
