@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     discount_amount_cents,
     delivery_notes,
     access_constraints: accessConstraints,
+    store_credit_applied_cents,
   } = body;
 
   // Find customer by phone if provided
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
   if (discount_value) metadata.discount_value = discount_value;
   if (discount_reason) metadata.discount_reason = discount_reason;
   if (discount_amount_cents) metadata.discount_amount_cents = discount_amount_cents;
+  if (store_credit_applied_cents) metadata.store_credit_applied_cents = store_credit_applied_cents;
   orderData.metadata = metadata;
 
   const { data: order, error } = await supabase

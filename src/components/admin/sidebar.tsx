@@ -23,6 +23,7 @@ import {
   Upload,
   Factory,
   ArrowRightLeft,
+  Wallet,
   Settings,
   LogOut,
   ChevronDown,
@@ -90,6 +91,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Invoices", href: "/admin/invoices", icon: Receipt, badgeKey: "invoices" },
       { label: "Charge Accounts", href: "/admin/accounts", icon: CreditCard },
+      { label: "Store Credit", href: "/admin/store-credit", icon: Wallet },
       { label: "Statements", href: "/admin/statements", icon: FileSpreadsheet },
       { label: "Upload (OCR)", href: "/admin/invoices/upload", icon: Upload },
       { label: "Scan (Mobile)", href: "/yard/scan", icon: Camera },

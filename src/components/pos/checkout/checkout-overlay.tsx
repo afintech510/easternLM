@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, X, Loader2, Phone } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, X, Loader2, Phone, Wallet } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
-type PaymentMethod = "cash" | "cod" | "card_terminal" | "account";
+type PaymentMethod = "cash" | "cod" | "card_terminal" | "account" | "store_credit";
 
 interface CartSummary {
   itemCount: number;
@@ -20,6 +20,8 @@ interface CartSummary {
   accountName?: string;
   accountBalance?: number;
   itemsSummary: string;
+  storeCreditCents?: number;
+  customerId?: string;
 }
 
 interface PaymentResult {
@@ -40,7 +42,7 @@ interface Props {
 }
 
 export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onPhoneOrder, processing }: Props) {
-  const [step, setStep] = useState<"select" | "cash" | "cod" | "card" | "account" | "split">("select");
+  const [step, setStep] = useState<"select" | "cash" | "cod" | "card" | "account" | "split" | "store_credit">("select");
   const [cashTendered, setCashTendered] = useState("");
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitMethod1, setSplitMethod1] = useState<PaymentMethod>("cash");
@@ -82,6 +84,40 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
 
   function handleAccountComplete() {
     onComplete([{ method: "account", amountCents: cart.cashTotalCents }]);
+  }
+
+  const creditBalance = cart.storeCreditCents ?? 0;
+  const creditCoversAll = creditBalance >= cart.cashTotalCents;
+  const [creditApplyAmount, setCreditApplyAmount] = useState("");
+  const [creditRemainderMethod, setCreditRemainderMethod] = useState<"cash" | "card_terminal">("card_terminal");
+
+  async function handleStoreCreditComplete() {
+    const applyCents = creditCoversAll ? cart.cashTotalCents : Math.round((parseFloat(creditApplyAmount) || 0) * 100);
+    if (applyCents <= 0 || applyCents > creditBalance) return;
+    const remainderCents = cart.cashTotalCents - applyCents;
+
+    if (remainderCents <= 0) {
+      // Full credit settlement
+      onComplete([{ method: "store_credit", amountCents: applyCents }]);
+    } else {
+      // Split: credit + another method
+      if (creditRemainderMethod === "card_terminal") {
+        const ccFee = Math.round(remainderCents * 0.03);
+        setCardProcessing(true);
+        const result = await onProcessCard(remainderCents + ccFee);
+        setCardProcessing(false);
+        if (!result.success) { setCardError(result.error ?? "Card failed"); return; }
+        onComplete([
+          { method: "store_credit", amountCents: applyCents },
+          { method: "card_terminal", amountCents: remainderCents + ccFee, stripePaymentIntentId: result.paymentIntentId },
+        ]);
+      } else {
+        onComplete([
+          { method: "store_credit", amountCents: applyCents },
+          { method: "cash", amountCents: remainderCents },
+        ]);
+      }
+    }
   }
 
   async function handleSplitComplete() {
@@ -164,6 +200,14 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <span className="text-xs text-zinc-500">{cart.isChargeAccount ? cart.accountName : "No account"}</span>
               </button>
             </div>
+
+            {/* Store Credit option */}
+            {creditBalance > 0 && (
+              <button onClick={() => { setCreditApplyAmount(String(Math.min(creditBalance, cart.cashTotalCents) / 100)); setStep("store_credit"); }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-950/20 py-3 text-sm text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-950/30 transition-colors">
+                <Wallet className="size-4" /> Store Credit: {formatUsd(creditBalance)} available
+              </button>
+            )}
 
             {/* Phone Order — card over the phone */}
             {onPhoneOrder && (
@@ -267,6 +311,55 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
           </div>
         )}
 
+        {/* Store Credit dialog */}
+        {step === "store_credit" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <button onClick={() => setStep("select")}><ArrowLeft className="size-4" /></button>
+              <span>Store Credit</span>
+            </div>
+            <div className="rounded-xl bg-zinc-800 border border-emerald-600/30 p-4 space-y-2 text-sm">
+              <p className="text-zinc-400">Available credit: <span className="text-emerald-400 font-bold">{formatUsd(creditBalance)}</span></p>
+              <p className="text-zinc-400">Order total: <span className="text-white font-bold">{formatUsd(cart.cashTotalCents)}</span></p>
+              {creditCoversAll ? (
+                <p className="text-emerald-300 font-medium">Credit covers the full amount — no additional payment needed.</p>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs text-zinc-500">Apply credit ($)</label>
+                    <input type="number" step="0.01" value={creditApplyAmount} onChange={(e) => setCreditApplyAmount(e.target.value)}
+                      max={creditBalance / 100}
+                      className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-700 px-3 py-2 text-lg font-mono text-center text-white focus:outline-none focus:border-emerald-500" />
+                  </div>
+                  {(() => {
+                    const applyCents = Math.round((parseFloat(creditApplyAmount) || 0) * 100);
+                    const remainder = cart.cashTotalCents - applyCents;
+                    if (remainder > 0) {
+                      return (
+                        <div className="space-y-2">
+                          <p className="text-zinc-400">Remaining: <span className="text-amber-400 font-bold">{formatUsd(remainder)}</span></p>
+                          <div className="flex gap-2">
+                            <button onClick={() => setCreditRemainderMethod("cash")}
+                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "cash" ? "bg-green-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Cash</button>
+                            <button onClick={() => setCreditRemainderMethod("card_terminal")}
+                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_terminal" ? "bg-blue-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Card (+3%)</button>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
+              )}
+            </div>
+            {cardError && <p className="text-sm text-red-300">{cardError}</p>}
+            <button onClick={handleStoreCreditComplete} disabled={cardProcessing || processing}
+              className="w-full rounded-xl bg-emerald-600 py-3 text-lg font-bold text-white hover:bg-emerald-500 disabled:opacity-30">
+              {cardProcessing ? "Processing card..." : creditCoversAll ? "Pay with Store Credit" : "Apply Credit & Pay Remainder"}
+            </button>
+          </div>
+        )}
+
         {/* Split dialog */}
         {step === "split" && (
           <div className="space-y-4">
@@ -283,6 +376,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                   <option value="card_terminal">Card (+3%)</option>
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
+                  {creditBalance > 0 && <option value="store_credit">Store Credit</option>}
                 </select>
                 <input type="number" step="0.01" value={splitAmount1} onChange={(e) => setSplitAmount1(e.target.value)}
                   placeholder="Amount" className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white" />
@@ -295,6 +389,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                   <option value="card_terminal">Card (+3%)</option>
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
+                  {creditBalance > 0 && <option value="store_credit">Store Credit</option>}
                 </select>
                 <div className="rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-zinc-400">
                   {split2Cents > 0 ? formatUsd(split2Cents) : "$0.00"}

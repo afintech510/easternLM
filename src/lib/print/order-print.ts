@@ -66,6 +66,7 @@ export interface PrintableOrder {
   card_last4?: string;
   account_name?: string | null;
   payments?: Array<{ method: string; amount_cents: number; stripe_id?: string; card_last4?: string; card_brand?: string }> | null;
+  store_credit_applied_cents?: number;
 }
 
 export interface PrintableItem {
@@ -134,6 +135,7 @@ export function mapDatabaseOrderToUnified(order: Record<string, any>): Printable
     change_due_cents: order.metadata?.change_due_cents ?? undefined,
     account_name: order.metadata?.account_name ?? null,
     payments: order.payments ?? null,
+    store_credit_applied_cents: order.store_credit_applied_cents ?? order.metadata?.store_credit_applied_cents ?? 0,
   };
 }
 
@@ -375,8 +377,10 @@ export function buildReceiptHtml(order: PrintableOrder): string {
     ${deliveryFeeLine}
     ${taxLine}
     ${ccFeeLine}
+    ${(order.store_credit_applied_cents ?? 0) > 0 ? `<div class="row" style="color:#16a34a;"><span>Store Credit Applied</span><span>-${formatUsd(order.store_credit_applied_cents!)}</span></div>` : ""}
     <div class="line"></div>
     <div class="row bold" style="font-size:18px;"><span>TOTAL</span><span>${formatUsd(order.grand_total_cents)}</span></div>
+    ${(order.store_credit_applied_cents ?? 0) > 0 ? `<div class="row"><span>Charged</span><span>${formatUsd(order.grand_total_cents - (order.store_credit_applied_cents ?? 0))}</span></div>` : ""}
     ${paymentHtml}
     ${splitHtml}
     <div class="line"></div>

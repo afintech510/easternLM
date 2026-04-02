@@ -122,6 +122,12 @@ export default function PosRegisterPage() {
   const [showAccountConfirm, setShowAccountConfirm] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showRefund, setShowRefund] = useState<any>(null);
+  const [showAddCredit, setShowAddCredit] = useState(false);
+  const [customerCreditBalance, setCustomerCreditBalance] = useState(0);
+  const [addCreditType, setAddCreditType] = useState<"return_credit" | "prepayment">("return_credit");
+  const [addCreditAmount, setAddCreditAmount] = useState("");
+  const [addCreditNote, setAddCreditNote] = useState("");
+  const [addCreditLoading, setAddCreditLoading] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [quoteDeposit, setQuoteDeposit] = useState("200");
   const [quoteNote, setQuoteNote] = useState("");
@@ -694,6 +700,20 @@ export default function PosRegisterPage() {
     const isPro = cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
     setProDiscount(!!isPro && deliveryMethod === 'pickup');
     fetchCustomerOrders(cust.id);
+    // Fetch store credit balance
+    fetchCreditBalance(cust.id);
+  }
+
+  async function fetchCreditBalance(customerId: string) {
+    try {
+      const res = await fetch(`/api/pos/credit/balance?customer_id=${customerId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerCreditBalance(data.balance_cents);
+      } else {
+        setCustomerCreditBalance(0);
+      }
+    } catch { setCustomerCreditBalance(0); }
   }
 
   async function saveEditCustomer() {
@@ -1449,6 +1469,106 @@ export default function PosRegisterPage() {
         />
       )}
 
+      {/* Add Store Credit Modal */}
+      {showAddCredit && selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => !addCreditLoading && setShowAddCredit(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white">Add Store Credit</h3>
+            <p className="text-sm text-zinc-400">{[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}</p>
+
+            {/* Type selection */}
+            <div className="flex gap-2">
+              <button onClick={() => setAddCreditType("return_credit")}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${addCreditType === "return_credit" ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+                Return Credit
+              </button>
+              <button onClick={() => { setAddCreditType("prepayment"); if (!addCreditAmount) setAddCreditAmount("500"); }}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${addCreditType === "prepayment" ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+                Prepayment (Card)
+              </button>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="text-xs text-zinc-500">Amount ($)</label>
+              <input type="number" step="0.01" min="1" value={addCreditAmount} onChange={(e) => setAddCreditAmount(e.target.value)}
+                className="mt-1 w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 text-2xl font-mono text-center text-white focus:outline-none focus:border-amber-500" autoFocus />
+            </div>
+
+            {/* Note */}
+            <div>
+              <label className="text-xs text-zinc-500">Note (optional)</label>
+              <input type="text" value={addCreditNote} onChange={(e) => setAddCreditNote(e.target.value)} placeholder="e.g., Returned 3 yds topsoil"
+                className="mt-1 w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" />
+            </div>
+
+            {addCreditType === "prepayment" && (
+              <p className="text-xs text-blue-300 bg-blue-900/30 rounded-lg px-3 py-2">Card will be charged via terminal. Tap &quot;Charge&quot; to present to customer.</p>
+            )}
+
+            <button
+              onClick={async () => {
+                const cents = Math.round(parseFloat(addCreditAmount) * 100);
+                if (!cents || cents <= 0) return;
+                setAddCreditLoading(true);
+                try {
+                  if (addCreditType === "prepayment") {
+                    // Charge via terminal first
+                    const terminal = terminalRef.current;
+                    const cardResult = await terminal.collectPayment({ amountCents: cents, orderId: "credit-prepay" });
+                    if (!cardResult.success) {
+                      alert("Card payment failed: " + (cardResult.error || "Unknown error"));
+                      setAddCreditLoading(false);
+                      return;
+                    }
+                    // Post credit with verified PI
+                    await fetch("/api/pos/credit/add", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        customer_id: selectedCustomer.id,
+                        amount_cents: cents,
+                        type: "prepayment",
+                        note: addCreditNote || "Card prepayment at POS",
+                        stripe_payment_intent_id: cardResult.paymentIntentId,
+                        created_by: "pos",
+                      }),
+                    });
+                  } else {
+                    // Return credit — no charge
+                    await fetch("/api/pos/credit/add", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        customer_id: selectedCustomer.id,
+                        amount_cents: cents,
+                        type: "return_credit",
+                        note: addCreditNote || "Return credit",
+                        created_by: "pos",
+                      }),
+                    });
+                  }
+                  // Refresh balance
+                  await fetchCreditBalance(selectedCustomer.id);
+                  setShowAddCredit(false);
+                  setAddCreditAmount("");
+                  setAddCreditNote("");
+                } catch (err) {
+                  alert("Error: " + (err instanceof Error ? err.message : "Unknown"));
+                } finally {
+                  setAddCreditLoading(false);
+                }
+              }}
+              disabled={addCreditLoading || !addCreditAmount || parseFloat(addCreditAmount) <= 0}
+              className="w-full rounded-xl bg-emerald-600 py-3 text-lg font-bold text-white hover:bg-emerald-500 disabled:opacity-30"
+            >
+              {addCreditLoading ? "Processing..." : addCreditType === "prepayment" ? `Charge ${addCreditAmount ? formatUsd(Math.round(parseFloat(addCreditAmount) * 100)) : "$0.00"} & Add Credit` : `Post ${addCreditAmount ? formatUsd(Math.round(parseFloat(addCreditAmount) * 100)) : "$0.00"} Credit`}
+            </button>
+            <button onClick={() => setShowAddCredit(false)} disabled={addCreditLoading} className="w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Material Calculator Modal */}
       {showMaterialCalc && (
         <MaterialCalculator
@@ -1823,7 +1943,7 @@ export default function PosRegisterPage() {
                     </p>
                     <div className="flex items-center gap-2">
                       <button onClick={() => { setEditCust({ first_name: selectedCustomer.first_name || "", last_name: selectedCustomer.last_name || "", phone: selectedCustomer.phone || "", email: selectedCustomer.email || "", address: selectedCustomer.address || "", city: selectedCustomer.city || "", company_name: (selectedCustomer as Record<string, unknown>).company_name as string || "" }); setShowEditCustomer(true); }} className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-0.5"><Edit3 className="h-3 w-3" /> Edit</button>
-                      <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); setCustOrders([]); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
+                      <button onClick={() => { setSelectedCustomer(null); setCustomerName("Walk-in"); setCustomerPhone(""); setCustOrders([]); setCustomerCreditBalance(0); }} className="text-xs text-zinc-500 hover:text-zinc-300">Clear</button>
                     </div>
                   </div>
                   {selectedCustomer.phone && <p className="text-xs text-zinc-400"><a href={`tel:+1${selectedCustomer.phone}`} className="hover:text-amber-400">{selectedCustomer.phone}</a></p>}
@@ -1840,6 +1960,25 @@ export default function PosRegisterPage() {
                       </div>
                     </div>
                   )}
+                  {/* Store Credit */}
+                  <div className="rounded bg-emerald-900/30 border border-emerald-600/20 px-2 py-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-zinc-400">Store Credit: </span>
+                        {(customerCreditBalance > 0) ? (
+                          <span className="font-semibold text-emerald-400">{formatUsd(customerCreditBalance)}</span>
+                        ) : (
+                          <span className="text-zinc-500">$0.00</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setShowAddCredit(true)}
+                        className="rounded bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-emerald-600"
+                      >
+                        + Add Credit
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{selectedCustomer.total_orders} orders</span>
                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{formatUsd(selectedCustomer.total_spent_cents)} lifetime</span>
@@ -2505,6 +2644,8 @@ export default function PosRegisterPage() {
             accountName: (selectedCustomer as any)?.charge_account_name ?? selectedCustomer?.first_name ?? "",
             accountBalance: selectedCustomer?.current_balance_cents ?? 0,
             itemsSummary: items.map((i: any) => `${i.quantity} ${i.product.name}`).join(", "),
+            storeCreditCents: customerCreditBalance,
+            customerId: selectedCustomer?.id,
           }}
           onPhoneOrder={() => { setShowCheckout(false); setShowPhoneOrder(true); }}
           onComplete={async (payments) => {
@@ -2512,6 +2653,20 @@ export default function PosRegisterPage() {
             // Map checkout overlay payments to completeSale
             const first = payments[0];
             if (!first) return;
+            // Helper: redeem store credit after order is created
+            async function redeemCredit(orderId: string, creditCents: number) {
+              if (!selectedCustomer?.id || creditCents <= 0) return;
+              await fetch("/api/pos/credit/redeem", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ customer_id: selectedCustomer.id, order_id: orderId, amount_cents: creditCents }),
+              });
+              fetchCreditBalance(selectedCustomer.id);
+            }
+
+            const storeCreditPayment = payments.find(p => p.method === "store_credit");
+            const storeCreditCents = storeCreditPayment?.amountCents ?? 0;
+
             if (payments.length === 1) {
               // Single payment
               if (first.method === "cash") {
@@ -2523,28 +2678,57 @@ export default function PosRegisterPage() {
                 await completeSale("card", first.stripePaymentIntentId ?? undefined);
               } else if (first.method === "account") {
                 setShowAccountConfirm(true);
+              } else if (first.method === "store_credit") {
+                // Full store credit payment — create order as "paid" with store_credit method
+                setProcessing(true);
+                const orderPayload: any = {
+                  items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: lineTotal(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+                  subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : taxCents,
+                  cc_fee_cents: 0, delivery_fee_cents: deliveryFeeCents,
+                  grand_total_cents: cashTotalCents,
+                  payment_method: "store_credit", delivery_method: deliveryMethod,
+                  delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
+                  customer_name: delName || customerName, customer_phone: delPhone || customerPhone || null,
+                  customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
+                  access_constraints: accessConstraints,
+                  delivery_date: delDate || null, delivery_time_window: delTimeWindow || null,
+                  delivery_notes: delNotes || null, store_credit_applied_cents: storeCreditCents,
+                };
+                const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });
+                if (res.ok) {
+                  const { orderId } = await res.json();
+                  await redeemCredit(orderId, storeCreditCents);
+                  clearSale();
+                } else { alert("Checkout failed"); }
+                setProcessing(false);
               }
             } else {
               // Split payment — create order directly
               const effectiveTotal = payments.reduce((s, p) => s + p.amountCents, 0);
+              const paymentMethod = storeCreditCents > 0
+                ? `split_store_credit_${payments.find(p => p.method !== "store_credit")?.method || "cash"}`
+                : "split";
               const orderPayload: any = {
                 items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
                 cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.03 / 1.03), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
-                payment_method: "split", delivery_method: deliveryMethod,
+                payment_method: paymentMethod, delivery_method: deliveryMethod,
                 delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
                 customer_name: delName || customerName, customer_phone: delPhone || customerPhone || null,
                 customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
                 access_constraints: accessConstraints,
                 delivery_date: delDate || null, delivery_time_window: delTimeWindow || null,
-                delivery_notes: delNotes || null,
+                delivery_notes: delNotes || null, store_credit_applied_cents: storeCreditCents,
               };
               setProcessing(true);
               const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });
+              if (res.ok) {
+                const { orderId } = await res.json();
+                if (storeCreditCents > 0) await redeemCredit(orderId, storeCreditCents);
+                clearSale();
+              } else { alert("Checkout failed"); }
               setProcessing(false);
-              if (res.ok) { clearSale(); alert("Split payment complete!"); }
-              else alert("Checkout failed");
             }
           }}
           onCancel={() => setShowCheckout(false)}
