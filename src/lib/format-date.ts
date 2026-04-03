@@ -55,6 +55,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   split: "Split Payment",
   paylink: "Payment Link",
   store_credit: "Store Credit",
+  quote: "Quote",
 };
 
 export function formatPaymentMethod(method: string | null | undefined): string {

@@ -698,8 +698,8 @@ export default function PosRegisterPage() {
     }
     // Auto-enable tax exempt if customer has it
     setTaxExempt((cust as Record<string, unknown>).tax_exempt as boolean || false);
-    // Auto-apply pro discount for contractors on pickup
-    const isPro = cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
+    // Auto-apply 5% contractor pickup discount for pro/contractor/charge-account customers
+    const isPro = cust.is_charge_account || cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
     setProDiscount(!!isPro && deliveryMethod === 'pickup');
     fetchCustomerOrders(cust.id);
     // Fetch store credit balance
@@ -854,7 +854,7 @@ export default function PosRegisterPage() {
 
   async function afterSale(method: string, orderPayload: Record<string, unknown>) {
     const printOrder = buildPrintableOrder(method, orderPayload);
-    const orderId = orderPayload.id as string | undefined;
+    const orderId = (orderPayload.order_id || orderPayload.id) as string | undefined;
     const receiptOrder = toReceiptOrder(printOrder);
 
     // Print receipt (+ 1st delivery ticket if delivery) via ESC/POS or HTML fallback.
@@ -975,7 +975,7 @@ export default function PosRegisterPage() {
             feeCents: deliveryFeeCents,
             date: delDate,
             timeWindow: delTimeWindow,
-            notes: delNotes,
+            notes: [delNotes, orderNotes].filter(Boolean).join(" | ") || null,
           },
           accessConstraints,
           routeInfo,
@@ -985,9 +985,44 @@ export default function PosRegisterPage() {
         }),
       });
       if (res.ok) {
+        const saveData = await res.json();
         setShowSaveCartDialog(false);
         setSaveCartLabel("");
         setPostQuoteResult({ mode: "saved", quoteNumber: autoLabel });
+        // Auto-print quote receipt
+        if (printerRef.current.connected) {
+          const printOrder: PrintableOrder = {
+            id: saveData.quote?.id,
+            orderNumber: saveData.quote?.quoteNumber || autoLabel,
+            created_at: new Date().toISOString(),
+            source: "pos",
+            customer_name: delName || customerName || null,
+            customer_phone: delPhone || customerPhone || null,
+            customer_email: delEmail || null,
+            items: items.map((i) => ({
+              product_name: i.product.name,
+              quantity: i.quantity,
+              unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
+              unit_price_cents: i.price_cents,
+              line_total_cents: i.quantity * i.price_cents,
+              delivery_type: i.product.delivery_type,
+            })),
+            materials_subtotal_cents: subtotalCents,
+            delivery_total_cents: deliveryFeeCents,
+            tax_cents: taxCents,
+            cc_surcharge_cents: 0,
+            grand_total_cents: cashTotalCents,
+            payment_method: "quote",
+            delivery_method: deliveryMethod,
+            delivery_address: delAddress || deliveryAddress || null,
+            delivery_date: delDate || null,
+            delivery_time_window: delTimeWindow || null,
+            delivery_notes: [delNotes, orderNotes].filter(Boolean).join(" | ") || null,
+            access_constraints: accessConstraints || null,
+          };
+          const receiptOrder = toReceiptOrder(printOrder);
+          await printerRef.current.printReceipt(receiptOrder, saveData.quoteId);
+        }
       }
     } catch {}
     setSaveCartLoading(false);
@@ -2509,7 +2544,7 @@ export default function PosRegisterPage() {
               onClick={() => {
                 setDeliveryMethod("pickup");
                 setDeliveryFeeCents(0);
-                if (selectedCustomer?.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer')) {
+                if (selectedCustomer?.is_charge_account || selectedCustomer?.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer')) {
                   setProDiscount(true);
                 }
               }}
@@ -2964,7 +2999,7 @@ export default function PosRegisterPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     disabled={quoteSending || items.length === 0}
                     onClick={async () => {
@@ -2987,7 +3022,58 @@ export default function PosRegisterPage() {
                     }}
                     className="rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700 disabled:opacity-30"
                   >
-                    Save as Draft
+                    Save Draft
+                  </button>
+                  <button
+                    disabled={quoteSending || items.length === 0}
+                    onClick={async () => {
+                      setQuoteSending(true);
+                      const res = await fetch("/api/quotes/quick", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          items: items.map((i: any) => ({ name: i.product.name, quantity: i.quantity, unit: i.product.unit_label ?? "each", unitPriceCents: i.price_cents })),
+                          customer: { name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || "Customer", phone: selectedCustomer?.phone, email: selectedCustomer?.email },
+                          depositCents: Math.round(parseFloat(quoteDeposit || "0") * 100),
+                          note: quoteNote,
+                          validDays: 30,
+                        }),
+                      });
+                      const d = await res.json();
+                      setQuoteSending(false);
+                      if (res.ok) {
+                        setQuoteResult({ quoteNumber: d.quote.quoteNumber, quoteUrl: d.quote.quoteUrl, sent: ["print"] });
+                        // Print quote receipt
+                        if (printerRef.current.connected) {
+                          const printOrder: PrintableOrder = {
+                            id: d.quote.id,
+                            orderNumber: d.quote.quoteNumber,
+                            created_at: new Date().toISOString(),
+                            source: "pos",
+                            customer_name: `${selectedCustomer?.first_name ?? ""} ${selectedCustomer?.last_name ?? ""}`.trim() || delName || customerName || null,
+                            customer_phone: selectedCustomer?.phone || delPhone || customerPhone || null,
+                            customer_email: selectedCustomer?.email || delEmail || null,
+                            items: items.map((i: any) => ({ product_name: i.product.name, quantity: i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents, delivery_type: i.product.delivery_type })),
+                            materials_subtotal_cents: subtotalCents,
+                            delivery_total_cents: deliveryFeeCents,
+                            tax_cents: taxCents,
+                            cc_surcharge_cents: 0,
+                            grand_total_cents: cashTotalCents,
+                            payment_method: "quote",
+                            delivery_method: deliveryMethod,
+                            delivery_address: delAddress || deliveryAddress || null,
+                            delivery_date: delDate || null,
+                            delivery_time_window: delTimeWindow || null,
+                            delivery_notes: delNotes || null,
+                            access_constraints: accessConstraints || null,
+                          };
+                          await printerRef.current.printReceipt(toReceiptOrder(printOrder), d.quote.id);
+                        }
+                      } else alert(d.error ?? "Failed");
+                    }}
+                    className="rounded-lg bg-amber-700 py-2 text-xs text-white hover:bg-amber-600 disabled:opacity-30"
+                  >
+                    Print Quote
                   </button>
                   <button onClick={() => setShowQuoteModal(false)} className="rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700">Cancel</button>
                 </div>

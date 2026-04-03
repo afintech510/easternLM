@@ -400,6 +400,15 @@ export class ReceiptPrinter {
       if (o.accountName) this.txt(c, `Account: ${o.accountName}`);
       this.txt(c, line("Charged:", fmt(o.totalCents)));
       if (o.accountBalance != null) this.txt(c, line("Balance:", fmt(o.accountBalance)));
+    } else if (o.paymentMethod === "quote") {
+      this.txt(c, ddiv());
+      this.bold(c, true); this.fontSize(c, 0x11);
+      this.align(c, "C");
+      this.txt(c, "** QUOTE **");
+      this.txt(c, "NOT A RECEIPT");
+      this.align(c, "L");
+      this.fontSize(c, 0x00); this.bold(c, false);
+      this.txt(c, ddiv());
     } else {
       this.txt(c, `Payment: ${o.paymentMethod}`);
     }
