@@ -269,14 +269,14 @@ function NewMessageModal({
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (phone.length >= 3) {
+    if (phone.length < 3) { setSuggestions([]); return; }
+    const timer = setTimeout(() => {
       fetch(`/api/pos/customers/search?q=${encodeURIComponent(phone)}&limit=5`)
         .then((r) => r.json())
         .then((d) => setSuggestions(d.customers || []))
         .catch(() => {});
-    } else {
-      setSuggestions([]);
-    }
+    }, 300);
+    return () => clearTimeout(timer);
   }, [phone]);
 
   async function handleSend() {
@@ -402,15 +402,19 @@ export function MessagesTab() {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Real-time updates
+  // Stable ref for realtime callback — avoids subscription churn when filters change
+  const fetchConversationsRef = useRef(fetchConversations);
+  fetchConversationsRef.current = fetchConversations;
+
+  // Real-time updates — single stable subscription (no dependency on fetchConversations)
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     const channel = supabase
       .channel("sms-conversations")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sms_messages" }, () => fetchConversations())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sms_messages" }, () => fetchConversationsRef.current())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchConversations]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Thread view
   if (selectedPhone) {

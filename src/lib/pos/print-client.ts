@@ -17,13 +17,15 @@ type PendingJob = { resolve: (ok: boolean) => void; reject: (err: Error) => void
 type ConnectionListener = (connected: boolean) => void;
 
 const WS_URL = "ws://localhost:9111";
-const RECONNECT_MS = 5000;
+const RECONNECT_BASE_MS = 5000;
+const RECONNECT_MAX_MS = 120000; // cap at 2 minutes to avoid constant churn overnight
 const PRINT_TIMEOUT_MS = 15000;
 
 class PrintClient {
   private static instance: PrintClient;
   private ws: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
   private pendingJobs = new Map<string, PendingJob>();
   private listeners = new Set<ConnectionListener>();
   private _printerStatuses: Record<string, PrinterStatus> = {};
@@ -72,6 +74,7 @@ class PrintClient {
 
       this.ws.onopen = () => {
         console.log("[PrintClient] Connected to print server");
+        this.reconnectAttempts = 0; // reset backoff on success
         this.notifyListeners();
         this.ws?.send(JSON.stringify({ type: "ping" }));
       };
@@ -132,10 +135,13 @@ class PrintClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+    // Exponential backoff: 5s, 10s, 20s, 40s, 80s, capped at 2 min
+    const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempts), RECONNECT_MAX_MS);
+    this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, RECONNECT_MS);
+    }, delay);
   }
 
   /**
