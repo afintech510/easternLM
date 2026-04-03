@@ -1160,6 +1160,7 @@ export default function PosRegisterPage() {
       }
 
       const { orderId } = await orderRes.json();
+      orderPayload.order_id = orderId; // attach for print system (QR codes, receipt reference)
 
       if (method === "card") {
         // Card payment was already collected by CheckoutOverlay via onProcessCard.
@@ -3133,6 +3134,13 @@ export default function PosRegisterPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowDiscountModal(false)}>
           <div className="w-80 rounded-2xl bg-zinc-900 p-6" onClick={(e) => e.stopPropagation()}>
             <p className="text-lg font-bold">Apply Discount</p>
+            {/* Quick preset */}
+            <button
+              onClick={() => { setDiscountType("percentage"); setDiscountValue("5"); setDiscountReason("Contractor Pickup"); }}
+              className="mt-3 w-full rounded-lg border border-amber-600/30 bg-amber-900/20 py-2.5 text-sm font-semibold text-amber-400 hover:bg-amber-900/40"
+            >
+              5% Contractor Pickup
+            </button>
             <div className="mt-3 flex gap-2">
               <button onClick={() => setDiscountType("percentage")} className={`flex-1 rounded py-2 text-sm ${discountType === "percentage" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}>Percentage</button>
               <button onClick={() => setDiscountType("amount")} className={`flex-1 rounded py-2 text-sm ${discountType === "amount" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-400"}`}>Amount ($)</button>
