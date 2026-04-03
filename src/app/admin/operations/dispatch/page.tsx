@@ -24,15 +24,11 @@ type Assignment = {
   status: string;
   has_spreading: boolean;
   dispatch_notes: string | null;
-  // Joined from orders table
-  orders?: {
-    customer_name: string | null;
-    customer_phone: string | null;
-    delivery_time_window: string | null;
-    delivery_notes: string | null;
-    notes: string | null;
-    metadata: Record<string, unknown> | null;
-  };
+  // Enriched from orders table by API
+  customer_name: string | null;
+  customer_phone: string | null;
+  delivery_time_window: string | null;
+  order_notes: string | null;
 };
 
 type UnscheduledOrder = {
@@ -47,7 +43,6 @@ type UnscheduledOrder = {
   access_constraints: Record<string, boolean> | null;
   delivery_time_window: string | null;
   delivery_notes: string | null;
-  notes: string | null;
 };
 
 type TruckInfo = { id: string; name: string; truck_type: string; default_driver_name: string | null };
@@ -279,11 +274,10 @@ export default function DispatchBoardPage() {
                     {truckAssignments.length === 0 ? (
                       <div className="py-8 text-center text-xs text-muted-foreground">No loads scheduled</div>
                     ) : truckAssignments.map((a) => {
-                      const order = a.orders;
-                      const tw = order?.delivery_time_window;
-                      const orderNotes = [order?.delivery_notes, order?.notes].filter(Boolean).join(" | ");
-                      const custName = order?.customer_name || null;
-                      const custPhone = order?.customer_phone || null;
+                      const tw = a.delivery_time_window;
+                      const orderNotes = a.order_notes;
+                      const custName = a.customer_name;
+                      const custPhone = a.customer_phone;
                       const addr = a.destination_address;
                       return (
                         <div key={a.id} className="rounded-lg border bg-background p-3 space-y-1.5">
@@ -373,7 +367,7 @@ export default function DispatchBoardPage() {
                 <div className="py-8 text-center text-xs text-muted-foreground">All orders scheduled</div>
               ) : unscheduled.map((order) => {
                 const tw = order.delivery_time_window;
-                const allNotes = [order.delivery_notes, order.notes].filter(Boolean).join(" | ");
+                const allNotes = order.delivery_notes || null;
                 return (
                   <div key={order.id} className="rounded-lg border bg-background p-3 space-y-1.5">
                     <div className="flex items-center justify-between">
