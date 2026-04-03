@@ -4,6 +4,7 @@
  */
 
 import { printClient } from "./print-client";
+import QRCode from "qrcode";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -193,21 +194,48 @@ export class ReceiptPrinter {
   private align(cmd: number[], a: "L" | "C" | "R") { cmd.push(ESC, 0x61, a === "L" ? 0 : a === "C" ? 1 : 2); }
   /** White-on-black inverted mode */
   private invert(cmd: number[], on: boolean) { cmd.push(GS, 0x42, on ? 0x01 : 0x00); }
-  /** Print a QR code using GS ( k — native printer QR generation */
+  /**
+   * Print a QR code as a raster bitmap via GS v 0.
+   * Uses the `qrcode` npm package to generate the matrix, then converts
+   * to 1-bit raster data. Works on ALL ESC/POS printers including
+   * Sunmi NT311 (which ignores the standard GS ( k QR commands).
+   */
   private qr(cmd: number[], data: string) {
-    const d = [];
-    for (let i = 0; i < data.length; i++) d.push(data.charCodeAt(i));
-    // QR model 2
-    cmd.push(GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
-    // QR size (module size 6)
-    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06);
-    // QR error correction L
-    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x30);
-    // Store QR data
-    const len = d.length + 3;
-    cmd.push(GS, 0x28, 0x6b, len & 0xff, (len >> 8) & 0xff, 0x31, 0x50, 0x30, ...d);
-    // Print QR
-    cmd.push(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);
+    try {
+      // Generate QR matrix using the qrcode library (synchronous create)
+      const qr = QRCode.create(data, { errorCorrectionLevel: "M" });
+      const modules = qr.modules;
+      const size = modules.size; // e.g. 29 for version 3
+      const moduleData = modules.data; // Uint8Array, 1 = dark
+
+      const scale = 4; // 4 dots per module — good balance of size vs scannability
+      const imgW = size * scale;
+      const imgH = imgW;
+      const bytesPerRow = Math.ceil(imgW / 8);
+
+      // GS v 0 m xL xH yL yH d1...dk — print raster bit image
+      cmd.push(GS, 0x76, 0x30, 0x00,
+        bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff,
+        imgH & 0xff, (imgH >> 8) & 0xff);
+
+      for (let py = 0; py < imgH; py++) {
+        const moduleY = Math.floor(py / scale);
+        for (let bx = 0; bx < bytesPerRow; bx++) {
+          let byte = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const px = bx * 8 + bit;
+            const moduleX = Math.floor(px / scale);
+            if (moduleX < size && moduleY < size && moduleData[moduleY * size + moduleX]) {
+              byte |= (0x80 >> bit);
+            }
+          }
+          cmd.push(byte);
+        }
+      }
+    } catch {
+      // If QR generation fails, print the URL as text instead
+      this.txt(cmd, data);
+    }
   }
   /** Set character spacing (right-side, in dots). Reset to 0 after use. */
   private charSpacing(cmd: number[], dots: number) { cmd.push(ESC, 0x20, dots); }
