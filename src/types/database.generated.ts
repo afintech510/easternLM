@@ -608,6 +608,7 @@ export type Database = {
           charge_account_name: string | null
           city: string | null
           company_name: string | null
+          contractor_discount: boolean
           created_at: string
           credit_balance_cents: number
           credit_limit_cents: number | null
@@ -645,6 +646,7 @@ export type Database = {
           charge_account_name?: string | null
           city?: string | null
           company_name?: string | null
+          contractor_discount?: boolean
           created_at?: string
           credit_balance_cents?: number
           credit_limit_cents?: number | null
@@ -682,6 +684,7 @@ export type Database = {
           charge_account_name?: string | null
           city?: string | null
           company_name?: string | null
+          contractor_discount?: boolean
           created_at?: string
           credit_balance_cents?: number
           credit_limit_cents?: number | null

@@ -19,21 +19,21 @@ export async function GET(request: Request) {
     const digits = q.replace(/\D/g, "");
     query = supabase
       .from("customers")
-      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note")
+      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note, contractor_discount")
       .ilike("phone", `%${digits}%`)
       .order("total_orders", { ascending: false })
       .limit(10);
   } else if (isEmail) {
     query = supabase
       .from("customers")
-      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note")
+      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note, contractor_discount")
       .ilike("email", pattern)
       .order("total_orders", { ascending: false })
       .limit(10);
   } else {
     query = supabase
       .from("customers")
-      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note")
+      .select("id, first_name, last_name, company_name, phone, email, address, city, zip, total_orders, total_spent_cents, tags, is_charge_account, charge_account_name, current_balance_cents, credit_limit_cents, payment_terms, is_scammer, scammer_note, contractor_discount")
       .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},company_name.ilike.${pattern},address.ilike.${pattern},city.ilike.${pattern}`)
       .order("total_orders", { ascending: false })
       .limit(10);
