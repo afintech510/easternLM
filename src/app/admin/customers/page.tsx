@@ -412,6 +412,29 @@ export default function AdminCustomersPage() {
               )}
             </div>
 
+            {/* Contractor Discount */}
+            <div className="border-t pt-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={(selected as any).contractor_discount ?? false}
+                  onChange={async (e) => {
+                    const val = e.target.checked;
+                    await fetch(`/api/admin/customers/${selected.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ contractor_discount: val }),
+                    });
+                    setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, contractor_discount: val } as any : c));
+                    setFlaggedCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, contractor_discount: val } as any : c));
+                  }}
+                  className="rounded"
+                />
+                <span className="font-medium">5% Contractor Pickup Discount</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">Auto-applies 5% discount on pickup orders at POS</p>
+            </div>
+
             <Button asChild className="w-full">
               <Link href={`/shop`}>
                 <ShoppingCart className="size-4" /> Start New Order

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   X, Search, Plus, Minus, Trash2,
-  Loader2, Mail, MessageSquare, Save,
+  Loader2, Mail, MessageSquare, Save, Printer,
 } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
@@ -94,6 +94,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: (result: { mode: string; quoteNumber: string; quoteUrl: string }) => void;
+  onPrint?: (quoteData: { id: string; quoteNumber: string; items: LineItem[]; customer: QuoteCustomer; delivery: QuoteDelivery; subtotalCents: number; deliveryFeeCents: number; taxCents: number; totalCents: number }) => void;
   // Catalog
   products: PosProduct[];
   // Cart
@@ -113,7 +114,7 @@ interface Props {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function QuoteBuilder({
-  open, onClose, onSuccess,
+  open, onClose, onSuccess, onPrint,
   products, items, onAddItem, onUpdateQty, onRemoveItem, onUpdateItemPrice,
   customer, onCustomerChange,
   delivery, onDeliveryChange,
@@ -682,13 +683,49 @@ export function QuoteBuilder({
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               Hold
             </button>
+            {onPrint && (
+              <button
+                onClick={async () => {
+                  const errs = validate(false, "email");
+                  if (errs.length) { setErrors(errs); return; }
+                  setErrors([]);
+                  setSending(true);
+                  try {
+                    const res = await fetch("/api/pos/save-quote", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        items: items.map(i => ({ name: i.product.name, quantity: i.quantity, unitPriceCents: i.price_cents, unit: i.product.unit_label || "yard", categorySlug: i.product.category_slug })),
+                        customer: { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email },
+                        delivery: isDelivery ? { address: delivery.address, feeCents: delivery.feeCents, date: delivery.date, timeWindow: delivery.timeWindow, notes: delivery.notes } : null,
+                        accessConstraints: delivery.constraints,
+                        routeInfo: delivery.routeInfo,
+                        notes: callNotes,
+                        serviceInterest,
+                        send: false,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { setErrors([data.error || "Failed to save"]); setSending(false); return; }
+                    onPrint({ id: data.quote.id, quoteNumber: data.quote.quoteNumber, items, customer, delivery, subtotalCents, deliveryFeeCents: deliveryTotal, taxCents, totalCents: cashTotal });
+                    onSuccess({ mode: "print", quoteNumber: data.quote.quoteNumber, quoteUrl: data.quote.quoteUrl ?? "" });
+                  } catch { setErrors(["Network error"]); }
+                  setSending(false);
+                }}
+                disabled={sending || items.length === 0}
+                className="h-11 px-4 rounded-lg bg-amber-700 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40 transition-colors flex items-center gap-2"
+              >
+                {sending ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+                Print
+              </button>
+            )}
             <button
               onClick={() => handleSend(true, "email")}
               disabled={sending || !customer.email}
               className="h-11 px-5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 disabled:opacity-40 transition-colors flex items-center gap-2"
             >
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
-              Email Quote
+              Email
             </button>
             <button
               onClick={() => handleSend(true, "both")}

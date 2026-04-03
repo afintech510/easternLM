@@ -698,8 +698,8 @@ export default function PosRegisterPage() {
     }
     // Auto-enable tax exempt if customer has it
     setTaxExempt((cust as Record<string, unknown>).tax_exempt as boolean || false);
-    // Auto-apply 5% contractor pickup discount for pro/contractor/charge-account customers
-    const isPro = cust.is_charge_account || cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
+    // Auto-apply 5% contractor pickup discount for flagged customers
+    const isPro = (cust as any).contractor_discount || cust.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer');
     setProDiscount(!!isPro && deliveryMethod === 'pickup');
     fetchCustomerOrders(cust.id);
     // Fetch store credit balance
@@ -1488,6 +1488,32 @@ export default function PosRegisterPage() {
           if (patch.notes !== undefined) setDelNotes(patch.notes);
           if (patch.constraints !== undefined) setAccessConstraints(patch.constraints);
           if (patch.routeInfo !== undefined) setRouteInfo(patch.routeInfo);
+        }}
+        onPrint={async (qd) => {
+          if (!printerRef.current.connected) return;
+          const printOrder: PrintableOrder = {
+            id: qd.id,
+            orderNumber: qd.quoteNumber,
+            created_at: new Date().toISOString(),
+            source: "pos",
+            customer_name: qd.customer.name || null,
+            customer_phone: qd.customer.phone || null,
+            customer_email: qd.customer.email || null,
+            items: qd.items.map((i) => ({ product_name: i.product.name, quantity: i.quantity, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", unit_price_cents: i.price_cents, line_total_cents: i.quantity * i.price_cents, delivery_type: i.product.delivery_type })),
+            materials_subtotal_cents: qd.subtotalCents,
+            delivery_total_cents: qd.deliveryFeeCents,
+            tax_cents: qd.taxCents,
+            cc_surcharge_cents: 0,
+            grand_total_cents: qd.totalCents,
+            payment_method: "quote",
+            delivery_method: qd.delivery.method,
+            delivery_address: qd.delivery.address || null,
+            delivery_date: qd.delivery.date || null,
+            delivery_time_window: qd.delivery.timeWindow || null,
+            delivery_notes: qd.delivery.notes || null,
+            access_constraints: qd.delivery.constraints || null,
+          };
+          await printerRef.current.printReceipt(toReceiptOrder(printOrder), qd.id);
         }}
       />
 
@@ -2544,7 +2570,7 @@ export default function PosRegisterPage() {
               onClick={() => {
                 setDeliveryMethod("pickup");
                 setDeliveryFeeCents(0);
-                if (selectedCustomer?.is_charge_account || selectedCustomer?.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer')) {
+                if ((selectedCustomer as any)?.contractor_discount || selectedCustomer?.tags?.some(t => t === 'contractor' || t === 'pro' || t === 'account-customer')) {
                   setProDiscount(true);
                 }
               }}
