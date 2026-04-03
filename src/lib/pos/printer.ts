@@ -203,15 +203,23 @@ export class ReceiptPrinter {
   private qr(cmd: number[], data: string) {
     try {
       // Generate QR matrix using the qrcode library (synchronous create)
-      const qr = QRCode.create(data, { errorCorrectionLevel: "M" });
-      const modules = qr.modules;
+      const qrResult = QRCode.create(data, { errorCorrectionLevel: "M" });
+      const modules = qrResult.modules;
       const size = modules.size; // e.g. 29 for version 3
       const moduleData = modules.data; // Uint8Array, 1 = dark
 
-      const scale = 4; // 4 dots per module — good balance of size vs scannability
+      if (!size || !moduleData || moduleData.length === 0) {
+        console.error("[QR] Empty QR matrix for:", data);
+        this.txt(cmd, data);
+        return;
+      }
+
+      const scale = 4; // 4 dots per module
       const imgW = size * scale;
       const imgH = imgW;
       const bytesPerRow = Math.ceil(imgW / 8);
+
+      console.log(`[QR] Generating raster: ${size}x${size} modules, ${imgW}x${imgH}px, ${bytesPerRow * imgH} bytes`);
 
       // GS v 0 m xL xH yL yH d1...dk — print raster bit image
       cmd.push(GS, 0x76, 0x30, 0x00,
@@ -232,8 +240,8 @@ export class ReceiptPrinter {
           cmd.push(byte);
         }
       }
-    } catch {
-      // If QR generation fails, print the URL as text instead
+    } catch (err) {
+      console.error("[QR] Failed to generate QR code:", err);
       this.txt(cmd, data);
     }
   }
@@ -593,12 +601,17 @@ export class ReceiptPrinter {
     }
 
     // QR code for delivery confirmation — reset all formatting before QR commands
+    console.log("[DeliveryTicket] orderId for QR:", orderId ?? "MISSING");
     if (orderId) {
       this.txt(c, ""); this.txt(c, ddiv());
       this.fontSize(c, 0x00); this.bold(c, false); this.invert(c, false);
       this.align(c, "C");
       this.txt(c, "Scan to confirm delivery:");
-      this.qr(c, `https://easternlm.com/delivery/confirm/${orderId}`);
+      const qrUrl = `https://easternlm.com/delivery/confirm/${orderId}`;
+      console.log("[DeliveryTicket] QR URL:", qrUrl);
+      const beforeLen = c.length;
+      this.qr(c, qrUrl);
+      console.log(`[DeliveryTicket] QR bytes added: ${c.length - beforeLen}`);
       this.txt(c, "");
     }
 
