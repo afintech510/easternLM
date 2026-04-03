@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { ClipboardList, DollarSign, Package, Phone, Search, ShoppingCart, Truck, Users } from "lucide-react";
+import { ClipboardList, DollarSign, Package, Phone, Search, ShoppingCart, Truck } from "lucide-react";
+import { RevenueSection } from "@/components/admin/dashboard/revenue-section";
 import { Button } from "@/components/ui/button";
 import { QuickQuoteButton } from "@/components/admin/quick-quote";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -92,6 +93,9 @@ export default async function AdminDashboardPage() {
         <Button asChild size="sm" variant="outline"><Link href="/admin/customers"><Search className="size-4" /> Search Customer</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href="/admin/products"><Package className="size-4" /> Products</Link></Button>
       </div>
+
+      {/* Revenue dashboard — client component with chart */}
+      <RevenueSection />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent orders */}
