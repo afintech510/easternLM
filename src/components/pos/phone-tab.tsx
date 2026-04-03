@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Phone,
   PhoneIncoming,
@@ -582,8 +582,10 @@ function OrderSearchPicker({
           type="text"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value);
-            searchOrders(e.target.value);
+            const v = e.target.value;
+            setQuery(v);
+            if ((window as any).__orderSearchTimer) clearTimeout((window as any).__orderSearchTimer);
+            (window as any).__orderSearchTimer = setTimeout(() => searchOrders(v), 300);
           }}
           placeholder="Search order # or customer..."
           className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs placeholder:text-zinc-600 focus:outline-none"
@@ -655,13 +657,17 @@ export function PhoneTab() {
     fetchCalls();
   }, [fetchCalls]);
 
-  // Poll every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchCalls, 30000);
-    return () => clearInterval(interval);
-  }, [fetchCalls]);
+  // Stable ref for realtime/polling callback
+  const fetchCallsRef = useRef(fetchCalls);
+  fetchCallsRef.current = fetchCalls;
 
-  // Supabase Realtime for instant updates
+  // Poll every 30 seconds — stable interval
+  useEffect(() => {
+    const interval = setInterval(() => fetchCallsRef.current(), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Supabase Realtime for instant updates — single stable subscription
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     const channel = supabase
@@ -669,14 +675,11 @@ export function PhoneTab() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "call_records" },
-        () => fetchCalls()
+        () => fetchCallsRef.current()
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchCalls]);
+    return () => { supabase.removeChannel(channel); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function resolveFollowUp(callId: string) {
     // Optimistic update

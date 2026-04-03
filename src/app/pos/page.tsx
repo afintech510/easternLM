@@ -182,6 +182,7 @@ export default function PosRegisterPage() {
   const [custSearch, setCustSearch] = useState("");
   const [custResults, setCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; total_orders: number; total_spent_cents: number; tags: string[]; is_charge_account?: boolean; charge_account_name?: string | null; credit_limit_cents?: number | null; current_balance_cents?: number; payment_terms?: string | null }>>([]);
   const [custSearching, setCustSearching] = useState(false);
+  const custSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<typeof custResults[0] | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState("");
@@ -372,14 +373,15 @@ export default function PosRegisterPage() {
     document.head.appendChild(script);
   }, []);
 
-  // Attach Google Places autocomplete to address input
+  // Attach Google Places autocomplete to address input — clean up on re-run to prevent memory leak
   useEffect(() => {
     if (!googleLoaded || !addressInputRef.current || !(window as any).google) return;
-    const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
+    const g = (window as any).google.maps;
+    const autocomplete = new g.places.Autocomplete(addressInputRef.current, {
       componentRestrictions: { country: "us" },
       types: ["address"],
     });
-    autocomplete.addListener("place_changed", () => {
+    const listener = autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
       if (place.formatted_address) {
         setDelAddress(place.formatted_address);
@@ -388,21 +390,24 @@ export default function PosRegisterPage() {
         calculateDeliveryFee(place.formatted_address);
       }
     });
+    return () => { g.event.removeListener(listener); };
   }, [googleLoaded, middleTab]); // re-run when switching to delivery tab
 
   // Attach Google Places autocomplete to new customer address input
   useEffect(() => {
     if (!googleLoaded || !showNewCustomer || !newCustAddressRef.current || !(window as any).google) return;
-    const autocomplete = new (window as any).google.maps.places.Autocomplete(newCustAddressRef.current, {
+    const g = (window as any).google.maps;
+    const autocomplete = new g.places.Autocomplete(newCustAddressRef.current, {
       componentRestrictions: { country: "us" },
       types: ["address"],
     });
-    autocomplete.addListener("place_changed", () => {
+    const listener = autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
       if (place.formatted_address) {
         setNewCustAddress(place.formatted_address);
       }
     });
+    return () => { g.event.removeListener(listener); };
   }, [googleLoaded, showNewCustomer]);
 
   // Filtered products
@@ -2035,7 +2040,17 @@ export default function PosRegisterPage() {
                   <input
                     type="text"
                     value={custSearch}
-                    onChange={(e) => { setCustSearch(e.target.value); searchCustomers(e.target.value); }}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCustSearch(v);
+                      if (custSearchTimerRef.current) clearTimeout(custSearchTimerRef.current);
+                      if (v.trim().length >= 2) {
+                        setCustSearching(true);
+                        custSearchTimerRef.current = setTimeout(() => searchCustomers(v), 300);
+                      } else {
+                        setCustResults([]);
+                      }
+                    }}
                     placeholder="Phone, name, or address..."
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
