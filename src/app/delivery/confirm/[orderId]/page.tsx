@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Camera, CheckCircle, Loader2, Truck, DollarSign } from "lucide-react";
+import { Camera, CheckCircle, Loader2, Truck, DollarSign, ImagePlus } from "lucide-react";
 
 type OrderData = {
   id: string;
@@ -41,11 +41,12 @@ export default function DeliveryConfirmPage() {
       .finally(() => setLoading(false));
   }, [orderId]);
 
-  async function handlePhoto(capture: "environment" | "user") {
+  async function handlePhoto(useCamera: boolean) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.capture = capture;
+    if (useCamera) input.capture = "environment"; // rear camera
+    // No capture attribute = opens gallery/file picker
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -145,18 +146,18 @@ export default function DeliveryConfirmPage() {
           <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Delivery Photos</p>
           <div className="flex gap-2">
             <button
-              onClick={() => handlePhoto("user")}
+              onClick={() => handlePhoto(true)}
               disabled={uploading}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 py-4 text-sm text-zinc-600 hover:border-accent hover:text-accent"
             >
-              <Camera className="size-5" /> {uploading ? "Uploading..." : "Driver Selfie"}
+              <Camera className="size-5" /> {uploading ? "Uploading..." : "Take Photo"}
             </button>
             <button
-              onClick={() => handlePhoto("environment")}
+              onClick={() => handlePhoto(false)}
               disabled={uploading}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 py-4 text-sm text-zinc-600 hover:border-accent hover:text-accent"
             >
-              <Camera className="size-5" /> {uploading ? "Uploading..." : "Material Photo"}
+              <ImagePlus className="size-5" /> {uploading ? "Uploading..." : "From Gallery"}
             </button>
           </div>
           {photos.length > 0 && (
