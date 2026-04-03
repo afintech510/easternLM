@@ -531,12 +531,12 @@ export class ReceiptPrinter {
     if (o.paymentMethod === "cod") {
       this.invert(c, true);
       this.bold(c, true); this.fontSize(c, 0x11);
-      this.charSpacing(c, 3);
+      this.charSpacing(c, 1);
       this.align(c, "C");
-      this.txt(c, "                                                ");
-      this.txt(c, "  C A S H  O N  D E L I V E R Y  ");
+      this.txt(c, "                        ");
+      this.txt(c, "  CASH ON DELIVERY  ");
       this.txt(c, `  COLLECT: ${fmt(o.totalCents)}  `);
-      this.txt(c, "                                                ");
+      this.txt(c, "                        ");
       this.charSpacing(c, 0);
       this.align(c, "L");
       this.fontSize(c, 0x00); this.bold(c, false);
