@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatUsd } from "@/lib/format";
-import { AlertTriangle, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, MapPin, Phone, Truck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, MapPin, Navigation, Phone, StickyNote, Truck } from "lucide-react";
 
 type Assignment = {
   id: string;
@@ -24,6 +24,15 @@ type Assignment = {
   status: string;
   has_spreading: boolean;
   dispatch_notes: string | null;
+  // Joined from orders table
+  orders?: {
+    customer_name: string | null;
+    customer_phone: string | null;
+    delivery_time_window: string | null;
+    delivery_notes: string | null;
+    notes: string | null;
+    metadata: Record<string, unknown> | null;
+  };
 };
 
 type UnscheduledOrder = {
@@ -36,6 +45,9 @@ type UnscheduledOrder = {
   delivery_address: string | null;
   delivery_fee_cents: number;
   access_constraints: Record<string, boolean> | null;
+  delivery_time_window: string | null;
+  delivery_notes: string | null;
+  notes: string | null;
 };
 
 type TruckInfo = { id: string; name: string; truck_type: string; default_driver_name: string | null };
@@ -52,6 +64,11 @@ const STATUS_COLORS: Record<string, string> = {
   issue: "bg-red-100 text-red-800",
 };
 const TIME_SLOTS = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "13:00", "14:00", "15:00"];
+const TW_LABELS: Record<string, string> = { morning: "7–10 AM", midday: "10 AM–1 PM", afternoon: "1–5 PM", flexible: "7 AM–5 PM" };
+const YARD_ADDRESS = "110 Frowein Road, Center Moriches, NY 11934";
+function mapsUrl(dest: string) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(YARD_ADDRESS)}&destination=${encodeURIComponent(dest)}`;
+}
 
 function WeeklyView({ startDate }: { startDate: string }) {
   const [weekData, setWeekData] = useState<Record<string, { assignments: Assignment[]; total: number }>>({});
@@ -261,38 +278,80 @@ export default function DispatchBoardPage() {
                   <div className="p-2 space-y-2 min-h-[300px]">
                     {truckAssignments.length === 0 ? (
                       <div className="py-8 text-center text-xs text-muted-foreground">No loads scheduled</div>
-                    ) : truckAssignments.map((a) => (
-                      <div key={a.id} className="rounded-lg border bg-background p-3 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-muted-foreground">{a.time_slot || "Flex"}</span>
-                          <select
-                            value={a.status}
-                            onChange={(e) => updateAssignmentStatus(a.id, e.target.value)}
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium border-0 cursor-pointer ${STATUS_COLORS[a.status] || ""}`}
-                          >
-                            {["scheduled", "loading", "departed", "arrived", "delivered", "issue"].map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
+                    ) : truckAssignments.map((a) => {
+                      const order = a.orders;
+                      const tw = order?.delivery_time_window;
+                      const orderNotes = [order?.delivery_notes, order?.notes].filter(Boolean).join(" | ");
+                      const custName = order?.customer_name || null;
+                      const custPhone = order?.customer_phone || null;
+                      const addr = a.destination_address;
+                      return (
+                        <div key={a.id} className="rounded-lg border bg-background p-3 space-y-1.5">
+                          {/* Row 1: time slot + time window + status */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-semibold">{a.time_slot || "Flex"}</span>
+                              {tw && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{TW_LABELS[tw] ?? tw}</span>}
+                            </div>
+                            <select
+                              value={a.status}
+                              onChange={(e) => updateAssignmentStatus(a.id, e.target.value)}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium border-0 cursor-pointer ${STATUS_COLORS[a.status] || ""}`}
+                            >
+                              {["scheduled", "loading", "departed", "arrived", "delivered", "issue"].map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Customer */}
+                          {custName && <p className="text-sm font-semibold">{custName}</p>}
+                          {custPhone && (
+                            <a href={`tel:${custPhone}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                              <Phone className="h-3 w-3" /> {custPhone}
+                            </a>
+                          )}
+
+                          {/* Materials */}
+                          <p className="text-sm font-medium">{a.material_summary}</p>
+
+                          {/* Address — full + Google Maps link */}
+                          <div className="flex items-start gap-1 text-xs">
+                            <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0">
+                              <p className="text-muted-foreground">{addr}</p>
+                              <a href={mapsUrl(addr)} target="_blank" rel="noopener" className="flex items-center gap-0.5 text-primary hover:underline mt-0.5">
+                                <Navigation className="h-3 w-3" /> Directions
+                              </a>
+                            </div>
+                          </div>
+
+                          {a.drive_minutes && (
+                            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" /> ~{a.drive_minutes} min
+                            </p>
+                          )}
+
+                          {/* Notes */}
+                          {orderNotes && (
+                            <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1">
+                              <StickyNote className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span className="line-clamp-3">{orderNotes}</span>
+                            </p>
+                          )}
+                          {a.dispatch_notes && (
+                            <p className="text-xs text-muted-foreground italic">Dispatch: {a.dispatch_notes}</p>
+                          )}
+
+                          {a.has_spreading && <Badge variant="outline" className="text-[10px]">+ Spreading</Badge>}
+                          {Object.values(a.access_constraints || {}).some(Boolean) && (
+                            <p className="flex items-center gap-1 text-xs text-amber-600">
+                              <AlertTriangle className="h-3 w-3" /> Access constraints
+                            </p>
+                          )}
                         </div>
-                        <p className="text-sm font-medium">{a.material_summary}</p>
-                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {a.destination_town || a.destination_address?.split(",")[0]}
-                        </p>
-                        {a.drive_minutes && (
-                          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" /> ~{a.drive_minutes}min
-                          </p>
-                        )}
-                        {a.has_spreading && <Badge variant="outline" className="text-[10px]">+ Spreading</Badge>}
-                        {Object.keys(a.access_constraints || {}).length > 0 && (
-                          <p className="flex items-center gap-1 text-xs text-amber-600">
-                            <AlertTriangle className="h-3 w-3" /> Access constraints
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Truck footer */}
@@ -312,26 +371,47 @@ export default function DispatchBoardPage() {
             <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
               {unscheduled.length === 0 ? (
                 <div className="py-8 text-center text-xs text-muted-foreground">All orders scheduled</div>
-              ) : unscheduled.map((order) => (
-                <div key={order.id} className="rounded-lg border bg-background p-3 space-y-1.5">
-                  <p className="text-sm font-medium">{order.customer_name || "Walk-in"}</p>
-                  {order.customer_phone && (
-                    <a href={`tel:${order.customer_phone}`} className="flex items-center gap-1 text-xs text-primary">
-                      <Phone className="h-3 w-3" /> {order.customer_phone}
-                    </a>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {order.items?.map((i) => `${i.quantity} ${i.product_name}`).join(", ")}
-                  </p>
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <ArrowRight className="h-3 w-3" /> {order.delivery_address?.split(",")[0]}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{formatUsd(order.delivery_fee_cents)}</span>
-                    <Button size="sm" className="h-6 text-xs" onClick={() => setAssigningOrder(order)}>Assign</Button>
+              ) : unscheduled.map((order) => {
+                const tw = order.delivery_time_window;
+                const allNotes = [order.delivery_notes, order.notes].filter(Boolean).join(" | ");
+                return (
+                  <div key={order.id} className="rounded-lg border bg-background p-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">{order.customer_name || "Walk-in"}</p>
+                      {tw && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{TW_LABELS[tw] ?? tw}</span>}
+                    </div>
+                    {order.customer_phone && (
+                      <a href={`tel:${order.customer_phone}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                        <Phone className="h-3 w-3" /> {order.customer_phone}
+                      </a>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {order.items?.map((i) => `${i.quantity} ${i.product_name}`).join(", ")}
+                    </p>
+                    {order.delivery_address && (
+                      <div className="flex items-start gap-1 text-xs">
+                        <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground">{order.delivery_address}</p>
+                          <a href={mapsUrl(order.delivery_address)} target="_blank" rel="noopener" className="flex items-center gap-0.5 text-primary hover:underline mt-0.5">
+                            <Navigation className="h-3 w-3" /> Directions
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {allNotes && (
+                      <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1">
+                        <StickyNote className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span className="line-clamp-2">{allNotes}</span>
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{formatUsd(order.delivery_fee_cents)}</span>
+                      <Button size="sm" className="h-6 text-xs" onClick={() => setAssigningOrder(order)}>Assign</Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

@@ -9,10 +9,10 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdminClient();
   const date = request.nextUrl.searchParams.get("date") || new Date().toISOString().split("T")[0];
 
-  // Get assignments for this date
+  // Get assignments for this date — join order for customer info + delivery details
   const { data: assignments } = await supabase
     .from("delivery_assignments")
-    .select("*")
+    .select("*, orders!inner(customer_name, customer_phone, delivery_time_window, delivery_notes, notes, metadata)")
     .eq("delivery_date", date)
     .order("time_slot");
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allDeliveryOrders } = await supabase
     .from("orders")
-    .select("id, created_at, customer_name, customer_phone, items, grand_total_cents, delivery_address, delivery_fee_cents, delivery_method, status, notes, access_constraints")
+    .select("id, created_at, customer_name, customer_phone, items, grand_total_cents, delivery_address, delivery_fee_cents, delivery_method, status, notes, access_constraints, delivery_time_window, delivery_notes, metadata")
     .eq("delivery_method", "delivery")
     .in("status", ["paid", "new", "confirmed"])
     .order("created_at", { ascending: false })
