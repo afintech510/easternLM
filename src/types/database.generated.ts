@@ -3513,6 +3513,15 @@ export type Database = {
     }
     Functions: {
       generate_quote_number: { Args: never; Returns: string }
+      get_revenue_by_period: {
+        Args: { p_date_from: string; p_date_trunc: string }
+        Returns: {
+          order_count: number
+          payment_method: string
+          period_date: string
+          total_cents: number
+        }[]
+      }
       get_sms_conversations: {
         Args: {
           p_business_number?: string
