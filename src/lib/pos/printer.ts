@@ -257,7 +257,9 @@ export class ReceiptPrinter {
     if (o.customerPhone) {
       const ph = o.customerPhone.replace(/\D/g, "").slice(-10);
       const fmtPhone = ph.length === 10 ? `(${ph.slice(0,3)}) ${ph.slice(3,6)}-${ph.slice(6)}` : o.customerPhone;
-      this.txt(c, `Phone:    ${fmtPhone}`);
+      this.fontSize(c, 0x11);
+      this.txt(c, fmtPhone);
+      this.fontSize(c, 0x00);
     }
     if (o.customerEmail) this.txt(c, `Email:    ${o.customerEmail}`);
     this.txt(c, div());
@@ -314,13 +316,14 @@ export class ReceiptPrinter {
       this.txt(c, div());
       this.bold(c, true); this.txt(c, "DELIVERY"); this.bold(c, false);
       this.txt(c, div());
-      // Address — EXTRA LARGE (double size bold)
+      // Address — EXTRA LARGE (double size bold) + blank line after
       if (o.deliveryAddress) {
         this.fontSize(c, 0x11); this.bold(c, true);
         const cleanAddr = o.deliveryAddress.replace(/,?\s*(USA|US|United States)\s*$/i, "").replace(/,?\s*NY\s*,?/i, " ");
         // Wrap at ~24 chars (half width at double size)
         for (let i = 0; i < cleanAddr.length; i += 24) this.txt(c, cleanAddr.substring(i, i + 24));
         this.fontSize(c, 0x00); this.bold(c, false);
+        this.txt(c, "");
       }
       // Date & Time — EXTRA LARGE
       if (o.deliveryDate) {
@@ -381,13 +384,13 @@ export class ReceiptPrinter {
       this.txt(c, ddiv());
       this.invert(c, true);
       this.bold(c, true); this.fontSize(c, 0x11);
-      this.charSpacing(c, 3); // extra letter spacing for readability
+      this.charSpacing(c, 1);
       this.align(c, "C");
-      this.txt(c, "                                                ");
-      this.txt(c, "  C A S H  O N  D E L I V E R Y  ");
+      this.txt(c, "                        ");
+      this.txt(c, "  CASH ON DELIVERY  ");
       this.txt(c, `  COLLECT: ${fmt(o.totalCents)}  `);
-      this.txt(c, "                                                ");
-      this.charSpacing(c, 0); // reset spacing
+      this.txt(c, "                        ");
+      this.charSpacing(c, 0);
       this.align(c, "L");
       this.fontSize(c, 0x00); this.bold(c, false);
       this.invert(c, false);
@@ -429,13 +432,17 @@ export class ReceiptPrinter {
       this.txt(c, `  ${o.customerName}`);
       this.fontSize(c, 0x00);
     }
-    if (o.customerPhone) this.txt(c, `  Phone: ${o.customerPhone}`);
+    if (o.customerPhone) {
+      this.fontSize(c, 0x11);
+      this.txt(c, `  ${o.customerPhone}`);
+      this.fontSize(c, 0x00);
+    }
     if (o.siteContactPhone && o.siteContactPhone !== o.customerPhone) {
       this.txt(c, `  Site:  ${o.siteContactPhone}`);
     }
     this.txt(c, ddiv());
 
-    // Delivery address — EXTRA LARGE (double size bold)
+    // Delivery address — EXTRA LARGE (double size bold) + blank line after
     this.bold(c, true); this.txt(c, "DELIVER TO:");
     if (o.deliveryAddress) {
       this.fontSize(c, 0x11);
@@ -444,6 +451,7 @@ export class ReceiptPrinter {
       this.fontSize(c, 0x00);
     }
     this.bold(c, false);
+    this.txt(c, "");
     this.txt(c, "");
     // Delivery date/time — EXTRA LARGE
     if (o.deliveryDate) {
@@ -489,6 +497,7 @@ export class ReceiptPrinter {
         this.fontSize(c, 0x11);
         this.txt(c, load.materialName);
         this.txt(c, `${load.yards} cubic yards`);
+        this.txt(c, "");
         this.fontSize(c, 0x00); this.bold(c, false);
         this.txt(c, `  Truck: ${load.truckType}`);
       }
@@ -497,7 +506,9 @@ export class ReceiptPrinter {
       const bulk = o.items.filter((i) => i.deliveryType === "bulk");
       this.fontSize(c, 0x11); this.bold(c, true);
       for (const item of bulk) {
-        this.txt(c, `${item.quantity} ${item.unit} ${item.productName}`);
+        this.txt(c, `${item.quantity} ${item.unit}`);
+        this.txt(c, item.productName);
+        this.txt(c, "");
       }
       this.fontSize(c, 0x00); this.bold(c, false);
     }
@@ -544,9 +555,10 @@ export class ReceiptPrinter {
       if (o.spreadingYards) this.txt(c, `  Quantity: ${o.spreadingYards} cubic yards`);
     }
 
-    // QR code for delivery confirmation
+    // QR code for delivery confirmation — reset all formatting before QR commands
     if (orderId) {
       this.txt(c, ""); this.txt(c, ddiv());
+      this.fontSize(c, 0x00); this.bold(c, false); this.invert(c, false);
       this.align(c, "C");
       this.txt(c, "Scan to confirm delivery:");
       this.qr(c, `https://easternlm.com/delivery/confirm/${orderId}`);
