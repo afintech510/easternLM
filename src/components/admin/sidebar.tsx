@@ -30,6 +30,10 @@ import {
   ChevronRight,
   Menu,
   X,
+  TrendingUp,
+  Calendar,
+  Star,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickQuoteSidebarButton } from "@/components/admin/quick-quote";
@@ -67,6 +71,17 @@ const SECTIONS: NavSection[] = [
       { label: "Contractors", href: "/admin/contractors", icon: Users },
       { label: "Follow-Ups", href: "/admin/follow-ups", icon: Bell },
       { label: "Gallery", href: "/admin/gallery", icon: Camera },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { label: "Dashboard", href: "/admin/marketing", icon: Share2, exact: true },
+      { label: "Content", href: "/admin/marketing/content", icon: FileText },
+      { label: "Calendar", href: "/admin/marketing/calendar", icon: Calendar },
+      { label: "Analytics", href: "/admin/marketing/analytics", icon: TrendingUp },
+      { label: "Reviews", href: "/admin/marketing/reviews", icon: Star },
+      { label: "Settings", href: "/admin/marketing/settings", icon: Settings },
     ],
   },
   {
