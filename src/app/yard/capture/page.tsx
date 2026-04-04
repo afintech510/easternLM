@@ -42,15 +42,15 @@ export default function PhotoCapturePage() {
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // Get brand ID for the asset record
-      const { data: brand } = await supabase
+      // Get brand ID for the asset record (mktg_* tables not in generated types yet)
+      const { data: brand } = await (supabase as any)
         .from("mktg_brands")
         .select("id")
         .eq("slug", "eastern-lm")
         .single();
 
       if (brand) {
-        await supabase.from("mktg_image_assets").insert({
+        await (supabase as any).from("mktg_image_assets").insert({
           brand_id: brand.id,
           asset_type: "raw_upload",
           storage_path: path,
