@@ -70,17 +70,45 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fetch order history for each customer
+  // Fetch order history for each customer (both platform orders and WooCommerce legacy)
   const results = await Promise.all(
     (customers || []).map(async (customer) => {
-      const { data: orders } = await supabase
+      // New platform orders
+      const { data: platformOrders } = await supabase
+        .from("orders")
+        .select("id, placed_at, grand_total_cents, status, payment_method, delivery_method, order_items(product_name, quantity, unit_price_cents)")
+        .eq("customer_id", customer.id)
+        .order("placed_at", { ascending: false })
+        .limit(15);
+
+      // Legacy WooCommerce orders
+      const { data: wcOrders } = await supabase
         .from("order_history")
         .select("wc_order_id, order_date, status, payment_method, order_total_cents, delivery_address, delivery_city, delivery_notes, items")
         .eq("customer_id", customer.id)
         .order("order_date", { ascending: false })
-        .limit(10);
+        .limit(15);
 
-      return { ...customer, recent_orders: orders || [] };
+      // Merge and sort by date (newest first)
+      const merged = [
+        ...(platformOrders ?? []).map((o: any) => ({
+          wc_order_id: o.id?.slice(0, 8),
+          order_date: o.placed_at,
+          order_total_cents: o.grand_total_cents,
+          payment_method: o.payment_method,
+          delivery_address: o.delivery_method,
+          items: (o.order_items ?? []).map((i: any) => ({ name: i.product_name, quantity: i.quantity, costCents: i.unit_price_cents })),
+          source: "platform",
+          status: o.status,
+        })),
+        ...(wcOrders ?? []).map((o: any) => ({
+          ...o,
+          source: "woocommerce",
+        })),
+      ].sort((a: any, b: any) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime())
+       .slice(0, 15);
+
+      return { ...customer, recent_orders: merged };
     })
   );
 

@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type OrderHistoryItem = {
-  wc_order_id: number;
+  wc_order_id: number | string;
   order_date: string;
   order_total_cents: number;
   items: Array<{ name: string; quantity: number; costCents: number }>;
   delivery_address: string | null;
   payment_method: string | null;
+  source?: "platform" | "woocommerce";
+  status?: string;
 };
 
 type Customer = {
@@ -303,17 +305,21 @@ export default function AdminCustomersPage() {
 
             {/* Order history */}
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Order History</h3>
+              <h3 className="mb-2 text-sm font-semibold">Order History ({selected.recent_orders.length})</h3>
               {selected.recent_orders.length > 0 ? (
-                <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {selected.recent_orders.map((order, i) => (
                     <div key={`${order.wc_order_id}-${i}`} className="rounded-lg border bg-background p-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">#{order.wc_order_id}</span>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium">#{order.wc_order_id}</span>
+                          {order.source === "platform" && <span className="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-medium text-blue-700">New</span>}
+                          {order.status && order.status !== "completed" && <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-600">{order.status}</span>}
+                        </div>
                         <span className="font-semibold">{formatUsd(order.order_total_cents)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(order.order_date).toLocaleDateString()} &middot; {order.payment_method || "card"}
+                        {new Date(order.order_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} &middot; {order.payment_method || "card"}
                       </p>
                       {order.items && order.items.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">
