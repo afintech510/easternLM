@@ -14,8 +14,8 @@ export async function GET(_request: Request, context: RouteContext) {
     .eq("id", id)
     .single();
 
-  // Query new orders by customer_id
-  const { data: newOrders } = await supabase
+  // Query new orders by customer_id (cast to bypass generated types for new columns)
+  const { data: newOrders } = await (supabase as any)
     .from("orders")
     .select("id, placed_at, grand_total_cents, materials_subtotal_cents, delivery_method, status, payment_method, account_paid_at, account_payment_method, account_payment_note, order_items(product_name, quantity, unit_price_cents)")
     .eq("customer_id", id)

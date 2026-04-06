@@ -33,7 +33,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = getSupabaseAdminClient();
+  // Cast to bypass generated types (account_paid_at columns added after type generation)
+  const supabase = getSupabaseAdminClient() as any;
   const paidAt = paid_date ? new Date(paid_date).toISOString() : new Date().toISOString();
 
   // Get the orders to calculate total being paid
@@ -49,13 +50,13 @@ export async function POST(request: Request) {
   }
 
   // Filter to only unpaid orders
-  const unpaid = orders.filter((o) => !o.account_paid_at);
+  const unpaid = (orders as any[]).filter((o: any) => !o.account_paid_at);
   if (unpaid.length === 0) {
     return NextResponse.json({ error: "All selected orders are already marked as paid" }, { status: 400 });
   }
 
-  const totalPaidCents = unpaid.reduce((sum, o) => sum + (o.grand_total_cents ?? 0), 0);
-  const unpaidIds = unpaid.map((o) => o.id);
+  const totalPaidCents = unpaid.reduce((sum: number, o: any) => sum + (o.grand_total_cents ?? 0), 0);
+  const unpaidIds = unpaid.map((o: any) => o.id);
 
   // Mark orders as paid
   const { error: updateErr } = await supabase
