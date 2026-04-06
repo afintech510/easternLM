@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Loader2, Plus, Building2, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Building2, AlertTriangle, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,15 @@ interface Account {
   total_orders: number;
 }
 
+interface UnpaidOrder {
+  id: string;
+  placed_at: string;
+  grand_total_cents: number;
+  status: string;
+  delivery_method: string | null;
+  order_items: Array<{ product_name: string; quantity: number; unit_price_cents: number }>;
+}
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,15 +39,36 @@ export default function AccountsPage() {
   const [genResult, setGenResult] = useState<string>("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [unpaidOrders, setUnpaidOrders] = useState<UnpaidOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  const toggleExpand = useCallback(async (acctId: string) => {
+    if (expandedId === acctId) { setExpandedId(null); return; }
+    setExpandedId(acctId);
+    setLoadingOrders(true);
+    setUnpaidOrders([]);
+    try {
+      const res = await fetch(`/api/admin/customers/${acctId}/orders`);
+      if (res.ok) {
+        const data = await res.json();
+        // Filter to account-paid orders (unpaid receipts)
+        const accountOrders = (data.orders ?? []).filter(
+          (o: any) => o.source === "platform"
+        );
+        setUnpaidOrders(accountOrders);
+      }
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, [expandedId]);
 
   useEffect(() => {
-    // Default to previous month
+    // Default to current month (1st through today)
     const now = new Date();
-    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastOfPrevMonth = new Date(firstOfThisMonth.getTime() - 1);
-    const firstOfPrevMonth = new Date(lastOfPrevMonth.getFullYear(), lastOfPrevMonth.getMonth(), 1);
-    setPeriodStart(firstOfPrevMonth.toISOString().slice(0, 10));
-    setPeriodEnd(lastOfPrevMonth.toISOString().slice(0, 10));
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    setPeriodStart(firstOfMonth.toISOString().slice(0, 10));
+    setPeriodEnd(now.toISOString().slice(0, 10));
 
     fetch("/api/admin/accounts")
       .then((r) => r.json())
@@ -109,8 +139,11 @@ export default function AccountsPage() {
             {generating ? <><Loader2 className="mr-2 size-4 animate-spin" />Generating…</> : "Generate Statements"}
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Generates draft statements for all charge accounts with orders (payment method: &quot;account&quot;) in the selected period.
+        </p>
         {genResult && (
-          <p className="text-sm text-muted-foreground">{genResult}</p>
+          <p className="text-sm font-medium">{genResult}</p>
         )}
       </div>
 
@@ -142,34 +175,93 @@ export default function AccountsPage() {
             <tbody className="divide-y">
               {accounts.map((acct) => {
                 const overLimit = acct.credit_limit_cents && acct.current_balance_cents > acct.credit_limit_cents;
+                const isExpanded = expandedId === acct.id;
+                const acctName = acct.charge_account_name ?? [acct.first_name, acct.last_name].filter(Boolean).join(" ");
                 return (
-                  <tr key={acct.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{acct.charge_account_name ?? [acct.first_name, acct.last_name].filter(Boolean).join(" ")}</p>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {acct.phone && <p>{acct.phone}</p>}
-                      {(acct.billing_email || acct.email) && <p>{acct.billing_email || acct.email}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={overLimit ? "text-red-600 font-semibold" : "font-medium"}>
-                        {formatUsd(acct.current_balance_cents)}
-                      </span>
-                      {overLimit && <AlertTriangle className="inline ml-1 size-3 text-red-500" />}
-                    </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">
-                      {acct.credit_limit_cents ? formatUsd(acct.credit_limit_cents) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline">{acct.payment_terms ?? "Net 30"}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {acct.last_statement_date ?? "Never"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/admin/statements?customer_id=${acct.id}`}>
-                        <Button variant="ghost" size="sm">Statements →</Button>
-                      </Link>
+                  <tr key={acct.id} className={`transition-colors ${isExpanded ? "" : "hover:bg-muted/20"}`}>
+                    <td colSpan={7} className="p-0">
+                      {/* Main row */}
+                      <button onClick={() => toggleExpand(acct.id)} className={`flex w-full items-center px-4 py-3 text-left text-sm ${isExpanded ? "bg-accent/5 border-b" : "hover:bg-muted/20"}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{acctName}</p>
+                        </div>
+                        <div className="w-28 text-xs text-muted-foreground shrink-0">
+                          {acct.phone && <p>{acct.phone}</p>}
+                        </div>
+                        <div className="w-28 text-right shrink-0">
+                          <span className={overLimit ? "text-red-600 font-semibold" : "font-medium"}>
+                            {formatUsd(acct.current_balance_cents)}
+                          </span>
+                          {overLimit && <AlertTriangle className="inline ml-1 size-3 text-red-500" />}
+                        </div>
+                        <div className="w-28 text-right text-muted-foreground shrink-0">
+                          {acct.credit_limit_cents ? formatUsd(acct.credit_limit_cents) : "—"}
+                        </div>
+                        <div className="w-20 shrink-0 px-2">
+                          <Badge variant="outline">{acct.payment_terms ?? "Net 30"}</Badge>
+                        </div>
+                        <div className="w-24 text-xs text-muted-foreground shrink-0">
+                          {acct.last_statement_date ?? "Never"}
+                        </div>
+                        <div className="w-28 shrink-0 flex items-center gap-1">
+                          <Link href={`/admin/statements?customer_id=${acct.id}`} onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm">Stmts</Button>
+                          </Link>
+                          {isExpanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+                        </div>
+                      </button>
+
+                      {/* Expanded: unpaid orders */}
+                      {isExpanded && (
+                        <div className="bg-muted/30 px-6 py-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-semibold">Orders — {acctName}</h3>
+                            <Link href={`/admin/customers`}>
+                              <Button variant="outline" size="sm">View Full Profile</Button>
+                            </Link>
+                          </div>
+                          {loadingOrders ? (
+                            <div className="flex justify-center py-4"><Loader2 className="size-4 animate-spin" /></div>
+                          ) : unpaidOrders.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-2">No orders found for this customer.</p>
+                          ) : (
+                            <div className="overflow-hidden rounded-md border bg-card">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Date</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Order</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Items</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {unpaidOrders.map((order: any) => (
+                                    <tr key={order.id} className="hover:bg-muted/20">
+                                      <td className="px-3 py-2 text-xs">
+                                        {new Date(order.placed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                      </td>
+                                      <td className="px-3 py-2 text-xs font-mono">
+                                        {order.id?.slice(0, 8)}
+                                      </td>
+                                      <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate">
+                                        {(order.order_items ?? []).map((i: any) => `${i.product_name} ×${i.quantity}`).join(", ") || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Badge variant="outline" className="text-[10px]">{order.status}</Badge>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-medium">
+                                        {formatUsd(order.grand_total_cents)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
