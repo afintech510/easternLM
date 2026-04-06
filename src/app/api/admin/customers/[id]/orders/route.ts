@@ -17,7 +17,7 @@ export async function GET(_request: Request, context: RouteContext) {
   // Query new orders by customer_id
   const { data: newOrders } = await supabase
     .from("orders")
-    .select("id, placed_at, grand_total_cents, materials_subtotal_cents, delivery_method, status, order_items(product_name, quantity, unit_price_cents)")
+    .select("id, placed_at, grand_total_cents, materials_subtotal_cents, delivery_method, status, payment_method, account_paid_at, account_payment_method, account_payment_note, order_items(product_name, quantity, unit_price_cents)")
     .eq("customer_id", id)
     .order("placed_at", { ascending: false })
     .limit(20);
@@ -70,6 +70,10 @@ export async function GET(_request: Request, context: RouteContext) {
         placed_at: o.placed_at,
         grand_total_cents: o.grand_total_cents,
         status: o.status,
+        payment_method: o.payment_method,
+        account_paid_at: o.account_paid_at,
+        account_payment_method: o.account_payment_method,
+        account_payment_note: o.account_payment_note,
         source: "platform",
         order_items: o.order_items ?? [],
       };
