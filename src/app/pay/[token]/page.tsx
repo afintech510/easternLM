@@ -22,6 +22,14 @@ interface Statement {
   customers: { charge_account_name: string | null; first_name: string | null; last_name: string | null; payment_terms: string | null } | null;
 }
 
+interface StatementOrder {
+  id: string;
+  placed_at: string;
+  grand_total_cents: number;
+  delivery_method: string | null;
+  order_items: Array<{ product_name: string; quantity: number }>;
+}
+
 const fmt = (c: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
 
@@ -31,6 +39,7 @@ function StatementPayInner() {
   const paidSuccess = searchParams.get("paid") === "success";
 
   const [stmt, setStmt] = useState<Statement | null>(null);
+  const [orders, setOrders] = useState<StatementOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [customAmount, setCustomAmount] = useState("");
@@ -43,6 +52,7 @@ function StatementPayInner() {
       .then((d) => {
         if (d.statement) {
           setStmt(d.statement);
+          setOrders(d.orders ?? []);
           setCustomAmount(((d.statement.balance_due_cents ?? 0) / 100).toFixed(2));
         } else {
           setError("Statement not found.");
@@ -150,6 +160,36 @@ function StatementPayInner() {
             </div>
           </div>
 
+          {/* Order details */}
+          {orders.length > 0 && (
+            <div className="border rounded-lg overflow-hidden text-sm">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {orders.map((order) => (
+                    <tr key={order.id}>
+                      <td className="px-4 py-2.5 text-xs text-gray-600">
+                        {new Date(order.placed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-gray-700">
+                        {order.order_items?.map((i) => `${i.product_name} ×${i.quantity}`).join(", ") || order.delivery_method || "Order"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium">
+                        {fmt(order.grand_total_cents)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <div className="rounded-xl bg-gray-50 border p-5 space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">New Charges</span>
@@ -212,8 +252,8 @@ function StatementPayInner() {
           </div>
 
           <div className="border-t pt-4 text-center text-sm text-gray-500 space-y-1">
-            <p>Or mail check payable to <strong>Eastern Landscape & Mason Supply</strong></p>
-            <p>110 Frowein Road, Center Moriches, NY 11934</p>
+            <p>Or mail check payable to <strong>Eastern Building Supply Inc.</strong></p>
+            <p>PO BOX 884, Eastport NY 11941</p>
             <a href="tel:6318746244" className="text-blue-600 hover:underline">(631) 874-6244</a>
           </div>
         </div>

@@ -87,8 +87,8 @@ function buildStatementEmailHtml(
     </p>
 
     <p style="font-size:13px;color:#6b7280;text-align:center;">
-      Or mail check payable to Eastern Landscape &amp; Mason Supply<br>
-      110 Frowein Road, Center Moriches, NY 11934
+      Or mail check payable to Eastern Building Supply Inc.<br>
+      PO BOX 884, Eastport NY 11941
     </p>
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
     <p style="text-align:center;color:#6b7280;font-size:13px;">Questions? Call <a href="tel:6318746244" style="color:#1e3a5f;">(631) 874-6244</a></p>
