@@ -188,6 +188,8 @@ export function toReceiptOrder(po: PrintableOrder): any {
     accessConstraints: po.access_constraints as Record<string, boolean> | undefined,
     accountName: po.account_name || undefined,
     payments: po.payments || undefined,
+    durationSeconds: po.duration_seconds ?? undefined,
+    distanceMeters: po.distance_meters ?? undefined,
   };
 }
 
