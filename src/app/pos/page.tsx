@@ -89,6 +89,8 @@ type MiddleTab = "delivery" | "customer" | "transactions" | "phone" | "messages"
 type RouteInfo = {
   roundTripMiles: number;
   roundTripMinutes: number;
+  oneWayDurationSeconds?: number;
+  oneWayDistanceMeters?: number;
 };
 
 const TAX_RATE = 0.0875;
@@ -622,7 +624,7 @@ export default function PosRegisterPage() {
         const oneWayMiles = data.distanceMeters / 1609.344;
         const roundTripMiles = Math.round(oneWayMiles * 2 * 10) / 10;
         const roundTripMinutes = Math.round((data.durationSeconds * 2 + 5 * 60) / 60);
-        setRouteInfo({ roundTripMiles, roundTripMinutes });
+        setRouteInfo({ roundTripMiles, roundTripMinutes, oneWayDurationSeconds: data.durationSeconds, oneWayDistanceMeters: data.distanceMeters });
 
         // Calculate fee using the delivery formula
         const fuelCost = (roundTripMiles / 6) * 5;
@@ -849,6 +851,8 @@ export default function PosRegisterPage() {
       delivery_time_window: (orderPayload.delivery_time_window as string) || (deliveryMethod === "delivery" ? delTimeWindow : null),
       delivery_notes: (orderPayload.delivery_notes as string) || delNotes || null,
       access_constraints: (orderPayload.access_constraints as Record<string, unknown>) || null,
+      duration_seconds: routeInfo?.oneWayDurationSeconds ?? null,
+      distance_meters: routeInfo?.oneWayDistanceMeters ?? null,
       cash_tendered_cents: orderPayload.cash_tendered_cents as number | undefined,
       change_due_cents: orderPayload.cash_tendered_cents
         ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)

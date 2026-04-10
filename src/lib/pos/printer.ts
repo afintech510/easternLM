@@ -64,6 +64,8 @@ export type ReceiptOrder = {
   accountBalance?: number;
   hasSpreading?: boolean;
   spreadingYards?: number;
+  durationSeconds?: number | null;
+  distanceMeters?: number | null;
 };
 
 const W = 48; // 80mm paper, Font A = 48 chars
@@ -496,6 +498,13 @@ export class ReceiptPrinter {
       this.fontSize(c, 0x00);
     }
     this.bold(c, false);
+    // Travel time from yard
+    if (o.durationSeconds) {
+      const mins = Math.round(o.durationSeconds / 60);
+      const timeStr = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+      const distStr = o.distanceMeters ? ` - ${(o.distanceMeters / 1609.34).toFixed(1)} mi` : "";
+      this.txt(c, `Travel: ${timeStr}${distStr}`);
+    }
     this.txt(c, "");
     this.txt(c, "");
     // Delivery date/time — EXTRA LARGE
@@ -784,6 +793,7 @@ export class ReceiptPrinter {
       <div class="hr2"></div>
       <div class="b">DELIVER TO:</div>
       <div>${o.deliveryAddress}</div>
+      ${o.durationSeconds ? `<div>Travel: ${Math.round(o.durationSeconds / 60)} min${o.distanceMeters ? ` - ${(o.distanceMeters / 1609.34).toFixed(1)} mi` : ""}</div>` : ""}
       ${o.deliveryDate ? `<div>DATE: ${o.deliveryDate}</div>` : ""}
       ${o.deliveryTimeWindow ? `<div>WINDOW: ${o.deliveryTimeWindow}</div>` : ""}
       <div class="hr2"></div>
