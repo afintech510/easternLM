@@ -34,6 +34,8 @@ interface Quote {
   line_items: LineItem[];
   subtotal_cents: number;
   tax_cents: number;
+  tax_exempt: boolean;
+  tax_exempt_certificate: string | null;
   total_cents: number;
   deposit_required_cents: number;
   deposit_paid_cents: number;
@@ -102,6 +104,8 @@ export default function QuoteDetailPage() {
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveryTimeWindow, setDeliveryTimeWindow] = useState("flexible");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [taxExempt, setTaxExempt] = useState(false);
+  const [taxExemptCert, setTaxExemptCert] = useState("");
 
   async function loadQuote() {
     setLoading(true);
@@ -128,6 +132,8 @@ export default function QuoteDetailPage() {
       setDeliveryDate(q.delivery_date ?? "");
       setDeliveryTimeWindow(q.delivery_time_window ?? "flexible");
       setDeliveryNotes(q.delivery_notes ?? "");
+      setTaxExempt(q.tax_exempt ?? false);
+      setTaxExemptCert(q.tax_exempt_certificate ?? "");
       setPhotoUrls(q.photo_urls ?? []);
     }
     setLoading(false);
@@ -138,8 +144,8 @@ export default function QuoteDetailPage() {
   function recalcTotals(items: LineItem[]) {
     const subtotal = items.reduce((s, i) => s + i.total_cents, 0);
     const delFee = deliveryMethod === "delivery" ? strToCents(deliveryFeeCents) : 0;
-    // NY: tax applies to materials + delivery
-    const tax = Math.round((subtotal + delFee) * TAX_RATE);
+    // NY: tax applies to materials + delivery (skip if tax exempt)
+    const tax = taxExempt ? 0 : Math.round((subtotal + delFee) * TAX_RATE);
     return { subtotal, tax, total: subtotal + delFee + tax };
   }
 
@@ -191,6 +197,8 @@ export default function QuoteDetailPage() {
       delivery_date: deliveryMethod === "delivery" ? (deliveryDate || null) : null,
       delivery_time_window: deliveryMethod === "delivery" ? (deliveryTimeWindow || null) : null,
       delivery_notes: deliveryMethod === "delivery" ? (deliveryNotes || null) : null,
+      tax_exempt: taxExempt,
+      tax_exempt_certificate: taxExemptCert || null,
       photo_urls: photoUrls,
     };
     const r = await fetch(`/api/admin/quotes/${id}`, {
@@ -666,10 +674,34 @@ export default function QuoteDetailPage() {
                   <span>{formatUsd(strToCents(deliveryFeeCents))}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax (8.75%)</span>
-                <span>{formatUsd(tax)}</span>
+              {/* Tax exempt toggle */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={taxExempt}
+                    onChange={(e) => setTaxExempt(e.target.checked)}
+                    disabled={isReadOnly}
+                    className="rounded"
+                  />
+                  Tax Exempt
+                </label>
+                {!taxExempt && <span>{formatUsd(tax)}</span>}
+                {taxExempt && <span className="text-green-600 text-xs font-medium">EXEMPT</span>}
               </div>
+              {taxExempt && !isReadOnly && (
+                <div>
+                  <Input
+                    placeholder="Tax exempt certificate #"
+                    value={taxExemptCert}
+                    onChange={(e) => setTaxExemptCert(e.target.value)}
+                    className="text-xs h-8"
+                  />
+                </div>
+              )}
+              {taxExempt && isReadOnly && taxExemptCert && (
+                <p className="text-xs text-muted-foreground">Cert: {taxExemptCert}</p>
+              )}
               <div className="flex justify-between border-t pt-2 font-semibold text-base">
                 <span>Total</span>
                 <span>{formatUsd(total)}</span>
