@@ -47,6 +47,8 @@ export interface PrintableOrder {
   delivery_time_window: string | null;
   delivery_notes: string | null;
   access_constraints: Record<string, unknown> | null;
+  duration_seconds?: number | null;
+  distance_meters?: number | null;
 
   // Totals
   materials_subtotal_cents: number;
@@ -120,6 +122,8 @@ export function mapDatabaseOrderToUnified(order: Record<string, any>): Printable
     delivery_time_window: order.delivery_time_window || order.metadata?.deliveryTimeWindow as string || null,
     delivery_notes: order.delivery_notes || order.metadata?.notes as string || null,
     access_constraints: order.access_constraints || null,
+    duration_seconds: order.duration_seconds ?? null,
+    distance_meters: order.distance_meters ?? null,
     materials_subtotal_cents: order.materials_subtotal_cents ?? 0,
     delivery_total_cents: order.delivery_total_cents ?? 0,
     tax_cents: order.tax_cents ?? 0,
@@ -259,6 +263,19 @@ function cleanAddress(addr: string): string {
 
 function extractZip(addr: string): string {
   return addr.match(/\b(\d{5})\b/)?.[1] || "";
+}
+
+function formatTravelTime(seconds: number): string {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
+}
+
+function formatDistance(meters: number): string {
+  const miles = meters / 1609.34;
+  return `${miles.toFixed(1)} mi`;
 }
 
 function codBannerHtml(totalCents: number): string {
@@ -440,6 +457,7 @@ export function buildDeliveryTicketHtml(order: PrintableOrder): string {
     <div class="bold big">DELIVER TO:</div>
     <div class="bold" style="font-size:18px;">${cleanAddress(addr)}</div>
     ${zip ? `<div class="bold" style="font-size:18px;">ZIP: ${zip}</div>` : ""}
+    ${order.duration_seconds ? `<div style="font-size:14px;margin-top:4px;">Travel: ${formatTravelTime(order.duration_seconds)}${order.distance_meters ? ` · ${formatDistance(order.distance_meters)}` : ""}</div>` : ""}
     ${order.delivery_date ? `<div class="mt bold">DATE: ${formatDeliveryDate(order.delivery_date)}</div>` : ""}
     ${order.delivery_time_window ? `<div class="bold">TIME: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
     ${flags.length > 0 || constraintNotes ? `<div class="warn"><strong>ACCESS:</strong> ${[...flags, constraintNotes].filter(Boolean).join(" · ")}</div>` : ""}
