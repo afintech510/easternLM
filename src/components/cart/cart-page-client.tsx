@@ -137,11 +137,17 @@ export function CartPageClient() {
   const bulkItems = items.filter((i) => i.deliveryType === "bulk");
   const nonBulkItems = items.filter((i) => i.deliveryType !== "bulk");
 
+  // Installation / service items in cart (split from materials for display)
+  const installItems = items.filter((i) => i.id.startsWith("install-") || i.id.startsWith("fabric-"));
+  const installTotalCents = installItems.reduce((s, i) => s + Math.round(i.quantity * i.unitPriceCents), 0);
+
   // Totals — remove CC surcharge from display
   const totals = useMemo(() => {
     if (!calculation) return null;
+    const materialsCents = calculation.subtotalCents - installTotalCents;
     const lines = [
-      { label: "Materials", value: calculation.subtotalCents },
+      { label: "Materials", value: materialsCents },
+      ...(installTotalCents > 0 ? [{ label: "Installation & Supplies", value: installTotalCents }] : []),
       ...(minOrderFeeCents > 0 ? [{ label: "Min. order fee", value: minOrderFeeCents }] : []),
       ...(calculation.proDiscountCents > 0 ? [{ label: "Pro discount", value: -calculation.proDiscountCents }] : []),
     ];
@@ -150,7 +156,7 @@ export function CartPageClient() {
     }
     lines.push({ label: "Tax (8.75%)", value: calculation.taxCents });
     return lines;
-  }, [calculation, minOrderFeeCents, deliveryMethod]);
+  }, [calculation, minOrderFeeCents, deliveryMethod, installTotalCents]);
 
   const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) : 0;
 
@@ -592,138 +598,147 @@ const WEED_BLOCK_OPTIONS = [
   { id: "fabric-1800", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
 ];
 
+function calcMulchInstall(yards: number, tier: "basic" | "rejuvenation"): number {
+  const minCents = 35000; // $350 min
+  const included = 5;
+  if (tier === "basic") {
+    const extra = Math.max(0, yards - included) * 6500; // $65/yd after 5
+    return Math.max(minCents, minCents + extra);
+  }
+  // Rejuvenation: $350 base + $30/yd after 5
+  const extra = Math.max(0, yards - included) * 3000;
+  return Math.max(minCents, minCents + extra);
+}
+
 function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: number }> }) {
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const cartItems = useCartStore((s) => s.items);
 
-  const [pricing, setPricing] = useState<Array<{
-    material_category: string; label: string; base_price_cents: number;
-    per_yard_cents: number; description: string;
-  }>>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/installation-pricing")
-      .then((r) => r.json())
-      .then((d) => { setPricing(d.pricing ?? []); setLoaded(true); })
-      .catch(() => setLoaded(true));
-  }, []);
-
-  if (!loaded || pricing.length === 0) return null;
-
-  function guessCategory(name: string): string | null {
-    const n = name.toLowerCase();
-    if (n.includes("mulch")) return "mulch";
-    if (n.includes("topsoil") || n.includes("compost") || n.includes("fill")) return "soil";
-    if (n.includes("gravel") || n.includes("rca") || n.includes("pea")) return "gravel";
-    if (n.includes("stone") || n.includes("rock") || n.includes("bluestone") || n.includes("burgundy")) return "stone";
-    if (n.includes("sand")) return "sand";
-    return null;
-  }
-
-  const matches = items
-    .map((item) => {
-      const cat = guessCategory(item.name);
-      const p = cat ? pricing.find((pr) => pr.material_category === cat) : null;
-      if (!p) return null;
-      const cost = p.base_price_cents + Math.round(item.quantity * p.per_yard_cents);
-      const installId = `install-${cat}-${item.name.replace(/\s/g, "-").toLowerCase()}`;
-      return { item, pricing: p, cost, installId, cat };
-    })
-    .filter(Boolean) as Array<{ item: { name: string; quantity: number }; pricing: { label: string; description: string }; cost: number; installId: string; cat: string }>;
-
-  if (matches.length === 0) return null;
-
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-  const hasMulch = items.some((i) => i.name.toLowerCase().includes("mulch"));
-
-  // Check what's already in cart
   const getCartQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
 
-  function addInstallToCart(m: typeof matches[0]) {
-    addItem({
-      id: m.installId,
-      name: `${m.pricing.label} — ${m.item.name}`,
-      quantity: 1,
-      unitPriceCents: m.cost,
-      deliveryType: "non-bulk",
-      materialClass: "default",
-    });
+  const hasMulch = items.some((i) => i.name.toLowerCase().includes("mulch"));
+  const mulchItems = items.filter((i) => i.name.toLowerCase().includes("mulch"));
+  const totalMulchYards = mulchItems.reduce((s, i) => s + i.quantity, 0);
+
+  if (!hasMulch && items.length === 0) return null;
+
+  // Mulch installation IDs
+  const basicId = "install-mulch-basic";
+  const rejuvId = "install-mulch-rejuvenation";
+  const basicCost = calcMulchInstall(totalMulchYards, "basic");
+  const rejuvCost = calcMulchInstall(totalMulchYards, "rejuvenation");
+
+  function addInstall(id: string, name: string, cost: number) {
+    // Remove the other tier if present
+    const otherId = id === basicId ? rejuvId : basicId;
+    if (getCartQty(otherId) > 0) removeItem(otherId);
+    addItem({ id, name, quantity: 1, unitPriceCents: cost, deliveryType: "non-bulk", materialClass: "default" });
   }
 
-  function addFabricToCart(opt: typeof WEED_BLOCK_OPTIONS[0]) {
-    addItem({
-      id: opt.id,
-      name: opt.name,
-      quantity: 1,
-      unitPriceCents: opt.priceCents,
-      deliveryType: "non-bulk",
-      materialClass: "default",
-    });
+  function addFabric(opt: typeof WEED_BLOCK_OPTIONS[0]) {
+    addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: opt.priceCents, deliveryType: "non-bulk", materialClass: "default" });
   }
+
+  const basicInCart = getCartQty(basicId);
+  const rejuvInCart = getCartQty(rejuvId);
 
   return (
-    <div className="rounded-xl border-2 border-green-400/50 bg-green-50/30 p-4 space-y-3">
+    <div className="rounded-xl border-2 border-green-400/50 bg-green-50/30 p-4 space-y-4">
       <div className="flex items-center gap-2">
         <Wrench className="size-5 text-green-700" />
         <div>
           <p className="font-semibold text-green-900 text-sm">Need it installed?</p>
-          <p className="text-xs text-green-700">We&apos;ll spread, grade, or install your materials</p>
+          <p className="text-xs text-green-700">Professional mulch installation across Suffolk County</p>
         </div>
       </div>
 
-      {/* Installation services — add to cart */}
-      <div className="space-y-2">
-        {matches.map((m) => {
-          const inCart = getCartQty(m.installId);
-          return (
-            <div key={m.installId} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${inCart ? "bg-green-100 border-green-400" : "bg-white/70 border-green-200"}`}>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-900">{m.pricing.label}</p>
-                <p className="text-xs text-green-700">{m.item.name} — {m.item.quantity} yds</p>
-              </div>
-              {inCart ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button className="flex size-7 items-center justify-center rounded border text-sm hover:bg-white" onClick={() => inCart <= 1 ? removeItem(m.installId) : updateQuantity(m.installId, inCart - 1)}>−</button>
-                  <span className="text-sm font-semibold w-6 text-center">{inCart}</span>
-                  <button className="flex size-7 items-center justify-center rounded border text-sm hover:bg-white" onClick={() => updateQuantity(m.installId, inCart + 1)}>+</button>
-                  <span className="text-xs font-bold text-green-800 ml-1">{fmt(m.cost)}</span>
+      {/* Mulch installation tiers */}
+      {hasMulch && (
+        <div className="space-y-2">
+          {/* Basic */}
+          {(() => {
+            const inCart = basicInCart > 0;
+            return (
+              <div className={`rounded-lg border-2 p-3 transition-colors ${inCart ? "border-green-500 bg-green-100" : "border-green-200 bg-white/70 hover:border-green-400 cursor-pointer"}`}
+                onClick={() => !inCart && addInstall(basicId, `Basic Mulch Spreading — ${totalMulchYards} yds`, basicCost)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-green-900">Basic Mulch Spreading</p>
+                    <p className="text-xs text-green-700">Mulch placed evenly in beds — {totalMulchYards} yds</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">$350 for first 5 yds, +$65 per yard after</p>
+                  </div>
+                  {inCart ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold text-green-800">{fmt(basicCost)}</span>
+                      <button className="flex size-8 items-center justify-center rounded-lg border-2 border-red-300 text-red-500 text-lg hover:bg-red-50" onClick={(e) => { e.stopPropagation(); removeItem(basicId); }}>×</button>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-bold text-green-800 shrink-0">{fmt(basicCost)}</span>
+                  )}
                 </div>
-              ) : (
-                <Button size="sm" variant="outline" className="border-green-500 text-green-800 hover:bg-green-100 shrink-0" onClick={() => addInstallToCart(m)}>
-                  Add {fmt(m.cost)}
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })()}
 
-      {/* Weed block — add to cart with qty controls */}
+          {/* Rejuvenation */}
+          {(() => {
+            const inCart = rejuvInCart > 0;
+            return (
+              <div className={`rounded-lg border-2 p-3 transition-colors ${inCart ? "border-green-500 bg-green-100" : "border-green-200 bg-white/70 hover:border-green-400 cursor-pointer"}`}
+                onClick={() => !inCart && addInstall(rejuvId, `Rejuvenation Package — ${totalMulchYards} yds`, rejuvCost)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-green-900">Rejuvenation Package <span className="text-[10px] bg-green-200 text-green-800 rounded px-1.5 py-0.5 ml-1 font-bold">UPGRADE</span></p>
+                    <p className="text-xs text-green-700">Beds cleaned, old mulch removed, edges cut, new mulch installed</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">$350 for first 5 yds, +$30 per yard after</p>
+                  </div>
+                  {inCart ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold text-green-800">{fmt(rejuvCost)}</span>
+                      <button className="flex size-8 items-center justify-center rounded-lg border-2 border-red-300 text-red-500 text-lg hover:bg-red-50" onClick={(e) => { e.stopPropagation(); removeItem(rejuvId); }}>×</button>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-bold text-green-800 shrink-0">{fmt(rejuvCost)}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Weed block — large tap tiles */}
       {hasMulch && (
         <div>
-          <p className="text-xs font-semibold text-green-800 mb-1.5">Add Weed Block Under Your Mulch</p>
+          <p className="text-xs font-semibold text-green-800 mb-2">Add Weed Block Under Your Mulch</p>
           <div className="grid grid-cols-3 gap-2">
             {WEED_BLOCK_OPTIONS.map((opt) => {
               const qty = getCartQty(opt.id);
-              return (
-                <div key={opt.id} className={`flex flex-col items-center rounded-lg border py-2 px-1 text-center transition-colors ${qty ? "bg-green-100 border-green-400" : "bg-white/70 border-green-200"}`}>
-                  <span className="text-sm font-semibold text-green-900">{opt.label}</span>
-                  <span className="text-xs text-green-700">{fmt(opt.priceCents)}</span>
-                  {qty ? (
-                    <div className="flex items-center gap-1 mt-1">
-                      <button className="flex size-6 items-center justify-center rounded border text-xs hover:bg-white" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
-                      <span className="text-xs font-bold w-4 text-center">{qty}</span>
-                      <button className="flex size-6 items-center justify-center rounded border text-xs hover:bg-white" onClick={() => updateQuantity(opt.id, qty + 1)}>+</button>
-                    </div>
-                  ) : (
-                    <button className="mt-1 text-xs font-medium text-green-700 hover:text-green-900 underline" onClick={() => addFabricToCart(opt)}>
-                      + Add
-                    </button>
-                  )}
+              return qty ? (
+                <div key={opt.id} className="flex flex-col items-center rounded-xl border-2 border-green-500 bg-green-100 p-3 text-center">
+                  <span className="text-sm font-bold text-green-900">{opt.label}</span>
+                  <span className="text-xs text-green-700 mb-2">{fmt(opt.priceCents)}</span>
+                  <div className="flex items-center gap-2">
+                    <button className="flex size-9 items-center justify-center rounded-lg border-2 border-green-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
+                    <span className="text-lg font-bold w-6 text-center">{qty}</span>
+                    <button className="flex size-9 items-center justify-center rounded-lg border-2 border-green-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => updateQuantity(opt.id, qty + 1)}>+</button>
+                  </div>
                 </div>
+              ) : (
+                <button
+                  key={opt.id}
+                  onClick={() => addFabric(opt)}
+                  className="flex flex-col items-center justify-center rounded-xl border-2 border-green-200 bg-white/70 p-3 text-center hover:border-green-400 hover:bg-green-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-sm font-bold text-green-900">{opt.label}</span>
+                  <span className="text-xs text-green-700">{fmt(opt.priceCents)}</span>
+                  <span className="mt-1.5 text-xs font-semibold text-green-600 bg-green-100 rounded-full px-3 py-0.5">+ Add</span>
+                </button>
               );
             })}
           </div>
