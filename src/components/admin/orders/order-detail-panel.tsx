@@ -59,6 +59,10 @@ export interface OrderFull {
   delivery_total_cents: number;
   tax_cents: number;
   cc_surcharge_cents: number;
+  discount_amount_cents?: number;
+  discount_reason?: string | null;
+  tax_exempt?: boolean;
+  store_credit_applied_cents?: number;
   delivery_method: string;
   delivery_address: string | null;
   delivery_date: string | null;
@@ -404,12 +408,24 @@ export function OrderDetailPanel({
         <Section title="Totals">
           <div className="space-y-1 text-sm">
             <Row label="Materials" value={formatUsd(order.materials_subtotal_cents ?? 0)} />
+            {(order.discount_amount_cents ?? 0) > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Discount{order.discount_reason ? ` (${order.discount_reason})` : ""}</span>
+                <span>-{formatUsd(order.discount_amount_cents!)}</span>
+              </div>
+            )}
             {(order.delivery_total_cents ?? 0) > 0 && (
               <Row label="Delivery" value={formatUsd(order.delivery_total_cents)} />
             )}
-            <Row label="Tax (8.75%)" value={formatUsd(order.tax_cents ?? 0)} />
+            <Row label={order.tax_exempt ? "Tax (exempt)" : "Tax (8.75%)"} value={order.tax_exempt ? "$0.00" : formatUsd(order.tax_cents ?? 0)} />
             {(order.cc_surcharge_cents ?? 0) > 0 && (
               <Row label="CC Fee (3%)" value={formatUsd(order.cc_surcharge_cents)} />
+            )}
+            {(order.store_credit_applied_cents ?? 0) > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Store Credit</span>
+                <span>-{formatUsd(order.store_credit_applied_cents!)}</span>
+              </div>
             )}
             <div className="flex justify-between border-t pt-1.5 font-bold text-base">
               <span>Total</span>
