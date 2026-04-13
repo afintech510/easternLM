@@ -734,9 +734,13 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             <p className="text-xs text-green-700">Professional installation across Suffolk County</p>
           </div>
         </div>
-        <div className="shrink-0 rounded-md bg-purple-100 border border-purple-300 px-2 py-1 text-center">
-          <p className="text-[9px] font-bold text-purple-800 leading-tight">Buy Now</p>
-          <p className="text-[9px] font-bold text-purple-800 leading-tight">Pay Later</p>
+        <div className="shrink-0 text-right">
+          <p className="text-[9px] font-medium text-muted-foreground mb-1">Buy Now &amp; Pay Later</p>
+          <div className="flex items-center gap-1.5">
+            <img src="/logos/affirm.svg" alt="Affirm" className="h-3.5" />
+            <img src="/logos/klarna.svg" alt="Klarna" className="h-3.5 rounded-sm" />
+            <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3" />
+          </div>
         </div>
       </div>
 
