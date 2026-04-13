@@ -288,8 +288,8 @@ export function CartPageClient() {
           ))}
           </div>
 
-          {/* Installation upsell */}
-          {bulkItems.length > 0 && deliveryMethod === "delivery" && (
+          {/* Installation upsell — always show for delivery orders */}
+          {deliveryMethod === "delivery" && (
             <InstallationUpsell items={bulkItems} />
           )}
 
@@ -624,29 +624,27 @@ const WEED_BLOCK_OPTIONS = [
   { id: "fabric-1800", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
 ];
 
-// ─── Pricing formulas ────────────────────────────────────────
+// ─── Pricing formulas (all round up to nearest $5) ──────────
+function roundUp5(cents: number): number {
+  return Math.ceil(cents / 500) * 500;
+}
 function calcMulchBasic(yards: number): number {
-  // $350 min for first 5 yds, +$65/yd after
   const base = 35000;
-  return base + Math.max(0, yards - 5) * 6500;
+  return roundUp5(base + Math.max(0, yards - 5) * 6500);
 }
 function calcBedRejuvenation(yards: number): number {
-  // 65% of basic spread cost, as an add-on price
-  return Math.round(calcMulchBasic(yards) * 0.65);
+  return roundUp5(Math.round(calcMulchBasic(yards) * 0.65));
 }
 function calcGravelInstall(yards: number): number {
-  // First yard $125, +$75 each additional
-  return 12500 + Math.max(0, yards - 1) * 7500;
+  return roundUp5(12500 + Math.max(0, yards - 1) * 7500);
 }
 function calcTopsoilInstall(yards: number): number {
-  // $350 min at 5 yds, linear to $1000 at 20 yds, +$20/yd after 20
   if (yards <= 5) return 35000;
   if (yards <= 20) {
-    // Linear from $350 at 5 to $1000 at 20 → slope = $650/15yds ≈ $43.33/yd
     const slope = (100000 - 35000) / (20 - 5);
-    return Math.round(35000 + (yards - 5) * slope);
+    return roundUp5(Math.round(35000 + (yards - 5) * slope));
   }
-  return 100000 + (yards - 20) * 2000;
+  return roundUp5(100000 + (yards - 20) * 2000);
 }
 
 function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: number }> }) {
@@ -672,7 +670,7 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
   const hasGravel = gravelItems.length > 0;
   const hasSoil = soilItems.length > 0;
 
-  if (!hasMulch && !hasGravel && !hasSoil) return null;
+  // Always show — cleanup services are available for all orders
 
   const totalMulchYds = mulchItems.reduce((s, i) => s + i.quantity, 0);
   const totalGravelYds = gravelItems.reduce((s, i) => s + i.quantity, 0);
@@ -687,8 +685,8 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
   }
 
   // Service tile helper
-  function ServiceTile({ id, title, subtitle, desc, priceLine, cost }: {
-    id: string; title: string; subtitle: string; desc: string; priceLine: string; cost: number
+  function ServiceTile({ id, title, subtitle, desc, cost }: {
+    id: string; title: string; subtitle: string; desc: string; cost: number
   }) {
     const inCart = getCartQty(id) > 0;
     return (
@@ -700,7 +698,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
           <div className="min-w-0">
             <p className="text-sm font-semibold text-green-900">{title}</p>
             <p className="text-xs text-green-700">{desc}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{priceLine}</p>
           </div>
           {inCart ? (
             <div className="flex items-center gap-2 shrink-0">
@@ -727,11 +724,17 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
 
   return (
     <div className="rounded-xl border-2 border-green-400/50 bg-green-50/30 p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Wrench className="size-5 text-green-700" />
-        <div>
-          <p className="font-semibold text-green-900 text-sm">Need it installed?</p>
-          <p className="text-xs text-green-700">Professional installation across Suffolk County</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Wrench className="size-5 text-green-700" />
+          <div>
+            <p className="font-semibold text-green-900 text-sm">Need it installed?</p>
+            <p className="text-xs text-green-700">Professional installation across Suffolk County</p>
+          </div>
+        </div>
+        <div className="shrink-0 rounded-md bg-purple-100 border border-purple-300 px-2 py-1 text-center">
+          <p className="text-[9px] font-bold text-purple-800 leading-tight">Buy Now</p>
+          <p className="text-[9px] font-bold text-purple-800 leading-tight">Pay Later</p>
         </div>
       </div>
 
@@ -744,7 +747,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
               title="Basic Mulch Spreading"
               subtitle={`Basic Mulch Spreading — ${totalMulchYds} yds`}
               desc={`Mulch placed evenly in beds — ${totalMulchYds} yds`}
-              priceLine="$350 for first 5 yds, +$65 per yard after"
               cost={basicCost}
             />
             <ServiceTile
@@ -752,7 +754,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
               title={`Bed Rejuvenation`}
               subtitle={`Bed Rejuvenation — ${totalMulchYds} yds`}
               desc="Beds fully cleansed, old mulch &amp; leaves removed, dead plants cleared, fresh edges cut. Weed block installed if added to order."
-              priceLine="TLC for your flower beds and accents"
               cost={rejuvCost}
             />
           </>
@@ -765,7 +766,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             title="Gravel Spreading &amp; Grading"
             subtitle={`Gravel Install — ${totalGravelYds} yds`}
             desc={`Driveway and pathway spreading, leveling, compaction — ${totalGravelYds} yds`}
-            priceLine="$125 first yard, +$75 per additional yard"
             cost={gravelCost}
           />
         )}
@@ -777,7 +777,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             title="Topsoil Spread &amp; Grade"
             subtitle={`Topsoil Spread & Grade — ${totalSoilYds} yds`}
             desc={`Grade and spread for lawns, gardens, and beds — ${totalSoilYds} yds`}
-            priceLine="Professional grading and spreading for lawns and gardens"
             cost={soilCost}
           />
         )}
@@ -790,7 +789,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             title="Full Yard Cleanup — Half Day"
             subtitle="Yard Cleanup — Half Day (4 hrs)"
             desc="2 landscapers for 4 hours, fully equipped. Clean up last season&apos;s mess and haul it away."
-            priceLine="2-person crew, equipment, and haul-away included"
             cost={75000}
           />
           <div className="h-2" />
@@ -799,7 +797,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             title="Full Yard Cleanup — Full Day"
             subtitle="Yard Cleanup — Full Day (8 hrs)"
             desc="2 landscapers for 8 hours, fully equipped. Complete seasonal cleanup with debris removal."
-            priceLine="2-person crew, equipment, and haul-away included"
             cost={125000}
           />
         </div>
