@@ -329,24 +329,31 @@ export function CartPageClient() {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
               </p>
-              {nonBulkItems.map((item) => (
-                <div key={item.id} className="py-2.5 border-t first:border-0 space-y-1.5">
-                  <p className="font-medium text-sm">{item.name}</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
-                        <Minus className="size-3.5" />
-                      </button>
-                      <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-12 h-9 text-center text-sm" inputMode="numeric" />
-                      <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                        <Plus className="size-3.5" />
-                      </button>
+              {nonBulkItems.map((item) => {
+                const isService = item.id.startsWith("install-") || item.id.startsWith("fabric-");
+                return (
+                  <div key={item.id} className="py-2.5 border-t first:border-0 space-y-1.5">
+                    <p className="font-medium text-sm">{item.name}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      {isService ? (
+                        <span className="text-xs text-muted-foreground">Service</span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
+                            <Minus className="size-3.5" />
+                          </button>
+                          <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-12 h-9 text-center text-sm" inputMode="numeric" />
+                          <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      <span className="text-sm font-semibold whitespace-nowrap">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                      <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
                     </div>
-                    <span className="text-sm font-semibold whitespace-nowrap">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
-                    <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -596,15 +603,15 @@ export function CartPageClient() {
             ) : null}
 
             {/* Payment logos */}
-            <div className="flex flex-wrap items-center justify-center gap-3 py-1">
-              <img src="/logos/visa.svg" alt="Visa" className="h-5" />
-              <img src="/logos/mastercard.svg" alt="Mastercard" className="h-5" />
-              <img src="/logos/amex.svg" alt="Amex" className="h-5 rounded-sm" />
-              <img src="/logos/discover.svg" alt="Discover" className="h-5 rounded-sm" />
-              <img src="/logos/amazon-pay.svg" alt="Amazon Pay" className="h-4" />
-              <img src="/logos/affirm.svg" alt="Affirm" className="h-3.5" />
-              <img src="/logos/klarna.svg" alt="Klarna" className="h-4 rounded-sm" />
-              <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3" />
+            <div className="flex flex-wrap items-center justify-center gap-2.5 py-1">
+              <img src="/logos/visa.svg" alt="Visa" className="h-6" />
+              <img src="/logos/mastercard.svg" alt="Mastercard" className="h-6" />
+              <img src="/logos/amex.svg" alt="Amex" className="h-8 rounded" />
+              <img src="/logos/discover.svg" alt="Discover" className="h-8 rounded" />
+              <img src="/logos/amazon-pay.svg" alt="Amazon Pay" className="h-5" style={{ minWidth: "70px" }} />
+              <img src="/logos/affirm.svg" alt="Affirm" className="h-4" />
+              <img src="/logos/klarna.svg" alt="Klarna" className="h-5 rounded" />
+              <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3.5" />
             </div>
 
             {/* Save Cart for later */}
