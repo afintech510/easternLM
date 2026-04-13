@@ -605,12 +605,15 @@ export function CartPageClient() {
             ) : null}
 
             {/* Payment logos */}
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/60 font-medium tracking-wide">
-              <span>VISA</span><span>MC</span><span>AMEX</span><span>DISCOVER</span>
-              <span className="text-border">·</span>
-              <span>Affirm</span><span>Klarna</span><span>Afterpay</span>
-              <span className="text-border">·</span>
-              <span>Amazon Pay</span><span>Bitcoin</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 py-1">
+              <img src="/logos/visa.svg" alt="Visa" className="h-5" />
+              <img src="/logos/mastercard.svg" alt="Mastercard" className="h-5" />
+              <img src="/logos/amex.svg" alt="Amex" className="h-5 rounded-sm" />
+              <img src="/logos/discover.svg" alt="Discover" className="h-5 rounded-sm" />
+              <img src="/logos/amazon-pay.svg" alt="Amazon Pay" className="h-4" />
+              <img src="/logos/affirm.svg" alt="Affirm" className="h-3.5" />
+              <img src="/logos/klarna.svg" alt="Klarna" className="h-4 rounded-sm" />
+              <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3" />
             </div>
 
             {/* Save as Quote — lead capture CTA */}
