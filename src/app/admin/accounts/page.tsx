@@ -183,9 +183,12 @@ export default function AccountsPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Charge Accounts</h1>
-        <Link href="/admin/statements">
-          <Button variant="outline" size="sm">View All Statements</Button>
-        </Link>
+      </div>
+
+      {/* Tab navigation — Accounts + Statements in one place */}
+      <div className="flex gap-1 border-b">
+        <div className="border-b-2 border-primary px-4 py-2 text-sm font-medium">Accounts</div>
+        <Link href="/admin/statements" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Statements</Link>
       </div>
 
       {/* Stats */}
