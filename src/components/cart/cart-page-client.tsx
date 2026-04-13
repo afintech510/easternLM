@@ -752,7 +752,7 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
               title={`Bed Rejuvenation`}
               subtitle={`Bed Rejuvenation — ${totalMulchYds} yds`}
               desc="Beds fully cleansed, old mulch &amp; leaves removed, dead plants cleared, fresh edges cut. Weed block installed if added to order."
-              priceLine="Add-on: 65% of basic spread cost — TLC for your flower beds"
+              priceLine="TLC for your flower beds and accents"
               cost={rejuvCost}
             />
           </>
@@ -781,6 +781,28 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             cost={soilCost}
           />
         )}
+
+        {/* Yard Cleanup — always shown */}
+        <div className="border-t border-green-200 pt-3 mt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-green-800 mb-2">Yard Cleanup Services</p>
+          <ServiceTile
+            id="install-cleanup-half"
+            title="Full Yard Cleanup — Half Day"
+            subtitle="Yard Cleanup — Half Day (4 hrs)"
+            desc="2 landscapers for 4 hours, fully equipped. Clean up last season&apos;s mess and haul it away."
+            priceLine="2-person crew, equipment, and haul-away included"
+            cost={75000}
+          />
+          <div className="h-2" />
+          <ServiceTile
+            id="install-cleanup-full"
+            title="Full Yard Cleanup — Full Day"
+            subtitle="Yard Cleanup — Full Day (8 hrs)"
+            desc="2 landscapers for 8 hours, fully equipped. Complete seasonal cleanup with debris removal."
+            priceLine="2-person crew, equipment, and haul-away included"
+            cost={125000}
+          />
+        </div>
       </div>
 
       {/* Weed block — large tap tiles (show for mulch orders) */}
@@ -814,6 +836,13 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             })}
           </div>
         </div>
+      )}
+
+      {/* Scheduling disclaimer — shown when any service is in cart */}
+      {(getCartQty(basicId) > 0 || getCartQty(rejuvId) > 0 || getCartQty(gravelId) > 0 || getCartQty(soilId) > 0 || getCartQty("install-cleanup-half") > 0 || getCartQty("install-cleanup-full") > 0) && (
+        <p className="text-[10px] text-muted-foreground text-center border-t border-green-200 pt-2">
+          We will call you within 24 hours to schedule your service.
+        </p>
       )}
     </div>
   );
