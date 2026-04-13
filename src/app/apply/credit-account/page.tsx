@@ -95,7 +95,7 @@ export default function CreditAccountApplicationPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
               <label className="text-sm font-medium">Company Name *</label>
-              <Input value={form.company_name} onChange={(e) => update("company_name", e.target.value)} placeholder="GP Landscape Design" required />
+              <Input value={form.company_name} onChange={(e) => update("company_name", e.target.value)} placeholder="Your Company Name" required />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Contact Name *</label>
@@ -107,7 +107,7 @@ export default function CreditAccountApplicationPage() {
             </div>
             <div className="space-y-1 sm:col-span-2">
               <label className="text-sm font-medium">Email</label>
-              <Input value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="john@gplandscape.com" type="email" />
+              <Input value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="name@yourcompany.com" type="email" />
             </div>
           </div>
         </fieldset>
