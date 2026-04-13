@@ -179,7 +179,6 @@ export const useCartStore = create<CartStore>()(
 
       applyPromoCode: async (code) => {
         const normalized = code.trim().toUpperCase();
-        const isProCode = normalized === "PRO" || normalized === "PRO5" || normalized === "PROMEMBER";
 
         if (!normalized) {
           set({ promoCode: "", customerType: "standard", error: null });
@@ -187,18 +186,30 @@ export const useCartStore = create<CartStore>()(
           return;
         }
 
-        if (!isProCode) {
-          set({ error: "Promo code not recognized.", promoCode: normalized, customerType: "standard" });
+        // Validate against database
+        try {
+          const res = await fetch("/api/promo/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: normalized }),
+          });
+          const data = await res.json();
+
+          if (!data.valid) {
+            set({ error: data.error || "Promo code not recognized.", promoCode: normalized, customerType: "standard" });
+            await get().recalculateDelivery();
+            return;
+          }
+
+          set({ promoCode: normalized, customerType: "pro", error: null });
           await get().recalculateDelivery();
-          return;
-        }
 
-        set({ promoCode: normalized, customerType: "pro", error: null });
-        await get().recalculateDelivery();
-
-        const { deliveryMethod, deliveryPricingConfig } = get();
-        if (deliveryMethod === "delivery" && deliveryPricingConfig.proDiscountPickupOnly) {
-          set({ error: "Pro discount applies to pickup orders only." });
+          const { deliveryMethod, deliveryPricingConfig } = get();
+          if (deliveryMethod === "delivery" && deliveryPricingConfig.proDiscountPickupOnly) {
+            set({ error: "Pro discount applies to pickup orders only." });
+          }
+        } catch {
+          set({ error: "Could not validate promo code.", promoCode: normalized, customerType: "standard" });
         }
       },
 

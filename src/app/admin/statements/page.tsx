@@ -63,10 +63,13 @@ function StatementsInner() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Statements</h1>
-        <Link href="/admin/accounts">
-          <Button variant="outline" size="sm">← Charge Accounts</Button>
-        </Link>
+        <h1 className="text-xl font-semibold">Charge Accounts</h1>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b">
+        <Link href="/admin/accounts" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Accounts</Link>
+        <div className="border-b-2 border-primary px-4 py-2 text-sm font-medium">Statements</div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

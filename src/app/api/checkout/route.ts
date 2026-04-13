@@ -57,9 +57,38 @@ const requestSchema = z.object({
   mode: z.enum(["redirect", "embedded"]).optional().default("embedded"),
 });
 
-function resolveCustomerType(promoCode?: string): CustomerType {
+async function resolveCustomerType(promoCode?: string): Promise<CustomerType> {
   const normalized = promoCode?.trim().toUpperCase() ?? "";
-  return normalized === "PRO" || normalized === "PRO5" || normalized === "PROMEMBER" ? "pro" : "standard";
+  if (!normalized) return "standard";
+
+  // Check database for valid promo code
+  try {
+    const supabase = getSupabaseAdminClient() as any;
+    const { data: promo } = await supabase
+      .from("promo_codes")
+      .select("code, is_active, valid_from, valid_until, max_uses, used_count")
+      .eq("code", normalized)
+      .eq("is_active", true)
+      .single();
+
+    if (!promo) return "standard";
+
+    const now = new Date();
+    if (promo.valid_from && new Date(promo.valid_from) > now) return "standard";
+    if (promo.valid_until && new Date(promo.valid_until) < now) return "standard";
+    if (promo.max_uses && promo.used_count >= promo.max_uses) return "standard";
+
+    // Increment used_count
+    await supabase
+      .from("promo_codes")
+      .update({ used_count: (promo.used_count ?? 0) + 1, updated_at: now.toISOString() })
+      .eq("code", normalized);
+
+    return "pro";
+  } catch {
+    // Fallback: allow known legacy codes
+    return (normalized === "PRO" || normalized === "PRO5" || normalized === "PROMEMBER") ? "pro" : "standard";
+  }
 }
 
 function buildDiscountedLineTotals(baseLineTotals: number[], totalDiscountCents: number) {
@@ -172,7 +201,7 @@ export async function POST(request: Request) {
 
     const runtimeConfig = await getDeliveryRuntimeConfig();
     const supabaseAdmin = getSupabaseAdminClient();
-    const customerType = resolveCustomerType(payload.promoCode);
+    const customerType = await resolveCustomerType(payload.promoCode);
     const addressHash =
       payload.deliveryMethod === "delivery" && resolvedDeliveryAddress
         ? hashAddress(resolvedDeliveryAddress.fullAddress)
