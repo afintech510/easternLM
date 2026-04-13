@@ -228,7 +228,7 @@ export function CartPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl overflow-x-hidden px-4 py-10 md:py-14">
+    <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
       {/* Header */}
       <div className="mb-8 flex items-center gap-4">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="size-14 md:size-16 shrink-0">
@@ -330,7 +330,7 @@ export function CartPageClient() {
                 Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
               </p>
               {nonBulkItems.map((item) => {
-                const isService = item.id.startsWith("install-") || item.id.startsWith("fabric-");
+                const isService = item.id.startsWith("install-");
                 return (
                   <div key={item.id} className="py-2.5 border-t first:border-0 space-y-1.5">
                     <p className="font-medium text-sm">{item.name}</p>
@@ -497,7 +497,7 @@ export function CartPageClient() {
         </div>
 
         {/* ── Right: Order Summary (sticky) ──────────────────── */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
+        <div className="lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-lg font-semibold">Order Summary</h2>
 
@@ -725,6 +725,9 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
   const totalSoilYds = soilItems.reduce((s, i) => s + i.quantity, 0);
 
   function doAdd(id: string, name: string, cost: number) {
+    // Cleanup half/full are mutually exclusive
+    if (id === "install-cleanup-half" && getCartQty("install-cleanup-full") > 0) removeItem("install-cleanup-full");
+    if (id === "install-cleanup-full" && getCartQty("install-cleanup-half") > 0) removeItem("install-cleanup-half");
     addItem({ id, name, quantity: 1, unitPriceCents: cost, deliveryType: "non-bulk", materialClass: "default" });
   }
   function doRemove(id: string) { removeItem(id); }
