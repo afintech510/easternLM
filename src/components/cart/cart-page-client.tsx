@@ -14,14 +14,27 @@ function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-function getDefaultDeliveryDate() {
-  const now = new Date();
-  const candidate = new Date(now);
-  if (now.getDay() >= 1 && now.getDay() <= 5 && now.getHours() < 11) return candidate.toISOString().slice(0, 10);
-  candidate.setDate(candidate.getDate() + 1);
-  while (candidate.getDay() === 0) candidate.setDate(candidate.getDate() + 1);
-  return candidate.toISOString().slice(0, 10);
+function nyNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
 }
+function canSelectToday(): boolean {
+  const now = nyNow();
+  return now.getDay() >= 1 && now.getDay() <= 6 && now.getHours() < 13;
+}
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function minDeliveryDate(): string {
+  const now = nyNow();
+  if (canSelectToday()) return fmtDate(now);
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  while (next.getDay() === 0) next.setDate(next.getDate() + 1);
+  return fmtDate(next);
+}
+function isSunday(dateStr: string): boolean { return new Date(dateStr + "T12:00:00").getDay() === 0; }
+function isToday(dateStr: string): boolean { return dateStr === fmtDate(nyNow()); }
+function getDefaultDeliveryDate() { return minDeliveryDate(); }
 
 const TIME_WINDOWS = [
   { value: "morning", label: "Morning (7 AM – 10 AM)" },
@@ -391,7 +404,15 @@ export function CartPageClient() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-sm font-medium">Preferred Date</label>
-                    <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+                    <Input
+                      type="date"
+                      value={deliveryDate}
+                      min={minDeliveryDate()}
+                      onChange={(e) => { if (!isSunday(e.target.value)) setDeliveryDate(e.target.value); }}
+                    />
+                    {deliveryDate && isToday(deliveryDate) && canSelectToday() && (
+                      <p className="mt-1 text-xs text-amber-700 font-medium">Same-day not guaranteed — call (631) 874-6244</p>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium">Time Window</label>
