@@ -68,6 +68,12 @@ export async function POST(request: Request) {
     tax_cents,
     cc_surcharge_cents: cc_fee_cents || 0,
     grand_total_cents,
+    discount_amount_cents: discount_amount_cents || 0,
+    discount_type: discount_type || null,
+    discount_reason: discount_reason || null,
+    tax_exempt: tax_exempt || false,
+    tax_exempt_certificate: tax_exempt_certificate || null,
+    store_credit_applied_cents: store_credit_applied_cents || 0,
   };
 
   if (customerId) orderData.customer_id = customerId;
