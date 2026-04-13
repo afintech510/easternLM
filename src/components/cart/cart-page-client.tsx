@@ -543,6 +543,15 @@ export function CartPageClient() {
               </Button>
             ) : null}
 
+            {/* Payment logos */}
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/60 font-medium tracking-wide">
+              <span>VISA</span><span>MC</span><span>AMEX</span><span>DISCOVER</span>
+              <span className="text-border">·</span>
+              <span>Affirm</span><span>Klarna</span><span>Afterpay</span>
+              <span className="text-border">·</span>
+              <span>Amazon Pay</span><span>Bitcoin</span>
+            </div>
+
             {/* Save as Quote — lead capture CTA */}
             <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <a href={siteConfig.phoneHref} className="flex items-center gap-1.5 hover:text-accent">
@@ -576,12 +585,23 @@ export function CartPageClient() {
 }
 
 // ─── Installation Upsell Component ──────────────────────────
+
+const WEED_BLOCK_OPTIONS = [
+  { id: "fabric-300", name: "Landscape Fabric 3'×100' (300 sq ft)", label: "300 sq ft", priceCents: 2900 },
+  { id: "fabric-900", name: "Landscape Fabric 3'×300' (900 sq ft)", label: "900 sq ft", priceCents: 6000 },
+  { id: "fabric-1800", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
+];
+
 function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: number }> }) {
+  const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const cartItems = useCartStore((s) => s.items);
+
   const [pricing, setPricing] = useState<Array<{
     material_category: string; label: string; base_price_cents: number;
     per_yard_cents: number; description: string;
   }>>([]);
-  const [interested, setInterested] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -593,7 +613,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
 
   if (!loaded || pricing.length === 0) return null;
 
-  // Match items to installation categories
   function guessCategory(name: string): string | null {
     const n = name.toLowerCase();
     if (n.includes("mulch")) return "mulch";
@@ -610,16 +629,43 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
       const p = cat ? pricing.find((pr) => pr.material_category === cat) : null;
       if (!p) return null;
       const cost = p.base_price_cents + Math.round(item.quantity * p.per_yard_cents);
-      return { item, pricing: p, cost };
+      const installId = `install-${cat}-${item.name.replace(/\s/g, "-").toLowerCase()}`;
+      return { item, pricing: p, cost, installId, cat };
     })
-    .filter(Boolean) as Array<{ item: { name: string; quantity: number }; pricing: { label: string; description: string; base_price_cents: number; per_yard_cents: number }; cost: number }>;
+    .filter(Boolean) as Array<{ item: { name: string; quantity: number }; pricing: { label: string; description: string }; cost: number; installId: string; cat: string }>;
 
   if (matches.length === 0) return null;
 
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+  const hasMulch = items.some((i) => i.name.toLowerCase().includes("mulch"));
+
+  // Check what's already in cart
+  const getCartQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
+
+  function addInstallToCart(m: typeof matches[0]) {
+    addItem({
+      id: m.installId,
+      name: `${m.pricing.label} — ${m.item.name}`,
+      quantity: 1,
+      unitPriceCents: m.cost,
+      deliveryType: "non-bulk",
+      materialClass: "default",
+    });
+  }
+
+  function addFabricToCart(opt: typeof WEED_BLOCK_OPTIONS[0]) {
+    addItem({
+      id: opt.id,
+      name: opt.name,
+      quantity: 1,
+      unitPriceCents: opt.priceCents,
+      deliveryType: "non-bulk",
+      materialClass: "default",
+    });
+  }
 
   return (
-    <div className={`rounded-xl border-2 p-4 space-y-3 transition-colors ${interested ? "border-green-500 bg-green-50/50" : "border-green-400/50 bg-green-50/30"}`}>
+    <div className="rounded-xl border-2 border-green-400/50 bg-green-50/30 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Wrench className="size-5 text-green-700" />
         <div>
@@ -628,59 +674,59 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
         </div>
       </div>
 
+      {/* Installation services — add to cart */}
       <div className="space-y-2">
-        {matches.map((m, i) => (
-          <div key={i} className="flex items-center justify-between rounded-lg bg-white/70 border border-green-200 px-3 py-2">
-            <div>
-              <p className="text-sm font-medium text-green-900">{m.pricing.label}</p>
-              <p className="text-xs text-green-700">{m.item.name} — {m.item.quantity} yds</p>
-              <p className="text-xs text-muted-foreground">{m.pricing.description}</p>
+        {matches.map((m) => {
+          const inCart = getCartQty(m.installId);
+          return (
+            <div key={m.installId} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${inCart ? "bg-green-100 border-green-400" : "bg-white/70 border-green-200"}`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-900">{m.pricing.label}</p>
+                <p className="text-xs text-green-700">{m.item.name} — {m.item.quantity} yds</p>
+              </div>
+              {inCart ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button className="flex size-7 items-center justify-center rounded border text-sm hover:bg-white" onClick={() => inCart <= 1 ? removeItem(m.installId) : updateQuantity(m.installId, inCart - 1)}>−</button>
+                  <span className="text-sm font-semibold w-6 text-center">{inCart}</span>
+                  <button className="flex size-7 items-center justify-center rounded border text-sm hover:bg-white" onClick={() => updateQuantity(m.installId, inCart + 1)}>+</button>
+                  <span className="text-xs font-bold text-green-800 ml-1">{fmt(m.cost)}</span>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" className="border-green-500 text-green-800 hover:bg-green-100 shrink-0" onClick={() => addInstallToCart(m)}>
+                  Add {fmt(m.cost)}
+                </Button>
+              )}
             </div>
-            <p className="text-sm font-bold text-green-800 whitespace-nowrap">
-              from {fmt(m.cost)}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Weed block upsell — show when mulch is in cart */}
-      {items.some((i) => i.name.toLowerCase().includes("mulch")) && (
+      {/* Weed block — add to cart with qty controls */}
+      {hasMulch && (
         <div>
           <p className="text-xs font-semibold text-green-800 mb-1.5">Add Weed Block Under Your Mulch</p>
           <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "300 sq ft", slug: "3-x100-landscape-fabric", price: "$29" },
-              { label: "900 sq ft", slug: "3-x300-landscape-fabric", price: "$60" },
-              { label: "1,800 sq ft", slug: "6-x300-landscape-fabric", price: "$95" },
-            ].map((opt) => (
-              <a
-                key={opt.slug}
-                href={`/shop/${opt.slug}`}
-                className="flex flex-col items-center rounded-lg border border-green-200 bg-white/70 py-2 px-1 hover:border-green-400 hover:bg-green-50 transition-colors text-center"
-              >
-                <span className="text-sm font-semibold text-green-900">{opt.label}</span>
-                <span className="text-xs text-green-700">{opt.price}</span>
-              </a>
-            ))}
+            {WEED_BLOCK_OPTIONS.map((opt) => {
+              const qty = getCartQty(opt.id);
+              return (
+                <div key={opt.id} className={`flex flex-col items-center rounded-lg border py-2 px-1 text-center transition-colors ${qty ? "bg-green-100 border-green-400" : "bg-white/70 border-green-200"}`}>
+                  <span className="text-sm font-semibold text-green-900">{opt.label}</span>
+                  <span className="text-xs text-green-700">{fmt(opt.priceCents)}</span>
+                  {qty ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <button className="flex size-6 items-center justify-center rounded border text-xs hover:bg-white" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
+                      <span className="text-xs font-bold w-4 text-center">{qty}</span>
+                      <button className="flex size-6 items-center justify-center rounded border text-xs hover:bg-white" onClick={() => updateQuantity(opt.id, qty + 1)}>+</button>
+                    </div>
+                  ) : (
+                    <button className="mt-1 text-xs font-medium text-green-700 hover:text-green-900 underline" onClick={() => addFabricToCart(opt)}>
+                      + Add
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
-
-      {!interested ? (
-        <Button
-          variant="outline"
-          className="w-full border-green-500 text-green-800 hover:bg-green-100"
-          onClick={() => setInterested(true)}
-        >
-          Get an Installation Quote
-        </Button>
-      ) : (
-        <div className="rounded-lg bg-white border border-green-200 p-3 space-y-2">
-          <p className="text-sm text-green-800 font-medium">We&apos;ll contact you with an installation quote after your order is placed.</p>
-          <p className="text-xs text-muted-foreground">
-            Our crew handles spreading, grading, and installation across Suffolk County.
-            Call <a href="tel:6318746244" className="text-green-700 underline">(631) 874-6244</a> for same-day scheduling.
-          </p>
         </div>
       )}
     </div>
