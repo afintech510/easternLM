@@ -661,7 +661,12 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
   // Detect material types
   const n = (s: string) => s.toLowerCase();
   const mulchItems = items.filter((i) => n(i.name).includes("mulch"));
-  const gravelItems = items.filter((i) => n(i.name).includes("gravel") || n(i.name).includes("rca") || n(i.name).includes("pea") || n(i.name).includes("drainage"));
+  const gravelItems = items.filter((i) => {
+    const lo = n(i.name);
+    return lo.includes("gravel") || lo.includes("rca") || lo.includes("pea") || lo.includes("drainage")
+      || lo.includes("stone") || lo.includes("bluestone") || lo.includes("whitestone") || lo.includes("burgundy")
+      || lo.includes("river rock") || lo.includes("pocono") || lo.includes("screenings");
+  });
   const soilItems = items.filter((i) => n(i.name).includes("topsoil") || n(i.name).includes("compost") || n(i.name).includes("fill"));
   const hasMulch = mulchItems.length > 0;
   const hasGravel = gravelItems.length > 0;
@@ -772,7 +777,7 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
             title="Topsoil Spread &amp; Grade"
             subtitle={`Topsoil Spread & Grade — ${totalSoilYds} yds`}
             desc={`Grade and spread for lawns, gardens, and beds — ${totalSoilYds} yds`}
-            priceLine="$350 up to 5 yds, scales to $1,000 at 20 yds, +$20/yd after"
+            priceLine="Professional grading and spreading for lawns and gardens"
             cost={soilCost}
           />
         )}
