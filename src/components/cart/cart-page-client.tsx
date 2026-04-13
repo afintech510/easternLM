@@ -365,15 +365,6 @@ export function CartPageClient() {
               </span>
             </label>
 
-            {/* Save Cart */}
-            <button
-              onClick={handleSaveCart}
-              disabled={savingQuote || (!custPhone && !custEmail)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-40"
-            >
-              {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
-              Save Your Cart — send link to my phone/email
-            </button>
           </div>
 
           {/* Delivery or Pickup */}
@@ -490,7 +481,7 @@ export function CartPageClient() {
         </div>
 
         {/* ── Right: Order Summary (sticky) ──────────────────── */}
-        <div className="lg:sticky lg:top-28 lg:self-start">
+        <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-4">
             <h2 className="text-lg font-semibold">Order Summary</h2>
 
@@ -616,7 +607,16 @@ export function CartPageClient() {
               <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3" />
             </div>
 
-            {/* Save as Quote — lead capture CTA */}
+            {/* Save Cart for later */}
+            <button
+              onClick={handleSaveCart}
+              disabled={savingQuote || (!custPhone && !custEmail)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/30 py-2 text-xs text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+            >
+              {savingQuote ? <Spin className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
+              Save Cart for Later
+            </button>
+
             <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
               <a href={siteConfig.phoneHref} className="flex items-center gap-1.5 hover:text-accent">
                 <Phone className="size-4" /> {siteConfig.phoneDisplay}
