@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, RefreshCw, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,35 @@ export function CartPageClient() {
   const setTimeWindow = useCartStore((s) => s.setDeliveryTimeWindow);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
+  const searchParams = useSearchParams();
+  const restoredRef = useRef(false);
+
+  // Restore saved cart from ?restore=token
+  useEffect(() => {
+    const restoreToken = searchParams.get("restore");
+    if (!restoreToken || restoredRef.current) return;
+    restoredRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/cart/restore?token=${restoreToken}`);
+        if (!res.ok) return;
+        const { cartData } = await res.json();
+        if (!cartData) return;
+        // Restore items
+        if (cartData.items) {
+          for (const item of cartData.items) await addItem(item);
+        }
+        // Restore delivery
+        if (cartData.deliveryMethod) toggleDeliveryMethod(cartData.deliveryMethod);
+        if (cartData.deliveryAddress) setDeliveryAddress(cartData.deliveryAddress);
+        if (cartData.customerInfo) setCustomerInfo(cartData.customerInfo);
+        if (cartData.promoCode) applyPromoCode(cartData.promoCode);
+        toast.success("Your saved cart has been restored!");
+      } catch {}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Sync address input when Zustand hydrates from localStorage (avoids blank field on refresh)
   useEffect(() => {
     if (deliveryAddress?.fullAddress && !addressInput) {
@@ -143,43 +173,38 @@ export function CartPageClient() {
 
   const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) : 0;
 
-  // Save as Quote handler
-  async function handleSaveQuote() {
-    if (!custName && !custPhone && !custEmail) {
-      toast.error("Enter your name and phone or email to save a quote.");
+  // Save cart handler
+  async function handleSaveCart() {
+    if (!custPhone && !custEmail) {
+      toast.error("Enter your phone or email to save your cart.");
       return;
     }
     setSavingQuote(true);
     try {
-      const res = await fetch("/api/quotes/quick", {
+      const res = await fetch("/api/cart/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "cart",
-          items: items.map((i) => ({
-            name: i.name,
-            quantity: i.quantity,
-            unitPriceCents: i.unitPriceCents,
-            unit: i.deliveryType === "bulk" ? "yard" : "each",
-          })),
+          cartData: {
+            items,
+            deliveryMethod,
+            deliveryAddress,
+            customerInfo: { fullName: custName, phone: custPhone, email: custEmail, smsOptIn },
+            promoCode,
+            accessConstraints,
+            grandTotalCents: calculation?.grandTotalCents ?? 0,
+          },
           customer: { name: custName, phone: custPhone, email: custEmail },
-          deliveryMethod,
-          deliveryAddress: deliveryMethod === "delivery" ? deliveryAddress?.fullAddress ?? null : null,
-          deliveryFeeCents: deliveryMethod === "delivery" ? (calculation?.deliveryFeeCents ?? 0) : 0,
-          deliveryDate: deliveryMethod === "delivery" ? deliveryDate : null,
-          deliveryTimeWindow: deliveryMethod === "delivery" ? timeWindow : null,
-          deliveryNotes: deliveryMethod === "delivery" ? (accessConstraints.notes || null) : null,
-          accessConstraints: deliveryMethod === "delivery" ? accessConstraints : null,
           sendVia: custEmail ? (custPhone ? ["email", "sms"] : ["email"]) : custPhone ? ["sms"] : undefined,
         }),
       });
       if (res.ok) {
-        toast.success("Quote sent!", {
-          description: custEmail ? `Check ${custEmail} for your quote.` : "Check your phone for the quote link.",
+        toast.success("Cart saved!", {
+          description: custEmail ? `Check ${custEmail} for your link.` : "Check your phone for the cart link.",
           duration: 6000,
         });
       } else {
-        toast.error("Could not save quote. Try again.");
+        toast.error("Could not save cart. Try again.");
       }
     } catch {
       toast.error("Network error.");
@@ -341,14 +366,14 @@ export function CartPageClient() {
               </span>
             </label>
 
-            {/* Save Quote — lead capture */}
+            {/* Save Cart */}
             <button
-              onClick={handleSaveQuote}
+              onClick={handleSaveCart}
               disabled={savingQuote || (!custPhone && !custEmail)}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-40"
             >
               {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
-              Save Quote for Later — send to my phone/email
+              Save Your Cart — send link to my phone/email
             </button>
           </div>
 

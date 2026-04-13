@@ -1,39 +1,27 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// GET — restore a saved cart by token
+/**
+ * GET /api/cart/restore?token=xxx — Returns saved cart data for restoration.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get("token");
 
   if (!token) {
-    return NextResponse.json({ error: "Missing token" }, { status: 400 });
+    return NextResponse.json({ error: "token required" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdminClient() as any;
-
   const { data, error } = await supabase
     .from("saved_carts")
-    .select("*")
+    .select("cart_data")
     .eq("token", token)
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: "Cart not found or expired" }, { status: 404 });
+    return NextResponse.json({ error: "Cart not found" }, { status: 404 });
   }
 
-  // Mark as restored
-  await supabase
-    .from("saved_carts")
-    .update({ status: "restored" })
-    .eq("id", data.id);
-
-  return NextResponse.json({
-    items: data.items,
-    deliveryMethod: data.delivery_method,
-    deliveryAddress: data.delivery_address,
-    customerName: data.customer_name,
-    customerEmail: data.customer_email,
-    customerPhone: data.customer_phone,
-  });
+  return NextResponse.json({ cartData: data.cart_data });
 }
