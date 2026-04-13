@@ -598,16 +598,29 @@ const WEED_BLOCK_OPTIONS = [
   { id: "fabric-1800", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
 ];
 
-function calcMulchInstall(yards: number, tier: "basic" | "rejuvenation"): number {
-  const minCents = 35000; // $350 min
-  const included = 5;
-  if (tier === "basic") {
-    const extra = Math.max(0, yards - included) * 6500; // $65/yd after 5
-    return Math.max(minCents, minCents + extra);
+// ─── Pricing formulas ────────────────────────────────────────
+function calcMulchBasic(yards: number): number {
+  // $350 min for first 5 yds, +$65/yd after
+  const base = 35000;
+  return base + Math.max(0, yards - 5) * 6500;
+}
+function calcBedRejuvenation(yards: number): number {
+  // 65% of basic spread cost, as an add-on price
+  return Math.round(calcMulchBasic(yards) * 0.65);
+}
+function calcGravelInstall(yards: number): number {
+  // First yard $125, +$75 each additional
+  return 12500 + Math.max(0, yards - 1) * 7500;
+}
+function calcTopsoilInstall(yards: number): number {
+  // $350 min at 5 yds, linear to $1000 at 20 yds, +$20/yd after 20
+  if (yards <= 5) return 35000;
+  if (yards <= 20) {
+    // Linear from $350 at 5 to $1000 at 20 → slope = $650/15yds ≈ $43.33/yd
+    const slope = (100000 - 35000) / (20 - 5);
+    return Math.round(35000 + (yards - 5) * slope);
   }
-  // Rejuvenation: $350 base + $30/yd after 5
-  const extra = Math.max(0, yards - included) * 3000;
-  return Math.max(minCents, minCents + extra);
+  return 100000 + (yards - 20) * 2000;
 }
 
 function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: number }> }) {
@@ -619,31 +632,67 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
   const getCartQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
 
-  const hasMulch = items.some((i) => i.name.toLowerCase().includes("mulch"));
-  const mulchItems = items.filter((i) => i.name.toLowerCase().includes("mulch"));
-  const totalMulchYards = mulchItems.reduce((s, i) => s + i.quantity, 0);
+  // Detect material types
+  const n = (s: string) => s.toLowerCase();
+  const mulchItems = items.filter((i) => n(i.name).includes("mulch"));
+  const gravelItems = items.filter((i) => n(i.name).includes("gravel") || n(i.name).includes("rca") || n(i.name).includes("pea") || n(i.name).includes("drainage"));
+  const soilItems = items.filter((i) => n(i.name).includes("topsoil") || n(i.name).includes("compost") || n(i.name).includes("fill"));
+  const hasMulch = mulchItems.length > 0;
+  const hasGravel = gravelItems.length > 0;
+  const hasSoil = soilItems.length > 0;
 
-  if (!hasMulch && items.length === 0) return null;
+  if (!hasMulch && !hasGravel && !hasSoil) return null;
 
-  // Mulch installation IDs
-  const basicId = "install-mulch-basic";
-  const rejuvId = "install-mulch-rejuvenation";
-  const basicCost = calcMulchInstall(totalMulchYards, "basic");
-  const rejuvCost = calcMulchInstall(totalMulchYards, "rejuvenation");
+  const totalMulchYds = mulchItems.reduce((s, i) => s + i.quantity, 0);
+  const totalGravelYds = gravelItems.reduce((s, i) => s + i.quantity, 0);
+  const totalSoilYds = soilItems.reduce((s, i) => s + i.quantity, 0);
 
-  function addInstall(id: string, name: string, cost: number) {
-    // Remove the other tier if present
-    const otherId = id === basicId ? rejuvId : basicId;
-    if (getCartQty(otherId) > 0) removeItem(otherId);
+  function doAdd(id: string, name: string, cost: number) {
     addItem({ id, name, quantity: 1, unitPriceCents: cost, deliveryType: "non-bulk", materialClass: "default" });
   }
-
+  function doRemove(id: string) { removeItem(id); }
   function addFabric(opt: typeof WEED_BLOCK_OPTIONS[0]) {
     addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: opt.priceCents, deliveryType: "non-bulk", materialClass: "default" });
   }
 
-  const basicInCart = getCartQty(basicId);
-  const rejuvInCart = getCartQty(rejuvId);
+  // Service tile helper
+  function ServiceTile({ id, title, subtitle, desc, priceLine, cost }: {
+    id: string; title: string; subtitle: string; desc: string; priceLine: string; cost: number
+  }) {
+    const inCart = getCartQty(id) > 0;
+    return (
+      <div
+        className={`rounded-lg border-2 p-3 transition-colors ${inCart ? "border-green-500 bg-green-100" : "border-green-200 bg-white/70 hover:border-green-400 cursor-pointer"}`}
+        onClick={() => !inCart && doAdd(id, subtitle, cost)}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-green-900">{title}</p>
+            <p className="text-xs text-green-700">{desc}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{priceLine}</p>
+          </div>
+          {inCart ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-bold text-green-800">{fmt(cost)}</span>
+              <button className="flex size-8 items-center justify-center rounded-lg border-2 border-red-300 text-red-500 text-lg hover:bg-red-50" onClick={(e) => { e.stopPropagation(); doRemove(id); }}>×</button>
+            </div>
+          ) : (
+            <span className="text-sm font-bold text-green-800 shrink-0">{fmt(cost)}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const basicId = "install-mulch-basic";
+  const rejuvId = "install-bed-rejuvenation";
+  const gravelId = "install-gravel-spread";
+  const soilId = "install-topsoil-grade";
+
+  const basicCost = calcMulchBasic(totalMulchYds);
+  const rejuvCost = calcBedRejuvenation(totalMulchYds);
+  const gravelCost = calcGravelInstall(totalGravelYds);
+  const soilCost = calcTopsoilInstall(totalSoilYds);
 
   return (
     <div className="rounded-xl border-2 border-green-400/50 bg-green-50/30 p-4 space-y-4">
@@ -651,68 +700,59 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
         <Wrench className="size-5 text-green-700" />
         <div>
           <p className="font-semibold text-green-900 text-sm">Need it installed?</p>
-          <p className="text-xs text-green-700">Professional mulch installation across Suffolk County</p>
+          <p className="text-xs text-green-700">Professional installation across Suffolk County</p>
         </div>
       </div>
 
-      {/* Mulch installation tiers */}
-      {hasMulch && (
-        <div className="space-y-2">
-          {/* Basic */}
-          {(() => {
-            const inCart = basicInCart > 0;
-            return (
-              <div className={`rounded-lg border-2 p-3 transition-colors ${inCart ? "border-green-500 bg-green-100" : "border-green-200 bg-white/70 hover:border-green-400 cursor-pointer"}`}
-                onClick={() => !inCart && addInstall(basicId, `Basic Mulch Spreading — ${totalMulchYards} yds`, basicCost)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-green-900">Basic Mulch Spreading</p>
-                    <p className="text-xs text-green-700">Mulch placed evenly in beds — {totalMulchYards} yds</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">$350 for first 5 yds, +$65 per yard after</p>
-                  </div>
-                  {inCart ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-green-800">{fmt(basicCost)}</span>
-                      <button className="flex size-8 items-center justify-center rounded-lg border-2 border-red-300 text-red-500 text-lg hover:bg-red-50" onClick={(e) => { e.stopPropagation(); removeItem(basicId); }}>×</button>
-                    </div>
-                  ) : (
-                    <span className="text-sm font-bold text-green-800 shrink-0">{fmt(basicCost)}</span>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+      <div className="space-y-2">
+        {/* Mulch services */}
+        {hasMulch && (
+          <>
+            <ServiceTile
+              id={basicId}
+              title="Basic Mulch Spreading"
+              subtitle={`Basic Mulch Spreading — ${totalMulchYds} yds`}
+              desc={`Mulch placed evenly in beds — ${totalMulchYds} yds`}
+              priceLine="$350 for first 5 yds, +$65 per yard after"
+              cost={basicCost}
+            />
+            <ServiceTile
+              id={rejuvId}
+              title={`Bed Rejuvenation`}
+              subtitle={`Bed Rejuvenation — ${totalMulchYds} yds`}
+              desc="Beds fully cleansed, old mulch &amp; leaves removed, dead plants cleared, fresh edges cut. Weed block installed if added to order."
+              priceLine="Add-on: 65% of basic spread cost — TLC for your flower beds"
+              cost={rejuvCost}
+            />
+          </>
+        )}
 
-          {/* Rejuvenation */}
-          {(() => {
-            const inCart = rejuvInCart > 0;
-            return (
-              <div className={`rounded-lg border-2 p-3 transition-colors ${inCart ? "border-green-500 bg-green-100" : "border-green-200 bg-white/70 hover:border-green-400 cursor-pointer"}`}
-                onClick={() => !inCart && addInstall(rejuvId, `Rejuvenation Package — ${totalMulchYards} yds`, rejuvCost)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-green-900">Rejuvenation Package <span className="text-[10px] bg-green-200 text-green-800 rounded px-1.5 py-0.5 ml-1 font-bold">UPGRADE</span></p>
-                    <p className="text-xs text-green-700">Beds cleaned, old mulch removed, edges cut, new mulch installed</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">$350 for first 5 yds, +$30 per yard after</p>
-                  </div>
-                  {inCart ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-green-800">{fmt(rejuvCost)}</span>
-                      <button className="flex size-8 items-center justify-center rounded-lg border-2 border-red-300 text-red-500 text-lg hover:bg-red-50" onClick={(e) => { e.stopPropagation(); removeItem(rejuvId); }}>×</button>
-                    </div>
-                  ) : (
-                    <span className="text-sm font-bold text-green-800 shrink-0">{fmt(rejuvCost)}</span>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
+        {/* Gravel */}
+        {hasGravel && (
+          <ServiceTile
+            id={gravelId}
+            title="Gravel Spreading &amp; Grading"
+            subtitle={`Gravel Install — ${totalGravelYds} yds`}
+            desc={`Driveway and pathway spreading, leveling, compaction — ${totalGravelYds} yds`}
+            priceLine="$125 first yard, +$75 per additional yard"
+            cost={gravelCost}
+          />
+        )}
 
-      {/* Weed block — large tap tiles */}
+        {/* Topsoil */}
+        {hasSoil && (
+          <ServiceTile
+            id={soilId}
+            title="Topsoil Spread &amp; Grade"
+            subtitle={`Topsoil Spread & Grade — ${totalSoilYds} yds`}
+            desc={`Grade and spread for lawns, gardens, and beds — ${totalSoilYds} yds`}
+            priceLine="$350 up to 5 yds, scales to $1,000 at 20 yds, +$20/yd after"
+            cost={soilCost}
+          />
+        )}
+      </div>
+
+      {/* Weed block — large tap tiles (show for mulch orders) */}
       {hasMulch && (
         <div>
           <p className="text-xs font-semibold text-green-800 mb-2">Add Weed Block Under Your Mulch</p>
