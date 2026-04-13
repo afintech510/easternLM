@@ -204,9 +204,11 @@ export const useCartStore = create<CartStore>()(
           set({ promoCode: normalized, customerType: "pro", error: null });
           await get().recalculateDelivery();
 
+          // Pickup-only restriction only applies to contractor pro codes, not general promos
+          const isProContractorCode = ["PRO", "PRO5", "PROMEMBER"].includes(normalized);
           const { deliveryMethod, deliveryPricingConfig } = get();
-          if (deliveryMethod === "delivery" && deliveryPricingConfig.proDiscountPickupOnly) {
-            set({ error: "Pro discount applies to pickup orders only." });
+          if (isProContractorCode && deliveryMethod === "delivery" && deliveryPricingConfig.proDiscountPickupOnly) {
+            set({ error: "Pro contractor discount applies to pickup orders only." });
           }
         } catch {
           set({ error: "Could not validate promo code.", promoCode: normalized, customerType: "standard" });
