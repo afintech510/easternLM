@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     company_name, contact_name, phone, email, address, city, state, zip,
     tax_exempt, tax_exempt_certificate, license_number, years_in_business,
     estimated_monthly_spend, materials_of_interest, reference_name,
-    reference_phone, notes,
+    reference_phone, notes, stripe_customer_id,
   } = body;
 
   if (!company_name || !contact_name || !phone) {
@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     materials_of_interest ? `Materials: ${materials_of_interest}` : null,
     tax_exempt ? `Tax exempt — cert: ${tax_exempt_certificate || "pending"}` : null,
     reference_name ? `Reference: ${reference_name}${reference_phone ? ` (${reference_phone})` : ""}` : null,
+    stripe_customer_id ? `Stripe customer: ${stripe_customer_id} (card on file)` : null,
     notes ? `Notes: ${notes}` : null,
   ].filter(Boolean).join("\n");
 

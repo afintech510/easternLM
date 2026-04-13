@@ -1,15 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 export default function CreditAccountApplicationPage() {
+  return stripePromise ? (
+    <Elements stripe={stripePromise}>
+      <CreditAccountForm />
+    </Elements>
+  ) : (
+    <CreditAccountForm />
+  );
+}
+
+function CreditAccountForm() {
+  const stripe = useStripe?.() ?? null;
+  const elements = useElements?.() ?? null;
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [cardComplete, setCardComplete] = useState(false);
+  const [skipCard, setSkipCard] = useState(false);
 
   const [form, setForm] = useState({
     company_name: "",
@@ -44,10 +64,47 @@ export default function CreditAccountApplicationPage() {
     setSubmitting(true);
     setError("");
     try {
+      let stripeCustomerId: string | null = null;
+
+      // If card provided, create SetupIntent and confirm
+      if (!skipCard && stripe && elements && cardComplete) {
+        const cardElement = elements.getElement(CardElement);
+        if (cardElement) {
+          // Create SetupIntent
+          const siRes = await fetch("/api/apply/credit-account/setup-intent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company_name: form.company_name,
+              contact_name: form.contact_name,
+              phone: form.phone,
+              email: form.email,
+            }),
+          });
+          const siData = await siRes.json();
+          if (!siRes.ok) throw new Error(siData.error || "Failed to create card setup");
+
+          // Confirm the SetupIntent with the card
+          const { error: stripeError } = await stripe.confirmCardSetup(siData.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: form.company_name,
+                email: form.email || undefined,
+                phone: form.phone || undefined,
+              },
+            },
+          });
+          if (stripeError) throw new Error(stripeError.message);
+          stripeCustomerId = siData.customerId;
+        }
+      }
+
+      // Submit application
       const res = await fetch("/api/apply/credit-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, stripe_customer_id: stripeCustomerId }),
       });
       if (res.ok) {
         setSubmitted(true);
@@ -55,8 +112,8 @@ export default function CreditAccountApplicationPage() {
         const d = await res.json();
         setError(d.error || "Something went wrong. Please try again.");
       }
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -200,6 +257,39 @@ export default function CreditAccountApplicationPage() {
               className="w-full rounded-md border px-3 py-2 text-sm min-h-[80px]"
             />
           </div>
+        </fieldset>
+
+        {/* Card on File */}
+        <fieldset className="space-y-4 rounded-xl border p-5">
+          <legend className="text-sm font-semibold px-2 flex items-center gap-1.5">
+            <CreditCard className="size-4" /> Card on File
+          </legend>
+          <p className="text-xs text-muted-foreground">
+            Add a credit card for convenient statement payments. Your card will not be charged now — it&apos;s securely stored for future billing.
+          </p>
+          {!skipCard ? (
+            <>
+              <div className="rounded-lg border bg-background p-3">
+                <CardElement
+                  options={{
+                    style: {
+                      base: { fontSize: "16px", color: "#1a3a5c", "::placeholder": { color: "#9ca3af" } },
+                      invalid: { color: "#ef4444" },
+                    },
+                  }}
+                  onChange={(e) => setCardComplete(e.complete)}
+                />
+              </div>
+              <button type="button" onClick={() => setSkipCard(true)} className="text-xs text-muted-foreground underline">
+                Skip — I&apos;ll add a card later
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+              <p className="text-sm text-muted-foreground">No card added — you can add one later.</p>
+              <button type="button" onClick={() => setSkipCard(false)} className="text-xs text-accent underline">Add card</button>
+            </div>
+          )}
         </fieldset>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
