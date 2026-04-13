@@ -330,22 +330,21 @@ export function CartPageClient() {
                 Additional Items {deliveryMethod === "delivery" ? "(included with delivery)" : ""}
               </p>
               {nonBulkItems.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center gap-2 py-2.5 border-t first:border-0">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatUsd(item.unitPriceCents)} each</p>
+                <div key={item.id} className="py-2.5 border-t first:border-0 space-y-1.5">
+                  <p className="font-medium text-sm">{item.name}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
+                        <Minus className="size-3.5" />
+                      </button>
+                      <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-12 h-9 text-center text-sm" inputMode="numeric" />
+                      <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <Plus className="size-3.5" />
+                      </button>
+                    </div>
+                    <span className="text-sm font-semibold whitespace-nowrap">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                    <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}>
-                      <Minus className="size-3.5" />
-                    </button>
-                    <Input value={String(item.quantity)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) updateQuantity(item.id, n); }} className="w-12 h-9 text-center text-sm" inputMode="numeric" />
-                    <button className="flex size-9 items-center justify-center rounded-md border hover:bg-muted" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                      <Plus className="size-3.5" />
-                    </button>
-                  </div>
-                  <span className="text-sm font-semibold whitespace-nowrap">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
-                  <button className="text-muted-foreground hover:text-destructive p-1" onClick={() => removeItem(item.id)}><Trash2 className="size-4" /></button>
                 </div>
               ))}
             </div>
