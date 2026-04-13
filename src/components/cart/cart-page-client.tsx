@@ -288,6 +288,11 @@ export function CartPageClient() {
           ))}
           </div>
 
+          {/* Weed block upsell — for mulch and gravel orders */}
+          {bulkItems.some((i) => { const lo = i.name.toLowerCase(); return lo.includes("mulch") || lo.includes("gravel") || lo.includes("stone") || lo.includes("bluestone") || lo.includes("rca") || lo.includes("rock"); }) && (
+            <WeedBlockUpsell />
+          )}
+
           {/* Installation upsell — always show for delivery orders */}
           {deliveryMethod === "delivery" && (
             <InstallationUpsell items={bulkItems} />
@@ -412,7 +417,7 @@ export function CartPageClient() {
                       onChange={(e) => { if (!isSunday(e.target.value)) setDeliveryDate(e.target.value); }}
                     />
                     {deliveryDate && isToday(deliveryDate) && canSelectToday() && (
-                      <p className="mt-1 text-xs text-amber-700 font-medium">Same-day not guaranteed — call (631) 874-6244</p>
+                      <p className="mt-1 text-xs text-amber-700 font-medium">Same-day not guaranteed — call or text <a href="sms:+16318746244" className="underline">(631) 874-6244</a></p>
                     )}
                   </div>
                   <div>
@@ -680,9 +685,6 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
     addItem({ id, name, quantity: 1, unitPriceCents: cost, deliveryType: "non-bulk", materialClass: "default" });
   }
   function doRemove(id: string) { removeItem(id); }
-  function addFabric(opt: typeof WEED_BLOCK_OPTIONS[0]) {
-    addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: opt.priceCents, deliveryType: "non-bulk", materialClass: "default" });
-  }
 
   // Service tile helper
   function ServiceTile({ id, title, subtitle, desc, cost }: {
@@ -802,45 +804,59 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
         </div>
       </div>
 
-      {/* Weed block — large tap tiles (show for mulch orders) */}
-      {hasMulch && (
-        <div>
-          <p className="text-xs font-semibold text-green-800 mb-2">Add Weed Block Under Your Mulch</p>
-          <div className="grid grid-cols-3 gap-2">
-            {WEED_BLOCK_OPTIONS.map((opt) => {
-              const qty = getCartQty(opt.id);
-              return qty ? (
-                <div key={opt.id} className="flex flex-col items-center rounded-xl border-2 border-green-500 bg-green-100 p-3 text-center">
-                  <span className="text-sm font-bold text-green-900">{opt.label}</span>
-                  <span className="text-xs text-green-700 mb-2">{fmt(opt.priceCents)}</span>
-                  <div className="flex items-center gap-2">
-                    <button className="flex size-9 items-center justify-center rounded-lg border-2 border-green-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
-                    <span className="text-lg font-bold w-6 text-center">{qty}</span>
-                    <button className="flex size-9 items-center justify-center rounded-lg border-2 border-green-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => updateQuantity(opt.id, qty + 1)}>+</button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  key={opt.id}
-                  onClick={() => addFabric(opt)}
-                  className="flex flex-col items-center justify-center rounded-xl border-2 border-green-200 bg-white/70 p-3 text-center hover:border-green-400 hover:bg-green-50 transition-colors cursor-pointer"
-                >
-                  <span className="text-sm font-bold text-green-900">{opt.label}</span>
-                  <span className="text-xs text-green-700">{fmt(opt.priceCents)}</span>
-                  <span className="mt-1.5 text-xs font-semibold text-green-600 bg-green-100 rounded-full px-3 py-0.5">+ Add</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Scheduling disclaimer — shown when any service is in cart */}
       {(getCartQty(basicId) > 0 || getCartQty(rejuvId) > 0 || getCartQty(gravelId) > 0 || getCartQty(soilId) > 0 || getCartQty("install-cleanup-half") > 0 || getCartQty("install-cleanup-full") > 0) && (
         <p className="text-[10px] text-muted-foreground text-center border-t border-green-200 pt-2">
           We will call you within 24 hours to schedule your service.
         </p>
       )}
+    </div>
+  );
+}
+
+// ─── Weed Block Upsell (standalone module) ──────────────────
+function WeedBlockUpsell() {
+  const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const cartItems = useCartStore((s) => s.items);
+  const getQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
+  const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+
+  function add(opt: typeof WEED_BLOCK_OPTIONS[0]) {
+    addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: opt.priceCents, deliveryType: "non-bulk", materialClass: "default" });
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-amber-300/60 bg-amber-50/30 p-4 space-y-2">
+      <p className="text-sm font-semibold text-amber-900">Add Weed Block Fabric</p>
+      <p className="text-xs text-amber-700">Prevent weeds under mulch, gravel, and stone — professional grade fabric</p>
+      <div className="grid grid-cols-3 gap-2">
+        {WEED_BLOCK_OPTIONS.map((opt) => {
+          const qty = getQty(opt.id);
+          return qty ? (
+            <div key={opt.id} className="flex flex-col items-center rounded-xl border-2 border-amber-500 bg-amber-100 p-3 text-center">
+              <span className="text-sm font-bold text-amber-900">{opt.label}</span>
+              <span className="text-xs text-amber-700 mb-2">{fmt(opt.priceCents)}</span>
+              <div className="flex items-center gap-2">
+                <button className="flex size-9 items-center justify-center rounded-lg border-2 border-amber-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
+                <span className="text-lg font-bold w-6 text-center">{qty}</span>
+                <button className="flex size-9 items-center justify-center rounded-lg border-2 border-amber-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => updateQuantity(opt.id, qty + 1)}>+</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              key={opt.id}
+              onClick={() => add(opt)}
+              className="flex flex-col items-center justify-center rounded-xl border-2 border-amber-200 bg-white/70 p-3 text-center hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer"
+            >
+              <span className="text-sm font-bold text-amber-900">{opt.label}</span>
+              <span className="text-xs text-amber-700">{fmt(opt.priceCents)}</span>
+              <span className="mt-1.5 text-xs font-semibold text-amber-600 bg-amber-100 rounded-full px-3 py-0.5">+ Add</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
