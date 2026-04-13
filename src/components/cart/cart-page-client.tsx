@@ -612,12 +612,12 @@ export function CartPageClient() {
             ) : null}
 
             {/* Payment logos */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 py-1">
-              <img src="/logos/visa.svg" alt="Visa" className="h-6" />
-              <img src="/logos/mastercard.svg" alt="Mastercard" className="h-6" />
-              <img src="/logos/amex.svg" alt="Amex" className="h-8 rounded" />
-              <img src="/logos/discover.svg" alt="Discover" className="h-8 rounded" />
-              <img src="/logos/amazon-pay.svg" alt="Amazon Pay" className="h-5" style={{ minWidth: "70px" }} />
+            <div className="flex flex-wrap items-center justify-center gap-2 py-1">
+              <img src="/logos/visa.svg" alt="Visa" className="h-7" />
+              <img src="/logos/mastercard.svg" alt="Mastercard" className="h-7" />
+              <img src="/logos/amex.svg" alt="Amex" className="w-11 rounded" />
+              <img src="/logos/discover.svg" alt="Discover" className="w-11 rounded" />
+              <img src="/logos/amazon-pay.svg" alt="Amazon Pay" className="h-5 w-16" />
               <img src="/logos/affirm.svg" alt="Affirm" className="h-4" />
               <img src="/logos/klarna.svg" alt="Klarna" className="h-5 rounded" />
               <img src="/logos/afterpay.svg" alt="Afterpay" className="h-3.5" />
