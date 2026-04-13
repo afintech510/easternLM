@@ -141,23 +141,6 @@ export function CartPageClient() {
   const installItems = items.filter((i) => i.id.startsWith("install-") || i.id.startsWith("fabric-"));
   const installTotalCents = installItems.reduce((s, i) => s + Math.round(i.quantity * i.unitPriceCents), 0);
 
-  // Totals — remove CC surcharge from display
-  const totals = useMemo(() => {
-    if (!calculation) return null;
-    const materialsCents = calculation.subtotalCents - installTotalCents;
-    const lines = [
-      { label: "Materials", value: materialsCents },
-      ...(installTotalCents > 0 ? [{ label: "Installation & Supplies", value: installTotalCents }] : []),
-      ...(minOrderFeeCents > 0 ? [{ label: "Min. order fee", value: minOrderFeeCents }] : []),
-      ...(calculation.proDiscountCents > 0 ? [{ label: "Pro discount", value: -calculation.proDiscountCents }] : []),
-    ];
-    if (deliveryMethod === "delivery") {
-      lines.push({ label: "Delivery", value: calculation.deliveryFeeCents });
-    }
-    lines.push({ label: "Tax (8.75%)", value: calculation.taxCents });
-    return lines;
-  }, [calculation, minOrderFeeCents, deliveryMethod, installTotalCents]);
-
   const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) : 0;
 
   // Save as Quote handler
@@ -499,34 +482,77 @@ export function CartPageClient() {
               </p>
             )}
 
-            {/* Delivery breakdown — always expanded */}
-            {calculation?.loads.length ? (
-              <div className="rounded-lg border bg-background p-3 text-sm space-y-1.5">
-                <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Delivery Breakdown</p>
-                {calculation.loads.map((load, i) => (
-                  <div key={`load-${i}`} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Delivery {load.day}: {load.materialClass === "mulch" ? "Mulch" : "Material"} — {load.quantity} yd</span>
-                    <span>{formatUsd(load.feeCents)}</span>
-                  </div>
-                ))}
-                {calculation.totalLoads > 1 && (
-                  <p className="text-[10px] text-muted-foreground">(Load 2+ discounted 25%)</p>
-                )}
-              </div>
-            ) : null}
+            {/* Fully itemized breakdown */}
+            {calculation ? (
+              <div className="space-y-3 text-sm">
+                {/* Materials */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Materials</p>
+                  {items.filter((i) => !i.id.startsWith("install-") && !i.id.startsWith("fabric-")).map((item) => (
+                    <div key={item.id} className="flex justify-between text-xs py-0.5">
+                      <span className="text-muted-foreground truncate mr-2">{item.name} × {item.quantity}</span>
+                      <span className="shrink-0">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                    </div>
+                  ))}
+                </div>
 
-            {/* Totals */}
-            {totals ? (
-              <div className="space-y-2 text-sm">
-                {totals.map((line) => (
-                  <div key={line.label} className="flex justify-between">
-                    <span className="text-muted-foreground">{line.label}</span>
-                    <span>{line.value < 0 ? `-${formatUsd(Math.abs(line.value))}` : formatUsd(line.value)}</span>
+                {/* Installation & Supplies */}
+                {installItems.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Installation &amp; Supplies</p>
+                    {installItems.map((item) => (
+                      <div key={item.id} className="flex justify-between text-xs py-0.5">
+                        <span className="text-muted-foreground truncate mr-2">{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</span>
+                        <span className="shrink-0">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                <div className="flex justify-between border-t pt-2 text-lg font-bold text-primary">
-                  <span>Total</span>
-                  <span>{formatUsd(cashTotal)}</span>
+                )}
+
+                {/* Delivery */}
+                {deliveryMethod === "delivery" && calculation.loads.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Delivery</p>
+                    {calculation.loads.map((load, i) => (
+                      <div key={`load-${i}`} className="flex justify-between text-xs py-0.5">
+                        <span className="text-muted-foreground">Load {i + 1}: {load.materialClass === "mulch" ? "Mulch" : "Material"} — {load.quantity} yd</span>
+                        <span>{formatUsd(load.feeCents)}</span>
+                      </div>
+                    ))}
+                    {calculation.totalLoads > 1 && (
+                      <p className="text-[10px] text-green-700">(Load 2+ discounted 25%)</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Discounts */}
+                {(calculation.proDiscountCents > 0 || minOrderFeeCents > 0) && (
+                  <div>
+                    {minOrderFeeCents > 0 && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-muted-foreground">Min. order fee</span>
+                        <span>{formatUsd(minOrderFeeCents)}</span>
+                      </div>
+                    )}
+                    {calculation.proDiscountCents > 0 && (
+                      <div className="flex justify-between text-xs py-0.5 text-green-700">
+                        <span>Pro discount</span>
+                        <span>-{formatUsd(calculation.proDiscountCents)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tax + Total */}
+                <div className="border-t pt-2 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Tax (8.75%)</span>
+                    <span>{formatUsd(calculation.taxCents)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold text-primary pt-1">
+                    <span>Total</span>
+                    <span>{formatUsd(cashTotal)}</span>
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">All major credit and debit cards accepted.</p>
               </div>
