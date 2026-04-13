@@ -372,6 +372,15 @@ export function CartPageClient() {
               </span>
             </label>
 
+            {/* Save Cart for Later */}
+            <button
+              onClick={handleSaveCart}
+              disabled={savingQuote || (!custPhone && !custEmail)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-accent/50 py-2.5 text-sm text-accent hover:bg-accent/5 disabled:opacity-40"
+            >
+              {savingQuote ? <Spin className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              Save Your Cart — send link to my phone/email
+            </button>
           </div>
 
           {/* Delivery or Pickup */}
