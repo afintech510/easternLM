@@ -370,6 +370,13 @@ export function CartPageClient() {
               </button>
             </div>
 
+            {deliveryMethod === "pickup" && (
+              <div className="rounded-lg bg-muted/50 border p-3 text-sm">
+                <p className="font-medium">110 Frowein Road, Center Moriches, NY 11934</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Mon–Fri 7 AM – 5 PM · Sat 7 AM – 3 PM</p>
+              </div>
+            )}
+
             {deliveryMethod === "delivery" && (
               <div className="space-y-3">
                 <div>
@@ -635,6 +642,29 @@ function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: 
           </div>
         ))}
       </div>
+
+      {/* Weed block upsell — show when mulch is in cart */}
+      {items.some((i) => i.name.toLowerCase().includes("mulch")) && (
+        <div>
+          <p className="text-xs font-semibold text-green-800 mb-1.5">Add Weed Block Under Your Mulch</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "300 sq ft", slug: "3-x100-landscape-fabric", price: "$29" },
+              { label: "900 sq ft", slug: "3-x300-landscape-fabric", price: "$60" },
+              { label: "1,800 sq ft", slug: "6-x300-landscape-fabric", price: "$95" },
+            ].map((opt) => (
+              <a
+                key={opt.slug}
+                href={`/shop/${opt.slug}`}
+                className="flex flex-col items-center rounded-lg border border-green-200 bg-white/70 py-2 px-1 hover:border-green-400 hover:bg-green-50 transition-colors text-center"
+              >
+                <span className="text-sm font-semibold text-green-900">{opt.label}</span>
+                <span className="text-xs text-green-700">{opt.price}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!interested ? (
         <Button
