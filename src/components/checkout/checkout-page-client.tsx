@@ -18,13 +18,45 @@ function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(cents / 100);
 }
 
-function defaultDeliveryDate() {
-  const now = new Date();
-  const target = new Date(now);
-  if (now.getDay() >= 1 && now.getDay() <= 5 && now.getHours() < 11) return target.toISOString().slice(0, 10);
-  target.setDate(target.getDate() + 1);
-  while (target.getDay() === 0) target.setDate(target.getDate() + 1);
-  return target.toISOString().slice(0, 10);
+/** Get current time in America/New_York */
+function nyNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+}
+
+/** Can the customer select today for delivery? (before 1 PM NY time, Mon-Sat) */
+function canSelectToday(): boolean {
+  const now = nyNow();
+  const day = now.getDay();
+  return day >= 1 && day <= 6 && now.getHours() < 13;
+}
+
+/** Get the minimum selectable delivery date (YYYY-MM-DD) */
+function minDeliveryDate(): string {
+  const now = nyNow();
+  if (canSelectToday()) return formatLocalDate(now);
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  while (next.getDay() === 0) next.setDate(next.getDate() + 1); // skip Sunday
+  return formatLocalDate(next);
+}
+
+function defaultDeliveryDate(): string {
+  return minDeliveryDate();
+}
+
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Is a date string a Sunday? */
+function isSunday(dateStr: string): boolean {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.getDay() === 0;
+}
+
+/** Is the selected date today? */
+function isToday(dateStr: string): boolean {
+  return dateStr === formatLocalDate(nyNow());
 }
 
 function isValidEmail(email: string) {
@@ -224,8 +256,30 @@ export function CheckoutPageClient() {
                 )}
                 <div>
                   <label className="mb-1 block text-sm font-medium" htmlFor="co-date">Preferred delivery date</label>
-                  <Input id="co-date" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="w-48" />
-                  <p className="mt-1 text-xs text-muted-foreground">Orders before 11 AM on weekdays may ship same day.</p>
+                  <Input
+                    id="co-date"
+                    type="date"
+                    value={deliveryDate}
+                    min={minDeliveryDate()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (isSunday(val)) return; // block Sunday selection
+                      setDeliveryDate(val);
+                    }}
+                    className="w-48"
+                  />
+                  {deliveryDate && isSunday(deliveryDate) && (
+                    <p className="mt-1 text-xs text-destructive font-medium">We do not deliver on Sundays. Please select another date.</p>
+                  )}
+                  {deliveryDate && isToday(deliveryDate) && canSelectToday() && (
+                    <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 p-2">
+                      <p className="text-xs text-amber-800 font-medium">Same-day delivery is not guaranteed.</p>
+                      <p className="text-xs text-amber-700">Please call (631) 874-6244 to confirm availability with dispatch.</p>
+                    </div>
+                  )}
+                  {(!deliveryDate || (!isToday(deliveryDate) && !isSunday(deliveryDate))) && (
+                    <p className="mt-1 text-xs text-muted-foreground">Mon–Sat delivery. Same-day available if ordered before 1 PM.</p>
+                  )}
                 </div>
 
                 {/* Delivery sequence — always visible */}
