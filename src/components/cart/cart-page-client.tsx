@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, RefreshCw, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpDown, Loader2 as Spin, Minus, Phone, Plus, RefreshCw, ShoppingCart, Trash2, Truck, Store, FileText, MessageSquare, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -299,6 +299,11 @@ export function CartPageClient() {
           ))}
           </div>
 
+          {/* Installation upsell */}
+          {bulkItems.length > 0 && deliveryMethod === "delivery" && (
+            <InstallationUpsell items={bulkItems} />
+          )}
+
           {/* Non-bulk items */}
           {nonBulkItems.length > 0 && (
             <div className="rounded-xl border border-blue-800/40 bg-card p-4 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)]">
@@ -557,6 +562,95 @@ export function CartPageClient() {
               <Link href="/checkout">Checkout →</Link>
             </Button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Installation Upsell Component ──────────────────────────
+function InstallationUpsell({ items }: { items: Array<{ name: string; quantity: number }> }) {
+  const [pricing, setPricing] = useState<Array<{
+    material_category: string; label: string; base_price_cents: number;
+    per_yard_cents: number; description: string;
+  }>>([]);
+  const [interested, setInterested] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/installation-pricing")
+      .then((r) => r.json())
+      .then((d) => { setPricing(d.pricing ?? []); setLoaded(true); })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  if (!loaded || pricing.length === 0) return null;
+
+  // Match items to installation categories
+  function guessCategory(name: string): string | null {
+    const n = name.toLowerCase();
+    if (n.includes("mulch")) return "mulch";
+    if (n.includes("topsoil") || n.includes("compost") || n.includes("fill")) return "soil";
+    if (n.includes("gravel") || n.includes("rca") || n.includes("pea")) return "gravel";
+    if (n.includes("stone") || n.includes("rock") || n.includes("bluestone") || n.includes("burgundy")) return "stone";
+    if (n.includes("sand")) return "sand";
+    return null;
+  }
+
+  const matches = items
+    .map((item) => {
+      const cat = guessCategory(item.name);
+      const p = cat ? pricing.find((pr) => pr.material_category === cat) : null;
+      if (!p) return null;
+      const cost = p.base_price_cents + Math.round(item.quantity * p.per_yard_cents);
+      return { item, pricing: p, cost };
+    })
+    .filter(Boolean) as Array<{ item: { name: string; quantity: number }; pricing: { label: string; description: string; base_price_cents: number; per_yard_cents: number }; cost: number }>;
+
+  if (matches.length === 0) return null;
+
+  const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+
+  return (
+    <div className={`rounded-xl border-2 p-4 space-y-3 transition-colors ${interested ? "border-green-500 bg-green-50/50" : "border-green-400/50 bg-green-50/30"}`}>
+      <div className="flex items-center gap-2">
+        <Wrench className="size-5 text-green-700" />
+        <div>
+          <p className="font-semibold text-green-900 text-sm">Need it installed?</p>
+          <p className="text-xs text-green-700">We&apos;ll spread, grade, or install your materials</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {matches.map((m, i) => (
+          <div key={i} className="flex items-center justify-between rounded-lg bg-white/70 border border-green-200 px-3 py-2">
+            <div>
+              <p className="text-sm font-medium text-green-900">{m.pricing.label}</p>
+              <p className="text-xs text-green-700">{m.item.name} — {m.item.quantity} yds</p>
+              <p className="text-xs text-muted-foreground">{m.pricing.description}</p>
+            </div>
+            <p className="text-sm font-bold text-green-800 whitespace-nowrap">
+              from {fmt(m.cost)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {!interested ? (
+        <Button
+          variant="outline"
+          className="w-full border-green-500 text-green-800 hover:bg-green-100"
+          onClick={() => setInterested(true)}
+        >
+          Get an Installation Quote
+        </Button>
+      ) : (
+        <div className="rounded-lg bg-white border border-green-200 p-3 space-y-2">
+          <p className="text-sm text-green-800 font-medium">We&apos;ll contact you with an installation quote after your order is placed.</p>
+          <p className="text-xs text-muted-foreground">
+            Our crew handles spreading, grading, and installation across Suffolk County.
+            Call <a href="tel:6318746244" className="text-green-700 underline">(631) 874-6244</a> for same-day scheduling.
+          </p>
         </div>
       )}
     </div>

@@ -226,8 +226,13 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                 {isCheckingDelivery && <p className="text-xs text-muted-foreground animate-pulse">Calculating delivery fee…</p>}
                 {deliveryCalculation && (
                   <div className="rounded-lg border bg-background p-3 text-sm space-y-1">
-                    <p className="font-semibold">Delivery: {formatUsd(deliveryCalculation.firstLoadFeeCents)} per dump truck delivery</p>
-                    <p className="text-xs text-muted-foreground">{deliveryCalculation.totalLoads} delivery trip{deliveryCalculation.totalLoads > 1 ? "s" : ""} needed</p>
+                    <p className="font-semibold">Delivery: {formatUsd(deliveryCalculation.firstLoadFeeCents)} for the first load</p>
+                    {deliveryCalculation.totalLoads > 1 && (
+                      <p className="text-xs text-green-700 font-medium">Save 25% on additional loads — {deliveryCalculation.totalLoads} trips needed</p>
+                    )}
+                    {deliveryCalculation.totalLoads <= 1 && (
+                      <p className="text-xs text-muted-foreground">Save 25% on additional loads when you order more</p>
+                    )}
                   </div>
                 )}
               </div>
