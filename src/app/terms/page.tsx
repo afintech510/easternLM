@@ -37,7 +37,7 @@ export default function TermsPage() {
         <h2 className="text-lg font-semibold text-foreground">Payment &amp; Surcharges</h2>
         <ul className="list-disc space-y-1 pl-6">
           <li>We accept credit cards, debit cards, and cash at the yard.</li>
-          <li>A credit card processing surcharge of up to 3% applies to card transactions, as permitted by New York State law and disclosed at checkout.</li>
+          <li>A credit card processing surcharge of up to 3.5% applies to card transactions, as permitted by New York State law and disclosed at checkout.</li>
           <li>Invoice account (inv-acct) terms are available to approved commercial customers only.</li>
         </ul>
 

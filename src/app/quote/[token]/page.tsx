@@ -851,9 +851,9 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
   const recalcTax = Math.round(taxableAmount * 0.0875);
   const displayTax = quote.tax_cents ?? recalcTax;
   const cashTotal = materialSubtotal + deliveryFeeCents + displayTax;
-  // No CC surcharge — fee eliminated
-  const ccSurchargeCents = 0;
-  const cardTotal = cashTotal;
+  // Card surcharge 3.5% applied when paying by card
+  const ccSurchargeCents = Math.round(cashTotal * 0.035);
+  const cardTotal = cashTotal + ccSurchargeCents;
   const laborItems = materialItems.filter(i => {
     const d = i.description.toLowerCase();
     return d.includes("labor") || d.includes("install") || d.includes("service") ||

@@ -187,7 +187,7 @@ export class ThermalPrinter {
     }
     this.line(buf, enc, pad(order.taxExempt ? "Tax:" : "Tax (8.75%):", order.taxExempt ? "EXEMPT" : fmtUsd(order.taxCents)));
     if (order.ccSurchargeCents > 0) {
-      this.line(buf, enc, pad("CC Fee (3%):", fmtUsd(order.ccSurchargeCents)));
+      this.line(buf, enc, pad("CC Fee (3.5%):", fmtUsd(order.ccSurchargeCents)));
     }
     this.line(buf, enc, divider("="));
 
