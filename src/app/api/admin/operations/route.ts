@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
   let query = (supabase as any)
     .from("orders")
     .select(
-      "id, created_at, placed_at, status, source, customer_name, customer_phone, customer_email, grand_total_cents, materials_subtotal_cents, delivery_total_cents, tax_cents, cc_surcharge_cents, delivery_method, delivery_address, delivery_date, delivery_time_window, delivery_notes, payment_method, stripe_checkout_session_id, customer_id, metadata, access_constraints, order_items(id, product_name, quantity, unit, unit_price_cents, line_subtotal_cents, delivery_type, material_class, load_number)",
+      "id, created_at, placed_at, status, source, customer_name, customer_phone, customer_email, grand_total_cents, materials_subtotal_cents, delivery_total_cents, tax_cents, cc_surcharge_cents, discount_amount_cents, discount_reason, tax_exempt, store_credit_applied_cents, delivery_method, delivery_address, delivery_date, delivery_time_window, delivery_notes, payment_method, stripe_checkout_session_id, customer_id, metadata, access_constraints, order_items(id, product_name, quantity, unit, unit_price_cents, line_subtotal_cents, delivery_type, material_class, load_number)",
       { count: "exact" },
     )
     .gte("created_at", from)
@@ -71,9 +71,28 @@ export async function GET(request: NextRequest) {
   if (status && status !== "all") query = query.eq("status", status);
 
   if (search) {
-    query = query.or(
-      `customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%,customer_email.ilike.%${search}%,delivery_address.ilike.%${search}%`,
-    );
+    const digits = search.replace(/\D/g, "");
+    const isPhone = digits.length >= 7;
+    const isOrderId = /^[0-9a-f]{4,}/i.test(search);
+
+    if (isOrderId) {
+      // Search by order ID — remove date filter for ID searches
+      query = (supabase as any)
+        .from("orders")
+        .select(
+          "id, created_at, placed_at, status, source, customer_name, customer_phone, customer_email, grand_total_cents, materials_subtotal_cents, delivery_total_cents, tax_cents, cc_surcharge_cents, discount_amount_cents, discount_reason, delivery_method, delivery_address, delivery_date, delivery_time_window, delivery_notes, payment_method, stripe_checkout_session_id, customer_id, metadata, access_constraints, tax_exempt, store_credit_applied_cents, order_items(id, product_name, quantity, unit, unit_price_cents, line_subtotal_cents, delivery_type, material_class, load_number)",
+          { count: "exact" },
+        )
+        .filter("id::text", "ilike", `${search.toLowerCase()}%`)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+    } else if (isPhone) {
+      query = query.ilike("customer_phone", `%${digits}%`);
+    } else {
+      query = query.or(
+        `customer_name.ilike.%${search}%,customer_email.ilike.%${search}%,delivery_address.ilike.%${search}%`,
+      );
+    }
   }
 
   // Sort
