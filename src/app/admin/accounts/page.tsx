@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Loader2, Building2, AlertTriangle, ChevronDown, ChevronUp,
-  CheckCircle, Circle, DollarSign
+  CheckCircle, Circle, DollarSign, Send, Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,12 @@ export default function AccountsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [orders, setOrders] = useState<AccountOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Send application modal
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendForm, setSendForm] = useState({ email: "", phone: "", company_name: "", contact_name: "" });
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<string>("");
 
   // Multi-select + payment modal
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -104,6 +110,34 @@ export default function AccountsPage() {
       .then((d) => setAccounts(d.accounts ?? []))
       .finally(() => setLoading(false));
   }, []);
+
+  async function sendApplicationLink(send_via: "email" | "sms" | "both") {
+    if (!sendForm.email && !sendForm.phone) { setSendResult("Enter an email or phone."); return; }
+    setSending(true);
+    setSendResult("");
+    try {
+      const res = await fetch("/api/admin/accounts/send-application", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...sendForm, send_via }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setSendResult(`Sent via ${d.sent.join(" + ")}!`);
+        setTimeout(() => {
+          setShowSendModal(false);
+          setSendForm({ email: "", phone: "", company_name: "", contact_name: "" });
+          setSendResult("");
+        }, 1500);
+      } else {
+        setSendResult(d.error || "Failed to send.");
+      }
+    } catch {
+      setSendResult("Network error.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function generateStatements() {
     if (!periodStart || !periodEnd) return;
@@ -183,6 +217,9 @@ export default function AccountsPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Charge Accounts</h1>
+        <Button onClick={() => setShowSendModal(true)} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Send className="mr-2 size-4" /> Send Application Link
+        </Button>
       </div>
 
       {/* Tab navigation — Accounts + Statements in one place */}
@@ -440,6 +477,62 @@ export default function AccountsPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Send Application Link Modal */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowSendModal(false)}>
+          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg space-y-4" onClick={e => e.stopPropagation()}>
+            <div>
+              <h3 className="text-lg font-semibold">Send Credit Account Application</h3>
+              <p className="text-xs text-muted-foreground mt-1">Email or text the prospect a link to the application form.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Company (optional)</label>
+                <Input value={sendForm.company_name} onChange={(e) => setSendForm((f) => ({ ...f, company_name: e.target.value }))} placeholder="ABC Landscaping" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Contact Name (optional)</label>
+                <Input value={sendForm.contact_name} onChange={(e) => setSendForm((f) => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Email</label>
+              <Input type="email" value={sendForm.email} onChange={(e) => setSendForm((f) => ({ ...f, email: e.target.value }))} placeholder="john@abclandscape.com" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Phone (for SMS)</label>
+              <Input type="tel" value={sendForm.phone} onChange={(e) => setSendForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(631) 555-1234" />
+            </div>
+
+            <div className="rounded-md bg-muted/50 p-2.5 flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground truncate">easternlm.com/apply/credit-account</span>
+              <button
+                onClick={() => { navigator.clipboard.writeText("https://easternlm.com/apply/credit-account"); setSendResult("Link copied!"); setTimeout(() => setSendResult(""), 2000); }}
+                className="shrink-0 text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <Copy className="size-3" /> Copy
+              </button>
+            </div>
+
+            {sendResult && <p className="text-sm text-center font-medium text-green-700">{sendResult}</p>}
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowSendModal(false)} className="flex-1">Cancel</Button>
+              <Button
+                onClick={() => sendApplicationLink(sendForm.email && sendForm.phone ? "both" : sendForm.email ? "email" : "sms")}
+                disabled={sending || (!sendForm.email && !sendForm.phone)}
+                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                {sending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+                Send
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
