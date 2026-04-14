@@ -419,7 +419,7 @@ export function OrderDetailPanel({
             )}
             <Row label={order.tax_exempt ? "Tax (exempt)" : "Tax (8.75%)"} value={order.tax_exempt ? "$0.00" : formatUsd(order.tax_cents ?? 0)} />
             {(order.cc_surcharge_cents ?? 0) > 0 && (
-              <Row label="CC Fee (3%)" value={formatUsd(order.cc_surcharge_cents)} />
+              <Row label="CC Fee (3.5%)" value={formatUsd(order.cc_surcharge_cents)} />
             )}
             {(order.store_credit_applied_cents ?? 0) > 0 && (
               <div className="flex justify-between text-green-700">

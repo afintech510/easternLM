@@ -233,7 +233,7 @@ export async function POST(request: Request) {
               <table style="width:100%;border-collapse:collapse;">${itemRows}</table>
               <table style="width:100%;margin:16px 0;">
                 <tr><td style="padding:4px 0;font-weight:bold;">Cash / COD Total:</td><td style="text-align:right;font-weight:bold;">${fmt(cashTotal)}</td></tr>
-                <tr><td style="padding:4px 0;color:#666;">Card Total (incl. 3% fee):</td><td style="text-align:right;color:#666;">${fmt(cardTotal)}</td></tr>
+                <tr><td style="padding:4px 0;color:#666;">Card Total (incl. 3.5% fee):</td><td style="text-align:right;color:#666;">${fmt(cardTotal)}</td></tr>
               </table>
               ${delivery?.address ? `<p>📍 ${delivery.address}</p>` : ""}
               <a href="${quoteUrl}" style="display:block;background:#2d5016;color:#fff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0;">Review & Pay →</a>

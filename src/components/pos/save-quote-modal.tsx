@@ -197,7 +197,7 @@ export function SaveQuoteModal({
               <div className="flex justify-between"><span className="text-zinc-400">Tax (8.75%)</span><span>{formatUsd(taxCents)}</span></div>
               <div className="border-t border-zinc-700 pt-1 mt-1" />
               <div className="flex justify-between font-semibold"><span>Cash / COD Total</span><span className="text-amber-400">{formatUsd(cashTotal)}</span></div>
-              <div className="flex justify-between text-zinc-400"><span>Card Total (+ 3% CC)</span><span>{formatUsd(cardTotal)}</span></div>
+              <div className="flex justify-between text-zinc-400"><span>Card Total (+ 3.5% CC)</span><span>{formatUsd(cardTotal)}</span></div>
             </div>
           </section>
 

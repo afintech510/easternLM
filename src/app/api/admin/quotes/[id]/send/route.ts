@@ -58,7 +58,8 @@ function buildQuoteEmailHtml(quote: Record<string, unknown>, quoteUrl: string): 
       <tfoot>
         <tr><td colspan="2" style="padding:8px 12px;text-align:right;color:#6b7280;">Subtotal</td><td style="padding:8px 12px;text-align:right;">${fmt(quote.subtotal_cents as number)}</td></tr>
         <tr><td colspan="2" style="padding:8px 12px;text-align:right;color:#6b7280;">Tax (8.75%)</td><td style="padding:8px 12px;text-align:right;">${fmt(quote.tax_cents as number)}</td></tr>
-        <tr style="font-weight:700;font-size:16px;"><td colspan="2" style="padding:8px 12px;text-align:right;">TOTAL</td><td style="padding:8px 12px;text-align:right;">${fmt(quote.total_cents as number)}</td></tr>
+        <tr style="font-weight:700;font-size:16px;"><td colspan="2" style="padding:8px 12px;text-align:right;">TOTAL (Cash/Check)</td><td style="padding:8px 12px;text-align:right;">${fmt(quote.total_cents as number)}</td></tr>
+        <tr style="color:#6b7280;font-size:13px;"><td colspan="2" style="padding:4px 12px;text-align:right;">Card Total (+3.5%)</td><td style="padding:4px 12px;text-align:right;">${fmt((quote.total_cents as number) + Math.round((quote.total_cents as number) * 0.035))}</td></tr>
         ${(quote.deposit_required_cents as number) > 0 ? `<tr style="color:#d97706;"><td colspan="2" style="padding:8px 12px;text-align:right;">Deposit Required</td><td style="padding:8px 12px;text-align:right;">${fmt(quote.deposit_required_cents as number)}</td></tr>` : ""}
       </tfoot>
     </table>

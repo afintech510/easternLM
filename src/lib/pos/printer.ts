@@ -338,7 +338,7 @@ export class ReceiptPrinter {
     } else {
       this.txt(c, line("Tax (8.75%):", fmt(o.taxCents)));
     }
-    if (o.ccSurchargeCents > 0) this.txt(c, line("CC Fee (3%):", fmt(o.ccSurchargeCents)));
+    if (o.ccSurchargeCents > 0) this.txt(c, line("CC Fee (3.5%):", fmt(o.ccSurchargeCents)));
 
     this.txt(c, ddiv());
     this.bold(c, true); this.fontSize(c, 0x11);
@@ -669,7 +669,7 @@ export class ReceiptPrinter {
       "All discrepancies in material, quantity, or order accuracy must be reported within 24 hours of receipt.",
       "No returns on loose bulk materials, special-order items, or cement/masonry products.",
       "We are not responsible for color washout of dyed mulch due to heavy rain or prolonged sun exposure.",
-      "A 3% surcharge applies to all credit card transactions.",
+      "A 3.5% surcharge applies to all credit card transactions.",
     ];
 
     this.txt(c, "");
@@ -765,7 +765,7 @@ export class ReceiptPrinter {
       ${o.discountAmountCents ? `<div class="row"><span>Discount:</span><span>-${f(o.discountAmountCents)}</span></div>` : ""}
       ${o.deliveryFeeCents > 0 ? `<div class="row"><span>Delivery:</span><span>${f(o.deliveryFeeCents)}</span></div>` : ""}
       <div class="row"><span>Tax (8.75%):</span><span>${o.taxExempt ? "EXEMPT" : f(o.taxCents)}</span></div>
-      ${o.ccSurchargeCents > 0 ? `<div class="row"><span>CC Fee (3%):</span><span>${f(o.ccSurchargeCents)}</span></div>` : ""}
+      ${o.ccSurchargeCents > 0 ? `<div class="row"><span>CC Fee (3.5%):</span><span>${f(o.ccSurchargeCents)}</span></div>` : ""}
       <div class="hr2"></div>
       <div class="row big"><span>TOTAL:</span><span>${f(o.totalCents)}</span></div>
       <br>${payment}

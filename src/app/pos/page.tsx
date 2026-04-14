@@ -94,7 +94,7 @@ type RouteInfo = {
 };
 
 const TAX_RATE = 0.0875;
-const CC_SURCHARGE = 0.03;
+const CC_SURCHARGE = 0.035;
 
 const TIME_WINDOWS = [
   { value: "morning", label: "Morning (7 AM – 10 AM)" },
@@ -2646,7 +2646,7 @@ export default function PosRegisterPage() {
               <span className="text-zinc-300">Cash/COD Total</span><span>{formatUsd(cashTotalCents)}</span>
             </div>
             <div className="flex justify-between text-xs text-zinc-500">
-              <span>CC Fee (3%)</span><span>+{formatUsd(ccFeeCents)}</span>
+              <span>CC Fee (3.5%)</span><span>+{formatUsd(ccFeeCents)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold">
               <span>Card Total</span><span className="text-amber-400">{formatUsd(cardTotalCents)}</span>

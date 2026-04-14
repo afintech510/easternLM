@@ -13,7 +13,7 @@ type LineItem = {
 };
 
 const TAX_RATE = 0.0875;
-const CC_SURCHARGE = 0.03;
+const CC_SURCHARGE = 0.035;
 
 interface Props {
   items: LineItem[];
@@ -146,7 +146,7 @@ export function POSCartPanel({
           <span>{formatUsd(cashTotalCents)}</span>
         </div>
         <div className="flex justify-between text-xs text-zinc-500">
-          <span>Card Total (+3% CC fee)</span>
+          <span>Card Total (+3.5% CC fee)</span>
           <span>{formatUsd(cardTotalCents)}</span>
         </div>
       </div>

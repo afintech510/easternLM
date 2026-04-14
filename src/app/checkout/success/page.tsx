@@ -173,7 +173,7 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
                 </div>
                 {order.cc_surcharge_cents > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">CC processing fee (3%)</span>
+                    <span className="text-muted-foreground">CC processing fee (3.5%)</span>
                     <span>{formatUsd(order.cc_surcharge_cents)}</span>
                   </div>
                 )}

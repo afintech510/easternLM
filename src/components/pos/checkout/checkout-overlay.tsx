@@ -161,7 +161,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-amber-400">{formatUsd(cart.cashTotalCents)}</p>
-            <p className="text-xs text-zinc-500">Card: {formatUsd(cart.cardTotalCents)} (+3%)</p>
+            <p className="text-xs text-zinc-500">Card: {formatUsd(cart.cardTotalCents)} (+3.5%)</p>
           </div>
         </div>
 
@@ -190,7 +190,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 p-5 text-center hover:border-blue-500/50 hover:bg-blue-950/20 transition-colors">
                 <CreditCard className="size-8 text-blue-400" />
                 <span className="text-sm font-semibold text-white">Card</span>
-                <span className="text-xs text-zinc-500">{formatUsd(cart.cardTotalCents)} (+3%)</span>
+                <span className="text-xs text-zinc-500">{formatUsd(cart.cardTotalCents)} (+3.5%)</span>
               </button>
 
               <button onClick={() => setStep("account")} disabled={!cart.isChargeAccount}
@@ -280,7 +280,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
               <span>Card Payment</span>
             </div>
             <div className="text-center space-y-1">
-              <p className="text-sm text-zinc-500">3% CC surcharge: {formatUsd(cart.ccFeeCents)}</p>
+              <p className="text-sm text-zinc-500">3.5% CC surcharge: {formatUsd(cart.ccFeeCents)}</p>
               <p className="text-3xl font-bold text-white">{formatUsd(cart.cardTotalCents)}</p>
             </div>
             {cardError && <p className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-sm text-red-300">{cardError}</p>}
@@ -342,7 +342,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                             <button onClick={() => setCreditRemainderMethod("cash")}
                               className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "cash" ? "bg-green-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Cash</button>
                             <button onClick={() => setCreditRemainderMethod("card_terminal")}
-                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_terminal" ? "bg-blue-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Card (+3%)</button>
+                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_terminal" ? "bg-blue-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Card (+3.5%)</button>
                           </div>
                         </div>
                       );
@@ -373,7 +373,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <select value={splitMethod1} onChange={(e) => setSplitMethod1(e.target.value as PaymentMethod)}
                   className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white">
                   <option value="cash">Cash</option>
-                  <option value="card_terminal">Card (+3%)</option>
+                  <option value="card_terminal">Card (+3.5%)</option>
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
                   {creditBalance > 0 && <option value="store_credit">Store Credit</option>}
@@ -386,7 +386,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <select value={splitMethod2} onChange={(e) => setSplitMethod2(e.target.value as PaymentMethod)}
                   className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white">
                   <option value="cash">Cash</option>
-                  <option value="card_terminal">Card (+3%)</option>
+                  <option value="card_terminal">Card (+3.5%)</option>
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
                   {creditBalance > 0 && <option value="store_credit">Store Credit</option>}

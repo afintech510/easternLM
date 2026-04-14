@@ -80,7 +80,7 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="text-lg font-semibold text-foreground">Credit Card Surcharge Disclosure</h2>
         <p>
-          In compliance with New York State law, a surcharge of up to 3% may be applied to credit and debit card transactions to cover payment processing costs. This surcharge is clearly disclosed during checkout before payment is submitted. Cash and check payments are not subject to this surcharge.
+          In compliance with New York State law, a surcharge of up to 3.5% may be applied to credit and debit card transactions to cover payment processing costs. This surcharge is clearly disclosed during checkout before payment is submitted. Cash and check payments are not subject to this surcharge.
         </p>
 
         <h2 className="text-lg font-semibold text-foreground">Data Security</h2>

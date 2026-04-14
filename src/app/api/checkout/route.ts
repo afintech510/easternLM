@@ -370,7 +370,7 @@ export async function POST(request: Request) {
           currency: "usd",
           unit_amount: calculation.ccSurchargeCents,
           product_data: {
-            name: "Credit Card Processing Fee (3%)",
+            name: "Credit Card Processing Fee (3.5%)",
           },
         },
       });
