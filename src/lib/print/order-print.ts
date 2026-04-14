@@ -120,7 +120,7 @@ export function mapDatabaseOrderToUnified(order: Record<string, any>): Printable
     delivery_address: order.delivery_address || order.customer_address || null,
     delivery_date: deliveryDate ? String(deliveryDate) : null,
     delivery_time_window: order.delivery_time_window || order.metadata?.deliveryTimeWindow as string || null,
-    delivery_notes: order.delivery_notes || order.metadata?.notes as string || null,
+    delivery_notes: order.delivery_notes || order.metadata?.notes as string || (order.access_constraints as Record<string, unknown>)?.notes as string || null,
     access_constraints: order.access_constraints || null,
     duration_seconds: order.duration_seconds ?? null,
     distance_meters: order.distance_meters ?? null,
