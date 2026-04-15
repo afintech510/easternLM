@@ -369,8 +369,9 @@ function PaymentSection({
   const isService = hasDeposit; // Quotes with a deposit use the accept flow
   const depositAmount = quote.deposit_required_cents ?? 0;
   const baseAmount = hasDeposit ? depositAmount : quote.total_cents;
-  // No CC surcharge — fee eliminated
-  const cardTotal = baseAmount;
+  // 3.5% card surcharge applied on card payments (deposit or full)
+  const ccSurchargeAmount = Math.round(baseAmount * 0.035);
+  const cardTotal = baseAmount + ccSurchargeAmount;
 
   const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "accept-verify" | "decline">("choose");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -569,6 +570,9 @@ function PaymentSection({
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-zinc-900">Pay by Card — {fmt(cardTotal)}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Includes 3.5% card fee ({fmt(ccSurchargeAmount)})
+                  </p>
                   <p className="text-xs text-accent mt-0.5">
                     Card · Apple Pay · Klarna · Affirm · Afterpay
                   </p>
