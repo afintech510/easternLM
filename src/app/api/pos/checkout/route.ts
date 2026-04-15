@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     delivery_address: delivery_address || null,
     delivery_date: delivery_date || null,
     delivery_time_window: delivery_time_window || null,
-    delivery_notes: delivery_notes || null,
+    delivery_notes: delivery_notes || notes || null,
     access_constraints: accessConstraints || {},
     materials_subtotal_cents: subtotal_cents,
     delivery_total_cents: delivery_fee_cents || 0,
