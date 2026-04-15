@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { scheduleFollowUps } from "@/lib/follow-ups/engine";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -33,6 +34,23 @@ export async function PATCH(request: Request, ctx: Ctx) {
       const orderStatus = body.status === "delivered" ? "delivered" : "out_for_delivery";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("orders").update({ status: orderStatus }) as any).eq("id", assignment.order_id);
+
+      // Schedule review solicitation follow-ups when marked delivered
+      if (body.status === "delivered") {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: order } = await (supabase as any).from("orders")
+            .select("id, customer_name, customer_phone, customer_email, delivery_address")
+            .eq("id", assignment.order_id)
+            .single();
+          if (order) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await scheduleFollowUps(supabase as any, order);
+          }
+        } catch (err) {
+          console.error("[admin/dispatch] scheduleFollowUps failed:", err);
+        }
+      }
     }
   }
 

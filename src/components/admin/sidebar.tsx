@@ -34,6 +34,7 @@ import {
   Calendar,
   Star,
   Share2,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickQuoteSidebarButton } from "@/components/admin/quick-quote";
@@ -81,6 +82,7 @@ const SECTIONS: NavSection[] = [
       { label: "Calendar", href: "/admin/marketing/calendar", icon: Calendar },
       { label: "Analytics", href: "/admin/marketing/analytics", icon: TrendingUp },
       { label: "Reviews", href: "/admin/marketing/reviews", icon: Star },
+      { label: "Review Requests", href: "/admin/marketing/review-requests", icon: Send },
       { label: "Promo Codes", href: "/admin/marketing/promos", icon: Tag },
       { label: "Settings", href: "/admin/marketing/settings", icon: Settings },
     ],
