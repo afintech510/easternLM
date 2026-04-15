@@ -369,9 +369,14 @@ function PaymentSection({
   const isService = hasDeposit; // Quotes with a deposit use the accept flow
   const depositAmount = quote.deposit_required_cents ?? 0;
   const baseAmount = hasDeposit ? depositAmount : quote.total_cents;
-  // 3.5% card surcharge applied on card payments (deposit or full)
+  // 3.5% card surcharge applied on card payments
   const ccSurchargeAmount = Math.round(baseAmount * 0.035);
   const cardTotal = baseAmount + ccSurchargeAmount;
+  // Surcharges for service quote display (deposit and full amounts)
+  const depositCardFee = Math.round(depositAmount * 0.035);
+  const depositCardTotal = depositAmount + depositCardFee;
+  const fullCardFee = Math.round(quote.total_cents * 0.035);
+  const fullCardTotal = quote.total_cents + fullCardFee;
 
   const [mode, setMode] = useState<"choose" | "card" | "cod-confirm" | "accept-verify" | "decline">("choose");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -512,7 +517,10 @@ function PaymentSection({
                       <Lock className="size-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-zinc-900">Pay Deposit — {fmt(depositAmount)}</p>
+                      <p className="font-semibold text-zinc-900">Pay Deposit — {fmt(depositCardTotal)}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        {fmt(depositAmount)} + 3.5% card fee ({fmt(depositCardFee)})
+                      </p>
                       <p className="text-xs text-accent mt-0.5">
                         Deposit secures your project · Balance of {fmt(quote.total_cents - depositAmount)} due on completion
                       </p>
@@ -540,9 +548,9 @@ function PaymentSection({
                   {hasDeposit ? <CheckCircle className="size-5 text-white" /> : <Lock className="size-5 text-white" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-zinc-900">Pay in Full — {fmt(quote.total_cents)}</p>
+                  <p className="font-semibold text-zinc-900">Pay in Full — {fmt(fullCardTotal)}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    Pay the full project total now
+                    {fmt(quote.total_cents)} + 3.5% card fee ({fmt(fullCardFee)})
                   </p>
                 </div>
               </button>
