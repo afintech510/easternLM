@@ -849,7 +849,7 @@ export default function PosRegisterPage() {
       delivery_address: (orderPayload.delivery_address as string) || null,
       delivery_date: (orderPayload.delivery_date as string) || delDate || null,
       delivery_time_window: (orderPayload.delivery_time_window as string) || (deliveryMethod === "delivery" ? delTimeWindow : null),
-      delivery_notes: (orderPayload.delivery_notes as string) || delNotes || null,
+      delivery_notes: (orderPayload.delivery_notes as string) || (orderPayload.notes as string) || delNotes || orderNotes || null,
       access_constraints: (orderPayload.access_constraints as Record<string, unknown>) || null,
       duration_seconds: routeInfo?.oneWayDurationSeconds ?? null,
       distance_meters: routeInfo?.oneWayDistanceMeters ?? null,
