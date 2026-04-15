@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { scheduleFollowUps } from "@/lib/follow-ups/engine";
 
 type Ctx = { params: Promise<{ orderId: string }> };
 
@@ -30,7 +31,7 @@ export async function POST(request: Request, ctx: Ctx) {
   }).eq("id", orderId);
 
   // If we need to add columns, use metadata instead
-  const { data: order } = await supabase.from("orders").select("metadata").eq("id", orderId).single();
+  const { data: order } = await supabase.from("orders").select("metadata, customer_name, customer_phone, customer_email, delivery_address").eq("id", orderId).single();
   await supabase.from("orders").update({
     status: "delivered",
     metadata: {
@@ -40,6 +41,21 @@ export async function POST(request: Request, ctx: Ctx) {
       cash_collected: cashCollected ?? false,
     },
   }).eq("id", orderId);
+
+  // Schedule review solicitation follow-ups (fire-and-forget)
+  if (order) {
+    try {
+      await scheduleFollowUps(supabase, {
+        id: orderId,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        customer_email: order.customer_email,
+        delivery_address: order.delivery_address,
+      });
+    } catch (err) {
+      console.error("[delivery/confirm] scheduleFollowUps failed:", err);
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
