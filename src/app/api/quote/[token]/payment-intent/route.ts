@@ -39,9 +39,13 @@ export async function POST(
   // - Service quotes with payFullAmount: full total
   // - Service quotes with deposit: deposit amount only
   const isService = quote.type === "service" && quote.deposit_required_cents > 0;
-  const chargeAmount = (isService && !payFullAmount)
+  const baseAmount = (isService && !payFullAmount)
     ? quote.deposit_required_cents
     : quote.total_cents;
+
+  // Apply 3.5% card surcharge for all card payments
+  const ccSurcharge = Math.round(baseAmount * 0.035);
+  const chargeAmount = baseAmount + ccSurcharge;
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: chargeAmount,
@@ -55,7 +59,8 @@ export async function POST(
       customer_name: quote.customer_name,
       customer_phone: quote.customer_phone ?? "",
       source: "quote_checkout",
-      base_amount: String(chargeAmount),
+      base_amount: String(baseAmount),
+      cc_surcharge: String(ccSurcharge),
       pay_full_amount: payFullAmount ? "true" : "false",
     },
   });
@@ -69,7 +74,7 @@ export async function POST(
     clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
     chargeAmountCents: chargeAmount,
-    baseAmountCents: chargeAmount,
-    ccSurchargeCents: 0,
+    baseAmountCents: baseAmount,
+    ccSurchargeCents: ccSurcharge,
   });
 }
