@@ -108,11 +108,32 @@ export async function POST(request: Request) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = getSupabaseAdminClient() as any;
-  const { data: order } = await supabase
-    .from("orders")
-    .select("id, customer_name, customer_phone, customer_email, delivery_address")
-    .eq("id", order_id)
-    .single();
+  const trimmed = order_id.trim().replace(/^#/, "");
+
+  // Support full UUID or prefix (first 8+ chars)
+  const isFullUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+  let order;
+  if (isFullUuid) {
+    const { data } = await supabase
+      .from("orders")
+      .select("id, customer_name, customer_phone, customer_email, delivery_address")
+      .eq("id", trimmed)
+      .single();
+    order = data;
+  } else {
+    // Prefix match — cast uuid to text and use LIKE
+    const prefix = trimmed.toLowerCase();
+    if (!/^[0-9a-f]{4,}$/.test(prefix)) {
+      return NextResponse.json({ error: "Invalid order ID format" }, { status: 400 });
+    }
+    const { data } = await supabase
+      .from("orders")
+      .select("id, customer_name, customer_phone, customer_email, delivery_address")
+      .filter("id::text", "like", `${prefix}%`)
+      .limit(1)
+      .single();
+    order = data;
+  }
 
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
