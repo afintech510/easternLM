@@ -3,7 +3,7 @@ dotenv.config({ path: ".env.local" });
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const from = "Eastern LM <orders@send.easternlm.com>";
+const from = `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "noreply@easternlm.com"}>`;
 const to = "alark51@gmail.com";
 
 async function main() {

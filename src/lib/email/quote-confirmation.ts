@@ -29,7 +29,7 @@ export async function sendQuoteConfirmationEmail(quote: {
 
   const { Resend } = await import("resend");
   const resend = new Resend(apiKey);
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com";
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com";
 
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
   const depositPaid = opts?.depositAmountCents ?? quote.deposit_paid_cents ?? 0;

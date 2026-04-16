@@ -92,7 +92,7 @@ export async function POST(
     const resend = new Resend(process.env.RESEND_API_KEY);
     const f = (c: number) => `$${(c / 100).toFixed(2)}`;
     await resend.emails.send({
-      from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com"}>`,
+      from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
       to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
       subject: `COD Order: ${quote.customer_name} — ${f(quote.total_cents)}`,
       html: `<p>Quote ${quote.quote_number} accepted as COD.</p>

@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
     if (order.customer_email) {
       await resend.emails.send({
-        from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com"}>`,
+        from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
         to: order.customer_email,
         subject: `Order Confirmed — Eastern Landscape & Mason Supply`,
         html: `<div style="max-width:560px;margin:0 auto;font-family:system-ui,sans-serif;">
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
     const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
 
     await resend.emails.send({
-      from: `Eastern LM Orders <${process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com"}>`,
+      from: `Eastern LM Orders <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
       to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
       subject: `New Order: ${order.customer_name} — ${fmt(order.grand_total_cents)}`,
       html: `<div style="font-family:system-ui,sans-serif;">

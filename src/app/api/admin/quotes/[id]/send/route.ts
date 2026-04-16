@@ -112,7 +112,7 @@ export async function POST(request: Request, context: RouteContext) {
   // Email
   if (via.includes("email") && quote.customer_email) {
     const apiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@send.easternlm.com";
+    const fromEmail = process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@easternlm.com";
     const replyTo = process.env.RESEND_QUOTES_REPLY_TO ?? "quotes@easternlm.com";
     if (!apiKey) {
       errors.push("Email: RESEND_API_KEY not configured");
