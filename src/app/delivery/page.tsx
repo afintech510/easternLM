@@ -68,8 +68,8 @@ const rules = [
 ];
 
 export const metadata = {
-  title: "Suffolk County Delivery | Mulch, Stone, Gravel | Eastern LM",
-  description: "Landscape and masonry material delivery across Suffolk County, Long Island. From Patchogue to Montauk, Riverhead to Miller Place. Transparent pricing, same-day available.",
+  title: "Delivery & Returns | Mulch, Stone, Gravel | Eastern LM",
+  description: "Landscape and masonry material delivery across Suffolk County, Long Island. Delivery fees, scheduling, returns policy, and pickup info. Same-day available.",
 };
 
 export default function DeliveryPage() {
@@ -167,6 +167,78 @@ export default function DeliveryPage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        {/* Scheduling & Cutoffs */}
+        <section className="rounded-2xl border bg-card p-6 md:p-8 space-y-3">
+          <h2 className="text-lg font-semibold">Scheduling &amp; Cutoffs</h2>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Same-day delivery is available on orders placed by <strong>11:00&nbsp;AM, Monday&ndash;Friday</strong>, subject to truck availability.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Saturday delivery varies by season. Call to confirm availability.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>You can schedule a preferred delivery date at checkout. We&apos;ll confirm the date by text or phone.</span>
+            </li>
+          </ul>
+        </section>
+
+        {/* Pickup */}
+        <section className="rounded-2xl border bg-card p-6 md:p-8 space-y-3">
+          <h2 className="text-lg font-semibold">Customer Pickup</h2>
+          <p className="text-sm text-muted-foreground">
+            Pickup is available at our yard — {siteConfig.addressLine1}, {siteConfig.addressLine2} —
+            during business hours. Bring a truck or trailer with proper tie-downs. Our loader will fill
+            your vehicle. The customer is responsible for securing the load; we are not liable for
+            spillage or damage en route after material leaves the yard.
+          </p>
+        </section>
+
+        {/* Returns & Refunds */}
+        <section id="returns" className="rounded-2xl border-2 border-primary/10 bg-card p-6 md:p-8 space-y-3">
+          <h2 className="text-lg font-semibold">Returns &amp; Refunds</h2>
+          <p className="text-sm text-muted-foreground">
+            Bulk materials are non-returnable once delivered or picked up. If your order arrives
+            damaged, is the wrong product, or the quantity is short, call us at{" "}
+            <a href={siteConfig.phoneHref} className="text-primary font-semibold">{siteConfig.phoneDisplay}</a>{" "}
+            within 24 hours and we will make it right — either by replacing the material at no charge
+            or issuing a refund to the original payment method.
+          </p>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Custom-blended or special-order materials are non-refundable.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Orders may be cancelled before dispatch for a full refund.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Bagged products and unused non-bulk items may be returned within 7 days with receipt.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-1 size-1.5 rounded-full bg-accent shrink-0" />
+              <span>Refunds are processed within 5&ndash;7 business days to the original payment method.</span>
+            </li>
+          </ul>
+        </section>
+
+        {/* Damage & Access */}
+        <section className="rounded-2xl border bg-card p-6 md:p-8 space-y-3">
+          <h2 className="text-lg font-semibold">Damage &amp; Access</h2>
+          <p className="text-sm text-muted-foreground">
+            The customer is responsible for ensuring the delivery location can support a loaded dump truck.
+            Indicate the exact dump spot before the driver arrives. We are not responsible for damage to
+            driveways, lawns, septic systems, or underground utilities when the customer has directed the
+            delivery path. If you have concerns about access, call us before scheduling — we can discuss
+            alternatives such as curbside placement.
+          </p>
         </section>
 
         {/* Core Delivery Area towns — larger text */}
