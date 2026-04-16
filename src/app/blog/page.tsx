@@ -46,7 +46,7 @@ export default async function BlogPage() {
           <article key={post.slug} className="rounded-2xl border bg-card p-4">
             <div className="relative mb-3 aspect-[16/10] w-full overflow-hidden rounded-xl">
               <Image
-                src={post.coverImage ?? "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=1200&h=800&fit=crop"}
+                src={post.coverImage ?? "/images/placeholder-product.svg"}
                 alt={post.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"

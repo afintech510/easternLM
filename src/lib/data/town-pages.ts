@@ -245,7 +245,7 @@ export async function getTownPageBundle(slug: string): Promise<TownPageBundle | 
     name: product.name,
     pricePerUnitCents: product.price_per_unit_cents,
     unitDisplay: product.unit_display,
-    image: product.images?.[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=800&fit=crop",
+    image: product.images?.[0] ?? "/images/placeholder-product.svg",
   }));
 
   return {

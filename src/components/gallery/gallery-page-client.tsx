@@ -110,7 +110,7 @@ export function GalleryPageClient({ projects }: GalleryPageClientProps) {
         {filteredProjects.length > 0 ? (
           <div className="columns-1 gap-4 space-y-4 md:columns-2 lg:columns-3">
             {filteredProjects.map((project) => {
-              const previewImage = project.images[0] ?? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&h=600&fit=crop";
+              const previewImage = project.images[0] ?? "/images/placeholder-product.svg";
               const hasBeforeAfter = project.beforeAfter && project.images.length >= 2;
 
               return (

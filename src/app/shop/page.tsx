@@ -252,7 +252,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                     {/* Image — big, clickable */}
                     <Link href={`/shop/${product.slug}`} className="block overflow-hidden bg-muted/30">
                       <Image
-                        src={product.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=640&fit=crop"}
+                        src={product.images[0] ?? "/images/placeholder-product.svg"}
                         alt={product.name}
                         className="aspect-[5/4] w-full object-contain transition-transform duration-300 group-hover:scale-105"
                         width={800}
