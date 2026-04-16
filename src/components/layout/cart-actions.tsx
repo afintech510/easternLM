@@ -6,10 +6,12 @@ import { Phone, ShoppingCart } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCartItemCount } from "@/stores/cartStore";
+import { useCartItemCount, useCartHydrated } from "@/stores/cartStore";
 
 export function CartActions() {
-  const cartItemCount = useCartItemCount();
+  const hydrated = useCartHydrated();
+  const rawCount = useCartItemCount();
+  const cartItemCount = hydrated ? rawCount : 0;
   const [bounce, setBounce] = useState(false);
   const prevCount = useRef(cartItemCount);
 

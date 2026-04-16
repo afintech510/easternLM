@@ -5,7 +5,7 @@ import { Check, ShoppingCart, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { DeliveryType, MaterialClass } from "@/lib/delivery";
-import { useCartStore } from "@/stores/cartStore";
+import { useCartStore, useCartHydrated } from "@/stores/cartStore";
 
 const BULK_PRESETS = [3, 5, 10, 15, 20];
 
@@ -32,11 +32,12 @@ export function ProductCardActions({
   unit = "yard",
   slug,
 }: Props) {
+  const hydrated = useCartHydrated();
   const addItem = useCartStore((state) => state.addItem);
   const cartItems = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
 
-  const cartItem = cartItems.find((i) => i.id === productId);
+  const cartItem = hydrated ? cartItems.find((i) => i.id === productId) : undefined;
   const isInCart = !!cartItem;
 
   const [qty, setQty] = useState(cartItem?.quantity ?? 1);

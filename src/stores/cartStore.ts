@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { calculateDeliveryFees, type CartItem } from "@/lib/delivery";
@@ -354,3 +355,18 @@ export const useCartStore = create<CartStore>()(
 
 export const useCartItemCount = () =>
   useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
+
+/**
+ * Returns true only after Zustand persist has rehydrated from localStorage.
+ * Use this in components that conditionally render DOM based on cart state
+ * to prevent React hydration mismatches (server renders empty, client has items).
+ */
+export function useCartHydrated() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    // Zustand persist rehydrates synchronously on mount, so by the time
+    // this effect runs the store already has the persisted values.
+    setHydrated(true);
+  }, []);
+  return hydrated;
+}

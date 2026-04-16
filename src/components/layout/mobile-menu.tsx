@@ -7,7 +7,7 @@ import { useState } from "react";
 import { siteConfig } from "@/config/site";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCartItemCount } from "@/stores/cartStore";
+import { useCartItemCount, useCartHydrated } from "@/stores/cartStore";
 import {
   Sheet,
   SheetContent,
@@ -33,7 +33,9 @@ const serviceLinks = [
 ];
 
 export function MobileMenu() {
-  const cartItemCount = useCartItemCount();
+  const hydrated = useCartHydrated();
+  const rawCount = useCartItemCount();
+  const cartItemCount = hydrated ? rawCount : 0;
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 

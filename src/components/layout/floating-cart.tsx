@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
-import { useCartStore } from "@/stores/cartStore";
+import { useCartStore, useCartHydrated } from "@/stores/cartStore";
 
 const HIDDEN_PATHS = ["/cart", "/checkout", "/admin", "/yard", "/field", "/pos", "/quote"];
 const MIN_TOP = 12; // px from viewport top when scrolled down
 
 export function FloatingCart() {
   const pathname = usePathname();
+  const hydrated = useCartHydrated();
   const items = useCartStore((s) => s.items);
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -40,7 +41,7 @@ export function FloatingCart() {
   }, []);
 
   const isHidden = HIDDEN_PATHS.some((p) => pathname.startsWith(p));
-  if (isHidden || items.length === 0) return null;
+  if (!hydrated || isHidden || items.length === 0) return null;
 
   const qtyDisplay = totalQty % 1 === 0 ? totalQty.toString() : totalQty.toFixed(1);
   const allBulk = items.every((i) => i.deliveryType === "bulk");
