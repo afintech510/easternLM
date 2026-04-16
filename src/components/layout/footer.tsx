@@ -4,9 +4,11 @@ import { ArrowRight, Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { NewsletterSignup } from "@/components/marketing/newsletter-signup";
+import { getGoogleReviews } from "@/lib/data/reviews";
 
-export function Footer() {
+export async function Footer() {
   const thisYear = new Date().getFullYear();
+  const { rating, totalReviews } = await getGoogleReviews();
 
   return (
     <footer>
@@ -126,7 +128,7 @@ export function Footer() {
                 className="inline-flex items-center gap-1 text-primary-foreground/60 hover:text-primary-foreground/80"
               >
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                <span className="font-medium">5.0 on Google</span>
+                <span className="font-medium">{rating.toFixed(1)} on Google · {totalReviews} reviews</span>
               </a>
               <Link href="/about" className="hover:text-primary-foreground/70">About</Link>
               <Link href="/delivery#returns" className="hover:text-primary-foreground/70">Delivery &amp; Returns</Link>

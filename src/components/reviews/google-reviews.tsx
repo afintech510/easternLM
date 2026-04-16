@@ -112,7 +112,7 @@ export function GoogleReviews({
                 )}
                 <div>
                   <p className="font-semibold text-sm">{review.author_name}</p>
-                  <p className="text-xs text-muted-foreground">{review.relative_time_description}</p>
+                  <p className="text-xs text-muted-foreground">{review.relative_time_description} · Google Review</p>
                 </div>
               </div>
               <StarRating rating={review.rating} />

@@ -79,6 +79,8 @@ export default async function Home() {
             reviewRating: { "@type": "Rating", ratingValue: String(r.rating), bestRating: "5" },
             author: { "@type": "Person", name: r.author_name },
             reviewBody: r.text,
+            ...(r.time ? { datePublished: new Date(r.time * 1000).toISOString().split("T")[0] } : {}),
+            publisher: { "@type": "Organization", name: "Google" },
           })),
           aggregateRating: { "@type": "AggregateRating", ratingValue: String(rating), reviewCount: String(totalReviews) },
         }}
@@ -276,7 +278,7 @@ export default async function Home() {
                   )}
                   <div>
                     <p className="text-sm font-semibold">{review.author_name}</p>
-                    <p className="text-xs text-muted-foreground">{review.relative_time_description}</p>
+                    <p className="text-xs text-muted-foreground">{review.relative_time_description} · Google Review</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-accent">
@@ -306,7 +308,7 @@ export default async function Home() {
                     )}
                     <div>
                       <p className="text-sm font-semibold">{review.author_name}</p>
-                      <p className="text-xs text-muted-foreground">{review.relative_time_description}</p>
+                      <p className="text-xs text-muted-foreground">{review.relative_time_description} · Google Review</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 text-accent">
