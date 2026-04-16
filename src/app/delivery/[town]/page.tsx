@@ -195,7 +195,7 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
                     <BeforeAfterSlider beforeImage={project.images[0]} afterImage={project.images[1]} alt={project.title} />
                   ) : (
                     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-                      <Image src={project.images[0] ?? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&h=800&fit=crop"} alt={project.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
+                      <Image src={project.images[0] ?? "/images/placeholder-product.svg"} alt={project.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                     </div>
                   )}
                   <p className="mt-3 text-sm font-semibold">{project.title}</p>

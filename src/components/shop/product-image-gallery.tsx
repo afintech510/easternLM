@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 
-const FALLBACK = "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=800&fit=crop";
+const FALLBACK = "/images/placeholder-product.svg";
 
 interface Props {
   images: string[];

@@ -3,8 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop";
+const FALLBACK_IMAGE = "/images/placeholder-product.svg";
 
 type ProductImageProps = {
   src: string;

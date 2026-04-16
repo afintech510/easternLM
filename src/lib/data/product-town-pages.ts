@@ -73,7 +73,7 @@ export type ServiceTownPage = {
 
 // ─── Queries ──────────────────────────────────────────────────────
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=500&fit=crop";
+const FALLBACK_IMAGE = "/images/placeholder-product.svg";
 
 export async function getProductTownPages(): Promise<Array<{ slug: string }>> {
   const supabase = getSupabaseServerClient();

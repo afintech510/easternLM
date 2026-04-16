@@ -86,7 +86,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     });
   }, [deliveryConfig, deliveryMethod, distancePreview, product, quantity]);
 
-  const imageList = product.images.length > 0 ? product.images : ["https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=800&fit=crop"];
+  const imageList = product.images.length > 0 ? product.images : ["/images/placeholder-product.svg"];
   const isBulk = product.deliveryType === "bulk";
   const lineTotal = Math.round(quantity * product.pricePerUnitCents);
 
@@ -299,7 +299,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             {relatedProducts.map((related) => (
               <article key={related.id} className="rounded-xl border bg-card p-4">
                 <Link href={`/shop/${related.slug}`} className="block">
-                  <ProductImage src={related.images[0] ?? "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=640&fit=crop"} alt={related.name} className="aspect-[5/4] w-full rounded-lg object-contain bg-muted/30" width={800} height={640} />
+                  <ProductImage src={related.images[0] ?? "/images/placeholder-product.svg"} alt={related.name} className="aspect-[5/4] w-full rounded-lg object-contain bg-muted/30" width={800} height={640} />
                 </Link>
                 <Link href={`/shop/${related.slug}`} className="mt-2 block text-sm font-semibold hover:text-accent">{related.name}</Link>
                 <p className="mt-0.5 text-sm font-bold text-accent">{formatUsd(related.pricePerUnitCents)} <span className="font-normal text-muted-foreground">{related.unitDisplay}</span></p>
