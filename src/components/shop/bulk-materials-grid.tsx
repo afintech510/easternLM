@@ -48,23 +48,27 @@ function QuickOrderSheet({ product, onClose }: { product: Product; onClose: () =
   const [added, setAdded] = useState(false);
   const subtotal = qty * webPrice;
 
-  function handleAdd() {
+  async function handleAdd() {
     if (qty <= 0) return;
-    if (cartItem) {
-      updateQuantity(product.id, qty);
-    } else {
-      addItem({
-        id: product.id,
-        name: product.name,
-        quantity: qty,
-        unitPriceCents: webPrice,
-        deliveryType: "bulk" as any,
-        materialClass: (product.material_class || "default") as any,
-      });
+    try {
+      if (cartItem) {
+        await updateQuantity(product.id, qty);
+      } else {
+        await addItem({
+          id: product.id,
+          name: product.name,
+          quantity: qty,
+          unitPriceCents: webPrice,
+          deliveryType: "bulk" as any,
+          materialClass: (product.material_class || "default") as any,
+        });
+      }
+      setAdded(true);
+      toast.success(`${qty} yd ${product.name} added to cart`);
+      setTimeout(() => { router.push("/cart"); }, 800);
+    } catch {
+      toast.error("Failed to add to cart. Please try again.");
     }
-    setAdded(true);
-    toast.success(`${qty} yd ${product.name} added to cart`);
-    setTimeout(() => { router.push("/cart"); }, 800);
   }
 
   if (added) {

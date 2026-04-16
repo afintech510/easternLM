@@ -123,16 +123,21 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
   async function handleAddToCart() {
     setIsAdding(true);
-    await addItem({ id: product.id, name: product.name, quantity, unitPriceCents: product.pricePerUnitCents, deliveryType: product.deliveryType, materialClass: product.materialClass, fulfillmentMethod: deliveryMethod });
-    setIsAdding(false);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 2000);
+    try {
+      await addItem({ id: product.id, name: product.name, quantity, unitPriceCents: product.pricePerUnitCents, deliveryType: product.deliveryType, materialClass: product.materialClass, fulfillmentMethod: deliveryMethod });
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 2000);
 
-    toast.success(`${product.name} added to cart`, {
-      description: `${quantity} × ${formatUsd(product.pricePerUnitCents)} = ${formatUsd(lineTotal)}`,
-      action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
-      duration: 3000,
-    });
+      toast.success(`${product.name} added to cart`, {
+        description: `${quantity} × ${formatUsd(product.pricePerUnitCents)} = ${formatUsd(lineTotal)}`,
+        action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
+        duration: 3000,
+      });
+    } catch {
+      toast.error("Failed to add to cart. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
   }
 
   return (

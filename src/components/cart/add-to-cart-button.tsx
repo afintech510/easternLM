@@ -34,26 +34,31 @@ export function AddToCartButton({
 
   async function handleClick() {
     setIsSubmitting(true);
-    await addItem({
-      id: productId,
-      name,
-      quantity,
-      unitPriceCents,
-      deliveryType,
-      materialClass,
-    });
-    setIsSubmitting(false);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 2000);
+    try {
+      await addItem({
+        id: productId,
+        name,
+        quantity,
+        unitPriceCents,
+        deliveryType,
+        materialClass,
+      });
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 2000);
 
-    toast.success(`${name} added to cart`, {
-      description: `${quantity} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * quantity)}`,
-      action: {
-        label: "View Cart",
-        onClick: () => { window.location.href = "/cart"; },
-      },
-      duration: 3000,
-    });
+      toast.success(`${name} added to cart`, {
+        description: `${quantity} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * quantity)}`,
+        action: {
+          label: "View Cart",
+          onClick: () => { window.location.href = "/cart"; },
+        },
+        duration: 3000,
+      });
+    } catch {
+      toast.error("Failed to add to cart. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (

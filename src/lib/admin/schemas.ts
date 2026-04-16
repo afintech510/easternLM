@@ -9,6 +9,7 @@ export const productSchema = z.object({
   delivery_type: z.enum(["bulk", "non-bulk"]),
   material_class: z.enum(["mulch", "default"]),
   price_per_unit_cents: z.number().int().nonnegative("Price must be non-negative"),
+  web_price_per_unit_cents: z.number().int().nonnegative().nullable().optional(),
   unit: z.string().min(1),
   unit_display: z.string().min(1),
   min_qty: z.number().positive(),

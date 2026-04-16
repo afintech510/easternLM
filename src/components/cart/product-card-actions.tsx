@@ -54,24 +54,29 @@ export function ProductCardActions({
     if (qty <= 0) return;
     setIsSubmitting(true);
 
-    if (isInCart) {
-      updateQuantity(productId, qty);
-      toast.success(`${name} updated`, {
-        description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
-        duration: 2000,
-      });
-    } else {
-      await addItem({ id: productId, name, quantity: qty, unitPriceCents, deliveryType, materialClass });
-      toast.success(`${name} added to cart`, {
-        description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
-        action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
-        duration: 3000,
-      });
-    }
+    try {
+      if (isInCart) {
+        await updateQuantity(productId, qty);
+        toast.success(`${name} updated`, {
+          description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
+          duration: 2000,
+        });
+      } else {
+        await addItem({ id: productId, name, quantity: qty, unitPriceCents, deliveryType, materialClass });
+        toast.success(`${name} added to cart`, {
+          description: `${qty} ${unit} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * qty)}`,
+          action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } },
+          duration: 3000,
+        });
+      }
 
-    setIsSubmitting(false);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 2000);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 2000);
+    } catch {
+      toast.error("Failed to update cart. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (justAdded) {

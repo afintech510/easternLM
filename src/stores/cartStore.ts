@@ -128,12 +128,21 @@ export const useCartStore = create<CartStore>()(
 
       addItem: async (item) => {
         set((state) => ({ items: upsertCartItem(state.items, item), error: null }));
-        await get().recalculateDelivery();
+        try {
+          await get().recalculateDelivery();
+        } catch {
+          // Item is already added — don't let delivery calc errors block the cart
+          set({ isCalculating: false });
+        }
       },
 
       removeItem: async (itemId) => {
         set((state) => ({ items: state.items.filter((item) => item.id !== itemId), error: null }));
-        await get().recalculateDelivery();
+        try {
+          await get().recalculateDelivery();
+        } catch {
+          set({ isCalculating: false });
+        }
       },
 
       updateQuantity: async (itemId, quantity) => {
@@ -146,7 +155,11 @@ export const useCartStore = create<CartStore>()(
           items: state.items.map((item) => (item.id === itemId ? { ...item, quantity } : item)),
           error: null,
         }));
-        await get().recalculateDelivery();
+        try {
+          await get().recalculateDelivery();
+        } catch {
+          set({ isCalculating: false });
+        }
       },
 
       setDeliveryAddress: async (address) => {
@@ -169,12 +182,20 @@ export const useCartStore = create<CartStore>()(
           deliveryMethod: method ?? (state.deliveryMethod === "delivery" ? "pickup" : "delivery"),
           error: null,
         }));
-        await get().recalculateDelivery();
+        try {
+          await get().recalculateDelivery();
+        } catch {
+          set({ isCalculating: false });
+        }
       },
 
       toggleCombineLoads: async () => {
         set((state) => ({ combineLoads: !state.combineLoads, error: null }));
-        await get().recalculateDelivery();
+        try {
+          await get().recalculateDelivery();
+        } catch {
+          set({ isCalculating: false });
+        }
       },
 
       applyPromoCode: async (code) => {
@@ -277,21 +298,29 @@ export const useCartStore = create<CartStore>()(
           return;
         }
 
-        const calculation = calculateDeliveryFees({
-          cartItems: items,
-          distanceResult: deliveryMethod === "delivery" ? distanceResult : null,
-          pricingConfig: deliveryPricingConfig,
-          truckTypes,
-          combineLoads,
-          deliveryMethod,
-          customerType,
-        });
+        try {
+          const calculation = calculateDeliveryFees({
+            cartItems: items,
+            distanceResult: deliveryMethod === "delivery" ? distanceResult : null,
+            pricingConfig: deliveryPricingConfig,
+            truckTypes,
+            combineLoads,
+            deliveryMethod,
+            customerType,
+          });
 
-        set({
-          deliveryCalculation: calculation,
-          isCalculating: false,
-          error: calculation.error ?? null,
-        });
+          set({
+            deliveryCalculation: calculation,
+            isCalculating: false,
+            error: calculation.error ?? null,
+          });
+        } catch {
+          set({
+            deliveryCalculation: null,
+            isCalculating: false,
+            error: "Unable to calculate delivery fees.",
+          });
+        }
       },
 
       clearError: () => set({ error: null }),

@@ -28,6 +28,7 @@ type ProductData = {
   delivery_type: string;
   material_class: string;
   price_per_unit_cents: number;
+  web_price_per_unit_cents?: number | null;
   unit: string;
   unit_display: string;
   min_qty: number;
@@ -84,6 +85,7 @@ export function ProductForm({
           delivery_type: product.delivery_type as "bulk" | "non-bulk",
           material_class: product.material_class as "mulch" | "default",
           price_per_unit_cents: product.price_per_unit_cents,
+          web_price_per_unit_cents: product.web_price_per_unit_cents ?? null,
           unit: product.unit,
           unit_display: product.unit_display,
           min_qty: product.min_qty,
@@ -110,6 +112,7 @@ export function ProductForm({
           delivery_type: "bulk",
           material_class: "default",
           price_per_unit_cents: 0,
+          web_price_per_unit_cents: null,
           unit: "yard",
           unit_display: "per yard",
           min_qty: 1,
@@ -226,14 +229,24 @@ export function ProductForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
         <div className="space-y-2">
-          <Label htmlFor="price">Price (cents)</Label>
+          <Label htmlFor="price">Yard Price (cents)</Label>
           <Input
             id="price"
             type="number"
             {...register("price_per_unit_cents", { valueAsNumber: true })}
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="webPrice">Web Price (cents)</Label>
+          <Input
+            id="webPrice"
+            type="number"
+            placeholder="null = use yard price"
+            {...register("web_price_per_unit_cents", { setValueAs: (v: string) => v === "" ? null : Number(v) })}
+          />
+          <p className="text-xs text-muted-foreground">Leave blank to use yard price</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="unit">Unit</Label>
