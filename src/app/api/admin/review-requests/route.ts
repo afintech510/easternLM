@@ -121,15 +121,18 @@ export async function POST(request: Request) {
       .single();
     order = data;
   } else {
-    // Prefix match — cast uuid to text and use LIKE
+    // Prefix match — use UUID range scan (gte/lte with padded bounds)
     const prefix = trimmed.toLowerCase();
     if (!/^[0-9a-f]{4,}$/.test(prefix)) {
       return NextResponse.json({ error: "Invalid order ID format" }, { status: 400 });
     }
+    const lo = prefix.padEnd(32, "0").replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
+    const hi = prefix.padEnd(32, "f").replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, "$1-$2-$3-$4-$5");
     const { data } = await supabase
       .from("orders")
       .select("id, customer_name, customer_phone, customer_email, delivery_address")
-      .filter("id::text", "like", `${prefix}%`)
+      .gte("id", lo)
+      .lte("id", hi)
       .limit(1)
       .single();
     order = data;
