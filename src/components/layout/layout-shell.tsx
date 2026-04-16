@@ -2,11 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
-import { Footer } from "./footer";
 import { FloatingCart } from "./floating-cart";
 import { PromoPopup } from "../marketing/promo-popup";
 
-export function LayoutShell({ children }: { children: React.ReactNode }) {
+export function LayoutShell({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
   const pathname = usePathname();
   const isPOS = pathname.startsWith("/pos") || pathname.startsWith("/yard");
   const isQuote = pathname.startsWith("/quote/") || pathname.startsWith("/q/");
@@ -18,7 +17,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">{children}</main>
-      <Footer />
+      {footer}
       <FloatingCart />
       <PromoPopup />
     </div>
