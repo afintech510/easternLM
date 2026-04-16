@@ -175,6 +175,11 @@ function serializeDeliveryScheduleMetadata(
 
 export async function POST(request: Request) {
   try {
+    // Capture GCLID from cookie (set by middleware on ?gclid= landing)
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const gclidValue = cookieStore.get("elm_gclid")?.value || null;
+
     const rawBody = await request.json();
     const parsed = requestSchema.safeParse(rawBody);
     if (!parsed.success) {
@@ -530,6 +535,7 @@ export async function POST(request: Request) {
           delivery_date: payload.deliveryDate || null,
           delivery_time_window: payload.deliveryTimeWindow || null,
           source: "web",
+          gclid: gclidValue,
           metadata: {
             promoCode: payload.promoCode ?? "",
             createAccount: Boolean(payload.createAccount),

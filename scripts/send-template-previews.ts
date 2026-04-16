@@ -43,8 +43,8 @@ async function main() {
     <li>Delivery (1st load): $65.00</li>
     <li>Delivery (addl load): $50.00</li>
     <li>Tax (8.75%): $33.00</li>
-    <li>CC Processing Fee (3%): $12.30</li>
-    <li><strong>Total: $422.30</strong></li>
+    <li>CC Processing Fee (3.5%): $14.35</li>
+    <li><strong>Total: $424.35</strong></li>
   </ul>
 
   <h3 style="margin:16px 0 8px;">Delivery Schedule</h3>

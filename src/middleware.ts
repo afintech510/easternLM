@@ -56,6 +56,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 307);
   }
 
+  // ─── GCLID capture (Google Ads click attribution) ────────────────
+  const gclid = request.nextUrl.searchParams.get("gclid");
+  if (gclid) {
+    // Strip gclid from URL and set cookie
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete("gclid");
+    const redirectResponse = NextResponse.redirect(cleanUrl, 302);
+    redirectResponse.cookies.set("elm_gclid", gclid, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 90 * 24 * 60 * 60, // 90 days
+      path: "/",
+    });
+    return redirectResponse;
+  }
+
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // Refresh Supabase session on every request
