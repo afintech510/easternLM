@@ -221,7 +221,7 @@ export async function POST(request: Request) {
         ).join("");
 
         await resend.emails.send({
-          from: `Eastern LM Quotes <${process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@send.easternlm.com"}>`,
+          from: `Eastern LM Quotes <${process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@easternlm.com"}>`,
           replyTo: "quotes@easternlm.com",
           to: customer.email,
           subject: `Your Quote from Eastern LM — ${quoteNumber}`,

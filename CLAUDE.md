@@ -176,5 +176,5 @@ All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 1. ~~Switch STRIPE_SECRET_KEY from test to live~~ ✅ PROD secrets set in `.env.local`
 2. Point DNS (easternlm.com + www) to VPS IP
 3. Add nginx server block routing easternlm.com → port 3100
-4. Verify Resend sending domain (send.easternlm.com)
+4. Verify Resend sending domain (easternlm.com)
 5. Replace placeholder product images with real photography

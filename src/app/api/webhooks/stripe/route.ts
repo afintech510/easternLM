@@ -532,7 +532,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? "orders@send.easternlm.com",
+          from: process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com",
           to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
           subject: `New Order — ${order.customer_name} — ${orderTotal}`,
           html: `<div style="font-family:sans-serif;max-width:500px;">

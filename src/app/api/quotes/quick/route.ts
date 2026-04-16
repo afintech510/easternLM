@@ -14,7 +14,7 @@ async function sendQuoteSms(phone: string, quoteNumber: string, totalCents: numb
 
 async function sendQuoteEmail(email: string, customerName: string, quoteNumber: string, totalCents: number, quoteUrl: string) {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@send.easternlm.com";
+  const fromEmail = process.env.RESEND_QUOTES_FROM_EMAIL ?? "quotes@easternlm.com";
   const replyTo = process.env.RESEND_QUOTES_REPLY_TO ?? "quotes@easternlm.com";
   if (!apiKey) return;
 
