@@ -6,6 +6,8 @@ export type CachedReview = {
   text: string;
   relative_time_description: string;
   profile_photo_url?: string;
+  author_url?: string;
+  time?: number;
 };
 
 export type ReviewsData = {
