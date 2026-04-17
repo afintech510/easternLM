@@ -95,7 +95,28 @@ export function CheckoutPageClient() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
   const autoTriggered = useRef(false);
+
+  // Client-side COD total preview: applies 3% discount on (subtotal + delivery + tax),
+  // removes CC surcharge. Server recomputes for authoritative total.
+  const codPreview = useMemo(() => {
+    if (!calculation) return null;
+    const preCcTotal =
+      calculation.discountedSubtotalCents +
+      calculation.deliveryFeeCents +
+      calculation.taxCents;
+    const codDiscountCents = Math.round(preCcTotal * 0.03);
+    return {
+      codDiscountCents,
+      grandTotalCents: preCcTotal - codDiscountCents,
+    };
+  }, [calculation]);
+
+  const displayTotalCents =
+    paymentMethod === "cod" && codPreview
+      ? codPreview.grandTotalCents
+      : calculation?.grandTotalCents ?? 0;
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
@@ -126,14 +147,21 @@ export function CheckoutPageClient() {
     return !calculation.checkoutBlocked;
   }, [calculation, formValid, items.length]);
 
-  // Auto-proceed to payment if all fields are already filled from cart
+  // Auto-proceed to payment if all fields are already filled from cart.
+  // Only auto-triggers for card payment — COD requires explicit click.
   useEffect(() => {
-    if (!autoTriggered.current && canCheckout && !clientSecret && !isSubmitting) {
+    if (
+      !autoTriggered.current &&
+      canCheckout &&
+      !clientSecret &&
+      !isSubmitting &&
+      paymentMethod === "card"
+    ) {
       autoTriggered.current = true;
       handleContinueToPayment();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCheckout]);
+  }, [canCheckout, paymentMethod]);
 
   // Split items for display
   const bulkItems = items.filter((i) => i.deliveryType === "bulk");
@@ -161,6 +189,11 @@ export function CheckoutPageClient() {
     setError(null);
     setIsSubmitting(true);
     try {
+      const clientGrandTotal =
+        paymentMethod === "cod" && codPreview
+          ? codPreview.grandTotalCents
+          : calculation!.grandTotalCents;
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -173,7 +206,7 @@ export function CheckoutPageClient() {
           accessConstraints,
           deliveryDate,
           deliveryTimeWindow,
-          clientGrandTotalCents: calculation!.grandTotalCents,
+          clientGrandTotalCents: clientGrandTotal,
           customer: { fullName, email, phone, optInSms },
           deliverySequence: bulkItems.map((item, i) => ({
             deliveryNumber: i + 1,
@@ -184,10 +217,21 @@ export function CheckoutPageClient() {
           })),
           mode: "embedded",
           createAccount: false,
+          paymentMethod,
         }),
       });
       const body = await response.json();
-      if (!response.ok || !body.clientSecret) throw new Error(body.error ?? "Checkout failed.");
+      if (!response.ok) throw new Error(body.error ?? "Checkout failed.");
+
+      // COD: order created and notifications sent — redirect to success page
+      if (body.codConfirmed && body.orderId) {
+        useCartStore.getState().clearCart();
+        window.location.href = `/checkout/success?orderId=${body.orderId}&cod=1`;
+        return;
+      }
+
+      // Card: continue to Stripe payment
+      if (!body.clientSecret) throw new Error("Checkout failed.");
       setClientSecret(body.clientSecret);
       setPaymentIntentId(body.paymentIntentId ?? null);
     } catch (err) {
@@ -344,17 +388,83 @@ export function CheckoutPageClient() {
             </div>
           ) : !clientSecret ? (
             <>
+              {/* Payment method toggle */}
+              <div className="rounded-xl border border-blue-800/40 bg-card p-5 shadow-[0_0_12px_-3px_rgba(37,99,235,0.2)] space-y-3">
+                <h2 className="text-sm font-semibold">Payment Method</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label
+                    className={`flex cursor-pointer flex-col gap-1 rounded-lg border-2 p-3 transition-colors ${
+                      paymentMethod === "card"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-border/80"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="card"
+                        checked={paymentMethod === "card"}
+                        onChange={() => setPaymentMethod("card")}
+                        className="size-4 accent-primary"
+                      />
+                      <span className="text-sm font-semibold">Credit Card</span>
+                    </div>
+                    <p className="ml-6 text-xs text-muted-foreground">
+                      Pay now with Visa, Mastercard, Amex. Secure via Stripe.
+                    </p>
+                  </label>
+                  <label
+                    className={`flex cursor-pointer flex-col gap-1 rounded-lg border-2 p-3 transition-colors ${
+                      paymentMethod === "cod"
+                        ? "border-accent bg-accent/5"
+                        : "border-border hover:border-border/80"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="cod"
+                        checked={paymentMethod === "cod"}
+                        onChange={() => setPaymentMethod("cod")}
+                        className="size-4 accent-primary"
+                      />
+                      <span className="text-sm font-semibold">Cash on Delivery</span>
+                      <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                        SAVE 3%
+                      </span>
+                    </div>
+                    <p className="ml-6 text-xs text-muted-foreground">
+                      Pay driver on arrival (cash or check). Get 3% off and no processing fee.
+                    </p>
+                  </label>
+                </div>
+              </div>
+
               <Button
                 onClick={handleContinueToPayment}
                 disabled={!canCheckout || isSubmitting}
                 size="lg"
                 className="w-full bg-accent text-accent-foreground text-base hover:bg-accent/90"
               >
-                {isSubmitting ? <><Loader2 className="size-4 animate-spin" /> Preparing payment...</> : <><Lock className="size-4" /> Continue to Payment — {formatUsd(calculation.grandTotalCents)}</>}
+                {isSubmitting ? (
+                  <><Loader2 className="size-4 animate-spin" /> {paymentMethod === "cod" ? "Placing order..." : "Preparing payment..."}</>
+                ) : paymentMethod === "cod" ? (
+                  <><CheckCircle className="size-4" /> Place Order — {formatUsd(displayTotalCents)} on delivery</>
+                ) : (
+                  <><Lock className="size-4" /> Continue to Payment — {formatUsd(calculation.grandTotalCents)}</>
+                )}
               </Button>
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Shield className="size-3" /> Secure checkout via Stripe</span>
-                <span>256-bit encryption</span>
+                {paymentMethod === "cod" ? (
+                  <span className="flex items-center gap-1"><CheckCircle className="size-3 text-green-600" /> No payment now · Pay driver on delivery</span>
+                ) : (
+                  <>
+                    <span className="flex items-center gap-1"><Shield className="size-3" /> Secure checkout via Stripe</span>
+                    <span>256-bit encryption</span>
+                  </>
+                )}
               </div>
             </>
           ) : stripePromise ? (
@@ -437,9 +547,15 @@ export function CheckoutPageClient() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
+              {paymentMethod === "cod" && codPreview && codPreview.codDiscountCents > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">COD discount (3%)</span>
+                  <span className="text-green-600">-{formatUsd(codPreview.codDiscountCents)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t pt-2 text-lg font-bold text-primary">
-                <span>Total</span>
-                <span>{formatUsd(calculation.grandTotalCents)}</span>
+                <span>{paymentMethod === "cod" ? "Due on Delivery" : "Total"}</span>
+                <span>{formatUsd(displayTotalCents)}</span>
               </div>
             </div>
 

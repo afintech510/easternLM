@@ -51,6 +51,10 @@ export type DeliveryLoad = {
   day: number;
 };
 
+export type PaymentMethod = "card" | "cod";
+
+export const COD_DISCOUNT_RATE = 0.03;
+
 export type DeliveryCalculationResult = {
   subtotalCents: number;
   proDiscountCents: number;
@@ -58,6 +62,7 @@ export type DeliveryCalculationResult = {
   deliveryFeeCents: number;
   taxCents: number;
   ccSurchargeCents: number;
+  codDiscountCents: number;
   grandTotalCents: number;
   firstLoadFeeCents: number;
   additionalLoadFeeCents: number;
@@ -70,6 +75,26 @@ export type DeliveryCalculationResult = {
   loads: DeliveryLoad[];
   error?: string;
 };
+
+/**
+ * Applies COD payment method adjustments to a delivery calculation result.
+ * - Removes the CC surcharge (customer isn't paying by card)
+ * - Applies a 3% discount on the pre-CC total (subtotal + delivery + tax)
+ * - Returns a new result with codDiscountCents populated and grandTotal adjusted
+ */
+export function applyCodAdjustment(
+  result: DeliveryCalculationResult
+): DeliveryCalculationResult {
+  const preCcTotal =
+    result.discountedSubtotalCents + result.deliveryFeeCents + result.taxCents;
+  const codDiscountCents = Math.round(preCcTotal * COD_DISCOUNT_RATE);
+  return {
+    ...result,
+    ccSurchargeCents: 0,
+    codDiscountCents,
+    grandTotalCents: preCcTotal - codDiscountCents,
+  };
+}
 
 type FeeOverrides = {
   firstLoadFeeCents?: number;
@@ -270,6 +295,7 @@ function buildNoDeliveryResult({
     deliveryFeeCents: 0,
     taxCents,
     ccSurchargeCents,
+    codDiscountCents: 0,
     grandTotalCents,
     firstLoadFeeCents: 0,
     additionalLoadFeeCents: 0,
@@ -445,6 +471,7 @@ export function calculateDeliveryFees(input: CalculateDeliveryFeesInput): Delive
     deliveryFeeCents,
     taxCents,
     ccSurchargeCents,
+    codDiscountCents: 0,
     grandTotalCents,
     firstLoadFeeCents,
     additionalLoadFeeCents,

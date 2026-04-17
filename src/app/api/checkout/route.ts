@@ -1,10 +1,12 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sendSms } from "@/lib/sms";
 import { hashAddress } from "@/lib/address-utils";
 import { getDeliveryRuntimeConfig } from "@/lib/data/delivery-config";
 import {
   calculateDeliveryFeesWithCache,
+  applyCodAdjustment,
   type CartItem,
   type DeliveryFeeCacheAdapter,
   type CustomerType,
@@ -12,6 +14,104 @@ import {
 import { fetchGoogleDistanceMatrix } from "@/lib/google-maps";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/types/database";
+
+/**
+ * Sends confirmation emails and admin SMS for a COD order.
+ * Mirrors the notifications in /api/checkout/confirm but tailored for "unpaid, due on delivery".
+ */
+async function sendCodNotifications(params: {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  grandTotalCents: number;
+  codDiscountCents: number;
+  deliveryMethod: string;
+  deliveryAddress: string | null;
+  deliveryDate?: string;
+  deliveryTimeWindow?: string;
+  cartItems: Array<{ name: string; quantity: number; unitPriceCents: number }>;
+}) {
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const itemRows = params.cartItems
+    .map(
+      (i) =>
+        `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${i.quantity} × ${i.name}</td><td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;">${fmt(i.quantity * i.unitPriceCents)}</td></tr>`,
+    )
+    .join("");
+
+  const fulfillmentLine =
+    params.deliveryMethod === "delivery" && params.deliveryAddress
+      ? `<p><strong>Delivery to:</strong> ${params.deliveryAddress}</p>`
+      : `<p><strong>Pickup at:</strong> 110 Frowein Road, Center Moriches, NY 11934</p>`;
+
+  const dateLine = params.deliveryDate
+    ? `<p><strong>Scheduled:</strong> ${params.deliveryDate}${params.deliveryTimeWindow ? ` (${params.deliveryTimeWindow})` : ""}</p>`
+    : "";
+
+  // Customer confirmation
+  if (params.customerEmail) {
+    try {
+      await resend.emails.send({
+        from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
+        to: params.customerEmail,
+        subject: `Order Confirmed (Cash on Delivery) — Eastern Landscape & Mason Supply`,
+        html: `<div style="max-width:560px;margin:0 auto;font-family:system-ui,sans-serif;">
+          <div style="background:#002e44;padding:20px;text-align:center;"><span style="color:#fff;font-size:20px;font-weight:700;">Eastern Landscape &amp; Mason Supply</span></div>
+          <div style="padding:24px;">
+            <h2 style="color:#002e44;">Order Confirmed</h2>
+            <p>Hi ${params.customerName},</p>
+            <p>Your order is confirmed. Payment will be collected on delivery.</p>
+            <table style="width:100%;border-collapse:collapse;">${itemRows}</table>
+            <div style="margin:16px 0;padding:12px;background:#fffbea;border:1px solid #fde68a;border-radius:8px;">
+              <p style="margin:0;"><strong>Amount Due on Delivery:</strong> <span style="font-size:18px;color:#002e44;">${fmt(params.grandTotalCents)}</span></p>
+              ${params.codDiscountCents > 0 ? `<p style="margin:6px 0 0;color:#16a34a;font-size:13px;">You saved ${fmt(params.codDiscountCents)} with Cash on Delivery (3% discount).</p>` : ""}
+            </div>
+            ${fulfillmentLine}
+            ${dateLine}
+            <p style="margin-top:16px;">Please have cash or check ready for the driver. Our crew will contact you to confirm delivery scheduling.</p>
+            <p style="margin-top:20px;color:#666;font-size:12px;">Questions? Call (631) 874-6244</p>
+          </div>
+          <div style="background:#f5f5f0;padding:16px;text-align:center;font-size:12px;color:#888;">Eastern Landscape &amp; Mason Supply · 110 Frowein Road, Center Moriches, NY 11934</div>
+        </div>`,
+      });
+    } catch (err) {
+      console.error("[COD] Customer email error:", err);
+    }
+  }
+
+  // Admin email
+  try {
+    await resend.emails.send({
+      from: `Eastern LM Orders <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
+      to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
+      subject: `🟡 COD Order: ${params.customerName} — ${fmt(params.grandTotalCents)}`,
+      html: `<div style="font-family:system-ui,sans-serif;">
+        <h2>New COD Order (Payment Due on Delivery)</h2>
+        <p><strong>Customer:</strong> ${params.customerName}</p>
+        <p><strong>Phone:</strong> ${params.customerPhone || "—"}</p>
+        <p><strong>Email:</strong> ${params.customerEmail || "—"}</p>
+        <p><strong>Amount Due on Delivery:</strong> <span style="font-size:18px;color:#002e44;">${fmt(params.grandTotalCents)}</span></p>
+        <p><strong>Method:</strong> ${params.deliveryMethod}</p>
+        ${params.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${params.deliveryAddress}</p>` : ""}
+        ${dateLine}
+        <p style="margin-top:16px;background:#fef3c7;padding:10px;border-radius:6px;"><strong>⚠️ COLLECT ${fmt(params.grandTotalCents)} CASH OR CHECK AT DELIVERY</strong></p>
+        <p><a href="https://easternlm.com/admin/operations">View in Admin</a></p>
+      </div>`,
+    });
+  } catch (err) {
+    console.error("[COD] Admin email error:", err);
+  }
+
+  // SMS to office line
+  try {
+    const msg = `🟡 COD Order: ${params.customerName} — ${fmt(params.grandTotalCents)} due on delivery. ${params.deliveryMethod === "delivery" ? `To ${params.deliveryAddress}` : "Pickup"}`;
+    await sendSms("+16318746244", msg).catch(() => {});
+  } catch {}
+}
 
 const checkoutItemSchema = z.object({
   id: z.string().min(1),
@@ -55,6 +155,7 @@ const requestSchema = z.object({
     feeCents: z.number(),
   })).optional(),
   mode: z.enum(["redirect", "embedded"]).optional().default("embedded"),
+  paymentMethod: z.enum(["card", "cod"]).optional().default("card"),
 });
 
 async function resolveCustomerType(promoCode?: string): Promise<CustomerType> {
@@ -260,7 +361,8 @@ export async function POST(request: Request) {
     };
 
     const mapsKey = process.env.GOOGLE_MAPS_API_KEY;
-    const calculation = await calculateDeliveryFeesWithCache({
+    const isCod = payload.paymentMethod === "cod";
+    const baseCalc = await calculateDeliveryFeesWithCache({
       cartItems: payload.cartItems,
       pricingConfig: runtimeConfig.pricingConfig,
       truckTypes: runtimeConfig.truckTypes,
@@ -284,6 +386,9 @@ export async function POST(request: Request) {
             }
           : undefined,
     });
+
+    // Apply COD adjustment if payment method is cash on delivery
+    const calculation = isCod ? applyCodAdjustment(baseCalc) : baseCalc;
 
     if (calculation.error) {
       return NextResponse.json({ error: calculation.error }, { status: 400 });
@@ -445,30 +550,34 @@ export async function POST(request: Request) {
 
     // Embedded mode: create PaymentIntent (customer stays on our domain)
     // Redirect mode: create Checkout Session (redirects to Stripe)
+    // COD mode: skip Stripe entirely — order created directly as pending
     const useEmbedded = payload.mode === "embedded";
 
     let session: Stripe.Checkout.Session | null = null;
     let paymentIntent: Stripe.PaymentIntent | null = null;
 
-    if (useEmbedded) {
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: calculation.grandTotalCents,
-        currency: "usd",
-        automatic_payment_methods: { enabled: true },
-        receipt_email: payload.customer.email,
-        metadata: orderMetadata,
-      });
-    } else {
-      session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: lineItems,
-        success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/checkout?canceled=1`,
-        customer_email: payload.customer.email,
-        metadata: orderMetadata,
-      });
+    if (!isCod) {
+      if (useEmbedded) {
+        paymentIntent = await stripe.paymentIntents.create({
+          amount: calculation.grandTotalCents,
+          currency: "usd",
+          automatic_payment_methods: { enabled: true },
+          receipt_email: payload.customer.email,
+          metadata: orderMetadata,
+        });
+      } else {
+        session = await stripe.checkout.sessions.create({
+          mode: "payment",
+          line_items: lineItems,
+          success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}/checkout?canceled=1`,
+          customer_email: payload.customer.email,
+          metadata: orderMetadata,
+        });
+      }
     }
 
+    let createdOrderId: string | null = null;
     try {
       const deliverySchedule = calculation.loads.map((load) => ({
         day: load.day,
@@ -515,6 +624,7 @@ export async function POST(request: Request) {
           customer_email: payload.customer.email,
           customer_phone: payload.customer.phone,
           status: "pending",
+          payment_method: isCod ? "cod" : null,
           delivery_method: payload.deliveryMethod,
           delivery_address: resolvedDeliveryAddress?.fullAddress ?? null,
           delivery_zip: resolvedDeliveryAddress?.zip ?? null,
@@ -542,6 +652,8 @@ export async function POST(request: Request) {
             deliveryDate: payload.deliveryDate ?? "",
             clientGrandTotalCents: payload.clientGrandTotalCents,
             source: "api_checkout",
+            paymentMethod: payload.paymentMethod,
+            codDiscountCents: calculation.codDiscountCents || 0,
           },
         })
         .select("id")
@@ -549,6 +661,7 @@ export async function POST(request: Request) {
 
       if (!insertedOrder.error && insertedOrder.data) {
         const orderId = insertedOrder.data.id;
+        createdOrderId = orderId;
         const orderItemRows: Database["public"]["Tables"]["order_items"]["Insert"][] = payload.cartItems.map(
           (item, index) => ({
           order_id: orderId,
@@ -583,6 +696,42 @@ export async function POST(request: Request) {
       }
     } catch {
       // Do not block checkout on order pre-save; webhook fallback will persist.
+    }
+
+    // COD response: no Stripe — fire notifications + return success
+    if (isCod) {
+      if (!createdOrderId) {
+        return NextResponse.json(
+          { error: "Failed to create COD order. Please try again." },
+          { status: 500 },
+        );
+      }
+
+      // Fire-and-forget notifications (don't block response on email/SMS)
+      try {
+        await sendCodNotifications({
+          orderId: createdOrderId,
+          customerName: payload.customer.fullName,
+          customerEmail: payload.customer.email,
+          customerPhone: payload.customer.phone,
+          grandTotalCents: calculation.grandTotalCents,
+          codDiscountCents: calculation.codDiscountCents,
+          deliveryMethod: payload.deliveryMethod,
+          deliveryAddress: resolvedDeliveryAddress?.fullAddress ?? null,
+          deliveryDate: payload.deliveryDate,
+          deliveryTimeWindow: payload.deliveryTimeWindow,
+          cartItems: payload.cartItems,
+        });
+      } catch (err) {
+        console.error("[checkout COD] Notification error (non-fatal):", err);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        codConfirmed: true,
+        orderId: createdOrderId,
+        serverGrandTotalCents: calculation.grandTotalCents,
+      });
     }
 
     if (useEmbedded && paymentIntent) {
