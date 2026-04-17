@@ -179,11 +179,11 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <span className="text-xs text-zinc-500">{formatUsd(cart.cashTotalCents)}</span>
               </button>
 
-              <button onClick={() => setStep("cod")} disabled={!cart.deliveryAddress}
-                className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 p-5 text-center hover:border-orange-500/50 hover:bg-orange-950/20 transition-colors disabled:opacity-30">
+              <button onClick={() => setStep("cod")}
+                className="flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 p-5 text-center hover:border-orange-500/50 hover:bg-orange-950/20 transition-colors">
                 <Truck className="size-8 text-orange-400" />
                 <span className="text-sm font-semibold text-white">COD</span>
-                <span className="text-xs text-zinc-500">Driver collects</span>
+                <span className="text-xs text-zinc-500">{cart.deliveryAddress ? "Driver collects" : "Pay on pickup"}</span>
               </button>
 
               <button onClick={() => setStep("card")}
