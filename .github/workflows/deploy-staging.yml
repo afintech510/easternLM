@@ -36,6 +36,8 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
             -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
             ${VPS_USER}@${VPS_HOST} bash << ENDSSH
             set -e
             cd ${{ env.DEPLOY_PATH }}
