@@ -2911,6 +2911,19 @@ export default function PosRegisterPage() {
           }}
           onCancel={() => setShowCheckout(false)}
           onProcessCard={async (amountCents) => {
+            // Pre-charge validation: require name + phone for ALL card payments.
+            // Prevents charging the card then failing to commit the order.
+            const effectiveName = (delName || customerName || "").trim();
+            const effectivePhone = (delPhone || customerPhone || "").trim();
+            const missing: string[] = [];
+            if (!effectiveName || effectiveName === "Walk-in") missing.push("customer name");
+            if (!effectivePhone) missing.push("phone number");
+            if (missing.length > 0) {
+              const msg = `Card payments require ${missing.join(" and ")}. Add customer info, then try again.`;
+              alert(msg);
+              return { success: false, error: msg };
+            }
+
             try {
               const terminal = terminalRef.current;
               const result = await terminal.collectPayment({ amountCents, orderId: "pending" });

@@ -113,6 +113,16 @@ export function PhoneOrderModal({ amountCents, customerName, customerPhone, cust
   const [done, setDone] = useState(false);
 
   async function createPaymentIntent() {
+    // Pre-charge validation: require customer name + phone.
+    // Prevents charging the card then failing to commit the order.
+    const missing: string[] = [];
+    if (!customerName?.trim()) missing.push("customer name");
+    if (!customerPhone?.trim()) missing.push("phone number");
+    if (missing.length > 0) {
+      setError(`Card payment requires ${missing.join(" and ")}. Close this and add customer info first.`);
+      return;
+    }
+
     setCreating(true);
     setError("");
     try {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, CheckCircle, Lock, Phone, Shield, Truck, Store, Loader2 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -96,7 +96,6 @@ export function CheckoutPageClient() {
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
-  const autoTriggered = useRef(false);
 
   // Client-side COD total preview: applies 3% discount on (subtotal + delivery + tax),
   // removes CC surcharge. Server recomputes for authoritative total.
@@ -147,21 +146,9 @@ export function CheckoutPageClient() {
     return !calculation.checkoutBlocked;
   }, [calculation, formValid, items.length]);
 
-  // Auto-proceed to payment if all fields are already filled from cart.
-  // Only auto-triggers for card payment — COD requires explicit click.
-  useEffect(() => {
-    if (
-      !autoTriggered.current &&
-      canCheckout &&
-      !clientSecret &&
-      !isSubmitting &&
-      paymentMethod === "card"
-    ) {
-      autoTriggered.current = true;
-      handleContinueToPayment();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canCheckout, paymentMethod]);
+  // Auto-proceed removed intentionally — customers must see the Payment Method
+  // toggle (Card / COD) and click explicitly. Prior auto-trigger skipped the
+  // COD option entirely when fields were pre-filled from the cart.
 
   // Split items for display
   const bulkItems = items.filter((i) => i.deliveryType === "bulk");
