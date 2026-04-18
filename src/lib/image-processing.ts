@@ -68,13 +68,14 @@ const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY;
 export async function enhanceWithAI(imageUrl: string): Promise<{ enhancedUrl: string; predictionId: string }> {
   if (!REPLICATE_API_KEY) throw new Error("REPLICATE_API_KEY not configured");
 
-  const res = await fetch("https://api.replicate.com/v1/models/philz1337x/clarity-upscaler/predictions", {
+  const res = await fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${REPLICATE_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      version: "dfad41707589d68ecdccd1dfa600d55a208f9310748e44bfe35b4a6291453d5e",
       input: {
         image: imageUrl,
         prompt: "professional product photography of landscape supply material, natural lighting, clean background, high detail texture, commercial catalog quality",
