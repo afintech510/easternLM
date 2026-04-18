@@ -10,6 +10,7 @@ import { MobileMenu } from "@/components/layout/mobile-menu";
 
 const navItems = [
   { href: "/shop", label: "Shop" },
+  { href: "/services/book-now", label: "Book a Crew", highlight: true },
   { href: "/services", label: "Services" },
   { href: "/delivery", label: "Delivery" },
   { href: "/calculator", label: "Calculator" },
@@ -72,6 +73,7 @@ export function Header() {
           <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
             {navItems.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+              const highlight = (link as { highlight?: boolean }).highlight;
               return (
                 <Link
                   key={link.href}
@@ -79,6 +81,8 @@ export function Header() {
                   className={`rounded-md px-3.5 py-2 text-base font-medium transition-colors ${
                     isActive
                       ? "bg-accent/10 text-accent"
+                      : highlight
+                      ? "bg-accent text-accent-foreground hover:bg-accent/90"
                       : "text-foreground/70 hover:bg-muted hover:text-foreground"
                   }`}
                 >
