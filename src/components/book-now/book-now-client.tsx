@@ -1,120 +1,123 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Check, CheckCircle2, ChevronDown, Loader2, Plus, ShoppingCart, Sparkles, Truck, X } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Loader2, MapPin, Minus, Plus, Sparkles, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { CartItem, InstantBookService, ServicePackage } from "@/lib/book-now/types";
+import type { InstantBookService, PropertyInfo, TimelineOption } from "@/lib/book-now/types";
+import { TIMELINE_CONFIG, TIMELINE_ORDER } from "@/lib/book-now/types";
+import { getServiceSchema } from "@/lib/book-now/schemas";
+import { buildQuote, formatUsd, priceService } from "@/lib/book-now/pricing";
 
-const CATEGORIES = [
-  { key: "all", label: "All Services" },
-  { key: "install", label: "Mulch & Install" },
-  { key: "cleanup", label: "Cleanup" },
-  { key: "washing", label: "Washing" },
+const LOT_SIZES: Array<{ value: PropertyInfo["lotSize"]; label: string }> = [
+  { value: "under_quarter", label: "Under 0.25 acre" },
+  { value: "quarter_half",  label: "0.25–0.5 acre" },
+  { value: "half_one",      label: "0.5–1 acre" },
+  { value: "over_one",      label: "Over 1 acre" },
 ];
 
-function formatUsd(cents: number): string {
-  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function priceLabel(pkg: ServicePackage): string {
-  if (pkg.unit === "quote") return "Get quote";
-  if (pkg.unit === "per_unit") return `${formatUsd(pkg.price_cents)} per unit`;
-  return formatUsd(pkg.price_cents);
-}
+type SelectionInputs = Record<string, Record<string, string | number>>;
 
 export function BookNowClient({ initialServices }: { initialServices: InstantBookService[] }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [category, setCategory] = useState("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Property info
+  const [address, setAddress] = useState("");
+  const [lotSize, setLotSize] = useState<PropertyInfo["lotSize"] | null>(null);
+
+  // Service selections — map of serviceId → inputs object
+  const [selected, setSelected] = useState<Record<string, Record<string, string | number>>>({});
+
+  // Timeline
+  const [timeline, setTimeline] = useState<TimelineOption>("two_weeks");
+
+  // Custom project modal
   const [showCustom, setShowCustom] = useState(false);
 
-  const filteredServices = useMemo(() => {
-    if (category === "all") return initialServices;
-    return initialServices.filter((s) => s.category === category);
-  }, [initialServices, category]);
+  const propertyReady = address.trim().length >= 5 && lotSize !== null;
+  const hasSelections = Object.keys(selected).length > 0;
+  const canBook = propertyReady && hasSelections;
 
-  const cartTotal = useMemo(() => cart.reduce((sum, i) => sum + i.lineTotalCents, 0), [cart]);
-
-  function addToCart(service: InstantBookService, pkg: ServicePackage, qty = 1) {
-    if (pkg.unit === "quote") {
+  function toggleService(service: InstantBookService) {
+    const schema = getServiceSchema(service.slug);
+    if (!schema) return;
+    if (schema.mode === "quote_only") {
       setShowCustom(true);
       return;
     }
-    setCart((prev) => {
-      const existing = prev.findIndex((i) => i.serviceId === service.id && i.packageName === pkg.name);
-      if (existing !== -1) {
-        const copy = [...prev];
-        copy[existing] = {
-          ...copy[existing],
-          quantity: copy[existing].quantity + qty,
-          lineTotalCents: (copy[existing].quantity + qty) * pkg.price_cents,
-        };
-        return copy;
+
+    setSelected((prev) => {
+      if (prev[service.id]) {
+        const next = { ...prev };
+        delete next[service.id];
+        return next;
       }
-      return [
-        ...prev,
-        {
-          serviceId: service.id,
-          serviceSlug: service.slug,
-          serviceName: service.name,
-          packageName: pkg.name,
-          packageUnit: pkg.unit,
-          quantity: qty,
-          priceCents: pkg.price_cents,
-          lineTotalCents: pkg.price_cents * qty,
-        },
-      ];
+      // Initialize with defaults
+      const initialInputs: Record<string, string | number> = {};
+      for (const input of schema.inputs) {
+        initialInputs[input.key] = input.default;
+      }
+      return { ...prev, [service.id]: initialInputs };
     });
   }
 
-  function removeFromCart(index: number) {
-    setCart((prev) => prev.filter((_, i) => i !== index));
+  function updateInput(serviceId: string, key: string, value: string | number) {
+    setSelected((prev) => ({
+      ...prev,
+      [serviceId]: { ...prev[serviceId], [key]: value },
+    }));
   }
 
-  function goToCheckout() {
-    if (cart.length === 0) return;
-    // Persist cart to session storage for the checkout page
+  // Live quote
+  const quote = useMemo(() => {
+    if (!propertyReady || !hasSelections) return null;
+    const selections = Object.entries(selected)
+      .map(([serviceId, inputs]) => {
+        const service = initialServices.find((s) => s.id === serviceId);
+        if (!service) return null;
+        return { service, inputs };
+      })
+      .filter((x): x is { service: InstantBookService; inputs: Record<string, string | number> } => x !== null);
+
+    return buildQuote({
+      address,
+      lotSize: lotSize!,
+      timeline,
+      selections,
+    });
+  }, [propertyReady, hasSelections, selected, initialServices, address, lotSize, timeline]);
+
+  function handleBook() {
+    if (!quote || !canBook) return;
+    // Persist to sessionStorage for the checkout page
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("elm_book_now_cart", JSON.stringify(cart));
+      sessionStorage.setItem("elm_book_now_quote", JSON.stringify(quote));
     }
     window.location.href = "/services/book-now/checkout";
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero */}
+    <div className="min-h-screen bg-warm-bg">
+      {/* ─── Hero ───────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-primary text-primary-foreground">
         <div className="topo-pattern absolute inset-0 opacity-30" />
-        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 md:py-20">
+        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
           <div className="max-w-3xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent/20 px-4 py-1.5 text-sm font-semibold text-accent">
-              <Truck className="size-4" /> Suffolk County · Online Booking Platform
-            </div>
             <h1 className="[font-family:var(--font-display)] text-4xl md:text-5xl">
-              Order a Gardener. Book a Crew. Online in 60 Seconds.
+              Pro Crews for Your Yard.<br />Booked Online in 60 Seconds.
             </h1>
             <p className="mt-4 text-lg text-primary-foreground/80">
-              We're the booking platform for basic landscape services in Suffolk County. Pick what you need — we match you with a vetted local crew (or dispatch our own). <strong>Card authorization only</strong>; you pay the crew directly in cash.
+              Mulch, cleanups, pathways, power washing — tell us what your property needs, get a price on the spot, lock in a crew.
             </p>
-            <div className="mt-6 flex flex-wrap gap-6 text-sm text-primary-foreground/70">
-              <span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-accent" /> Vetted, insured local crews</span>
-              <span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-accent" /> Transparent platform pricing</span>
-              <span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-accent" /> Cancel before confirm — no fees</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="border-b bg-warm-bg">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ─── How it works strip ─────────────────────────── */}
+      <section className="border-b bg-card">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+          <div className="grid gap-3 sm:grid-cols-3">
             {[
-              { n: "1", t: "Pick services", d: "Multi-select from the menu below or request a custom project." },
-              { n: "2", t: "Card authorized", d: "Commitment only — card held, not charged. You confirm date, time, and sign our terms." },
-              { n: "3", t: "Platform fee captured", d: "We charge a small platform fee, release the rest, and introduce you to your Provider." },
-              { n: "4", t: "Pay crew in cash", d: "50% before service · 50% after completion, paid directly to the Provider." },
+              { n: "1", t: "Tell us about your yard", d: "Address and what needs doing." },
+              { n: "2", t: "See your price", d: "Instant quote. Slide the timeline to save." },
+              { n: "3", t: "We lock in your crew", d: "Certified locals, confirmed by text." },
             ].map((step) => (
               <div key={step.n} className="flex gap-3">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground">
@@ -130,246 +133,401 @@ export function BookNowClient({ initialServices }: { initialServices: InstantBoo
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid lg:grid-cols-[1fr_380px]">
-        {/* Main — services grid */}
-        <div>
-          {/* Category filter */}
-          <div className="mb-6 flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.key}
-                onClick={() => setCategory(c.key)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  category === c.key
-                    ? "bg-primary text-primary-foreground"
-                    : "border bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Service grid */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {filteredServices.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                expanded={expandedId === service.id}
-                onToggle={() => setExpandedId(expandedId === service.id ? null : service.id)}
-                onAdd={(pkg) => addToCart(service, pkg)}
-                cart={cart}
-              />
-            ))}
-          </div>
-
-          {filteredServices.length === 0 && (
-            <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
-              No services in this category right now. Check back soon.
+      {/* ─── Main flow ──────────────────────────────────── */}
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        {/* Step 1: Property */}
+        <Step number={1} title="Where's the property?" complete={propertyReady}>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Service address</label>
+              <div className="relative">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="123 Main St, Center Moriches, NY 11934"
+                  className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm"
+                />
+              </div>
             </div>
-          )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Lot size</label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {LOT_SIZES.map((size) => (
+                  <button
+                    key={size.value}
+                    type="button"
+                    onClick={() => setLotSize(size.value)}
+                    className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
+                      lotSize === size.value
+                        ? "border-accent bg-accent/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground"
+                    }`}
+                  >
+                    {size.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Step>
 
-          {/* Custom project CTA */}
-          <div className="mt-10 rounded-2xl border-2 border-accent/20 bg-accent/5 p-6 md:p-8">
-            <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Larger or custom project?</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Patios over 500 sq ft, driveway rebuilds, multi-day installs — tell us what you're planning and we'll send a custom quote.
+        {/* Step 2: Services */}
+        <Step number={2} title="What do you need?" complete={hasSelections} disabled={!propertyReady}>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {initialServices.map((service) => {
+              const schema = getServiceSchema(service.slug);
+              const picked = !!selected[service.id];
+              const isQuoteOnly = schema?.mode === "quote_only";
+              return (
+                <button
+                  key={service.id}
+                  type="button"
+                  onClick={() => toggleService(service)}
+                  disabled={!propertyReady && !isQuoteOnly}
+                  className={`flex items-start gap-3 rounded-lg border p-3.5 text-left transition-colors ${
+                    picked
+                      ? "border-accent bg-accent/5"
+                      : "border-border bg-card hover:border-accent/40"
+                  } disabled:pointer-events-none disabled:opacity-50`}
+                >
+                  <div
+                    className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                      picked ? "border-accent bg-accent text-accent-foreground" : "border-border"
+                    }`}
+                  >
+                    {picked && <Check className="size-3" strokeWidth={3} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{service.name}</p>
+                    {service.tagline && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{service.tagline}</p>
+                    )}
+                    {isQuoteOnly && (
+                      <p className="mt-1 text-xs font-medium text-accent">Custom quote →</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowCustom(true)}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-card p-4 text-sm font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+          >
+            <Sparkles className="size-4" />
+            Don't see it? Tell us about a larger project
+          </button>
+        </Step>
+
+        {/* Step 3: Scope inputs */}
+        {hasSelections && (
+          <Step number={3} title="Size it up" complete>
+            <div className="space-y-4">
+              {Object.entries(selected).map(([serviceId, inputs]) => {
+                const service = initialServices.find((s) => s.id === serviceId);
+                if (!service) return null;
+                const schema = getServiceSchema(service.slug);
+                if (!schema) return null;
+                const lineSubtotal = priceService(service, inputs);
+
+                return (
+                  <div key={serviceId} className="rounded-xl border bg-card p-4">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{service.name}</p>
+                        {schema.summary && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">{schema.summary(inputs)}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-primary">{formatUsd(lineSubtotal)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleService(service)}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Remove"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 border-t pt-3">
+                      {schema.inputs.map((input) => (
+                        <InputRow
+                          key={input.key}
+                          input={input}
+                          value={inputs[input.key] ?? (input as { default: string | number }).default}
+                          onChange={(v) => updateInput(serviceId, input.key, v)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Step>
+        )}
+
+        {/* Step 4: Timeline */}
+        {hasSelections && (
+          <Step number={4} title="When should we come?" complete={!!timeline}>
+            <TimelineSlider value={timeline} onChange={setTimeline} quote={quote} />
+          </Step>
+        )}
+
+        {/* Final quote + CTA */}
+        {quote && (
+          <div className="sticky bottom-4 z-40 mt-8 rounded-2xl border-2 border-primary bg-card p-5 shadow-xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Your quote</p>
+                <p className="text-3xl font-bold text-primary">{formatUsd(quote.totalCents)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {quote.items.length} service{quote.items.length > 1 ? "s" : ""} ·{" "}
+                  {TIMELINE_CONFIG[quote.timeline].label}
                 </p>
               </div>
-              <Button onClick={() => setShowCustom(true)} size="lg" className="shrink-0">
-                Tell Us More <Sparkles className="ml-1 size-4" />
+              <Button
+                size="lg"
+                onClick={handleBook}
+                disabled={!canBook}
+                className="shrink-0 bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                Book This Crew <ArrowRight className="size-4" />
               </Button>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Sidebar cart — desktop */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 space-y-4">
-            <CartPanel cart={cart} total={cartTotal} onRemove={removeFromCart} onCheckout={goToCheckout} />
-          </div>
-        </aside>
+        {/* Trust signals */}
+        <div className="mt-10 grid gap-3 sm:grid-cols-3">
+          {[
+            "Vetted, insured local crews",
+            "Confirmed by text within 24 hours",
+            "Cancel before confirm — zero fees",
+          ].map((text) => (
+            <div key={text} className="flex items-center gap-2 rounded-lg bg-card p-3 text-sm">
+              <CheckCircle2 className="size-4 shrink-0 text-accent" />
+              <span className="text-muted-foreground">{text}</span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {/* Mobile cart — sticky bottom */}
-      {cart.length > 0 && (
-        <div className="sticky bottom-0 z-40 border-t bg-background p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] lg:hidden">
-          <Button onClick={goToCheckout} size="lg" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-            <ShoppingCart className="size-4" /> Review {cart.length} service{cart.length > 1 ? "s" : ""} — {formatUsd(cartTotal)}
-          </Button>
-        </div>
-      )}
 
       {showCustom && <CustomProjectModal onClose={() => setShowCustom(false)} />}
     </div>
   );
 }
 
-function ServiceCard({
-  service,
-  expanded,
-  onToggle,
-  onAdd,
-  cart,
+// ─────────────────────────────────────────────────────────────
+// Step wrapper
+// ─────────────────────────────────────────────────────────────
+function Step({
+  number,
+  title,
+  children,
+  complete,
+  disabled,
 }: {
-  service: InstantBookService;
-  expanded: boolean;
-  onToggle: () => void;
-  onAdd: (pkg: ServicePackage) => void;
-  cart: CartItem[];
+  number: number;
+  title: string;
+  children: React.ReactNode;
+  complete?: boolean;
+  disabled?: boolean;
 }) {
-  const packages = service.packages || [];
-  const minPrice = packages.filter((p) => p.unit !== "quote").reduce((min, p) => Math.min(min, p.price_cents), Infinity);
-  const hasQuoteOnly = packages.every((p) => p.unit === "quote");
-
-  const inCartCount = cart.filter((c) => c.serviceId === service.id).length;
-
   return (
-    <article className={`rounded-xl border bg-card transition-all ${expanded ? "shadow-md ring-2 ring-accent/20" : "hover:border-accent/30"}`}>
-      <button type="button" onClick={onToggle} className="flex w-full items-start gap-3 p-5 text-left">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-          <Truck className="size-5" />
+    <section className={`mb-6 rounded-2xl border bg-card p-5 transition-opacity ${disabled ? "opacity-50" : ""}`}>
+      <div className="mb-4 flex items-center gap-3">
+        <div
+          className={`flex size-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+            complete
+              ? "bg-accent text-accent-foreground"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {complete ? <Check className="size-4" strokeWidth={3} /> : number}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold">{service.name}</h3>
-              {service.tagline && <p className="mt-0.5 text-xs text-muted-foreground">{service.tagline}</p>}
-            </div>
-            <ChevronDown className={`size-5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            {hasQuoteOnly ? (
-              <span className="text-sm font-semibold text-accent">Custom quote</span>
-            ) : (
-              <span className="text-sm font-semibold text-foreground">
-                From {formatUsd(minPrice)}
-              </span>
-            )}
-            {inCartCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                <Check className="size-3" /> {inCartCount} in cart
-              </span>
-            )}
-          </div>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="space-y-4 border-t px-5 pb-5 pt-4">
-          {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
-
-          {service.includes && service.includes.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">What's included</p>
-              <ul className="grid gap-1 sm:grid-cols-2">
-                {service.includes.map((inc) => (
-                  <li key={inc} className="flex items-start gap-1.5 text-sm">
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-accent" /> <span>{inc}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select a package</p>
-            {packages.map((pkg) => (
-              <div key={pkg.name} className="flex items-center gap-3 rounded-lg border p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{pkg.name}</p>
-                  {pkg.description && <p className="text-xs text-muted-foreground">{pkg.description}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold">{priceLabel(pkg)}</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={pkg.unit === "quote" ? "outline" : "default"}
-                  onClick={() => onAdd(pkg)}
-                >
-                  {pkg.unit === "quote" ? "Get Quote" : <><Plus className="size-3.5" /> Add</>}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </article>
+        <h2 className="text-lg font-semibold">{title}</h2>
+      </div>
+      <div className={disabled ? "pointer-events-none" : ""}>{children}</div>
+    </section>
   );
 }
 
-function CartPanel({
-  cart,
-  total,
-  onRemove,
-  onCheckout,
+// ─────────────────────────────────────────────────────────────
+// Input row (number / select / tier)
+// ─────────────────────────────────────────────────────────────
+function InputRow({
+  input,
+  value,
+  onChange,
 }: {
-  cart: CartItem[];
-  total: number;
-  onRemove: (index: number) => void;
-  onCheckout: () => void;
+  input: ReturnType<typeof getServiceSchema> extends infer S ? S extends { inputs: infer I } ? I extends (infer F)[] ? F : never : never : never;
+  value: string | number;
+  onChange: (v: string | number) => void;
 }) {
-  if (cart.length === 0) {
+  if (input.type === "number") {
+    const numValue = Number(value) || input.default;
     return (
-      <div className="rounded-xl border bg-card p-6 text-center">
-        <ShoppingCart className="mx-auto size-8 text-muted-foreground/40" />
-        <p className="mt-3 font-semibold">Your booking is empty</p>
-        <p className="mt-1 text-sm text-muted-foreground">Pick services from the menu to start.</p>
+      <div>
+        <label className="mb-1 block text-sm font-medium">{input.label}</label>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center rounded-lg border">
+            <button
+              type="button"
+              onClick={() => onChange(Math.max(input.min, numValue - (input.step || 1)))}
+              className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label="Decrease"
+            >
+              <Minus className="size-4" />
+            </button>
+            <span className="min-w-12 text-center text-sm font-semibold">{numValue}</span>
+            <button
+              type="button"
+              onClick={() => onChange(Math.min(input.max ?? 999, numValue + (input.step || 1)))}
+              className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label="Increase"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
+          {input.unit && <span className="text-sm text-muted-foreground">{input.unit}</span>}
+          {input.help && <span className="text-xs text-muted-foreground">· {input.help}</span>}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold">Your Booking ({cart.length})</h2>
-        <span className="text-sm font-semibold">{formatUsd(total)}</span>
-      </div>
-      <div className="space-y-2">
-        {cart.map((item, i) => (
-          <div key={`${item.serviceId}-${item.packageName}-${i}`} className="flex items-start gap-2 rounded-lg border p-3 text-sm">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{item.serviceName}</p>
-              <p className="text-xs text-muted-foreground">
-                {item.packageName}{item.quantity > 1 ? ` × ${item.quantity}` : ""}
-              </p>
-            </div>
-            <span className="font-semibold">{formatUsd(item.lineTotalCents)}</span>
+  if (input.type === "select") {
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium">{input.label}</label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {input.options.map((opt) => (
             <button
+              key={opt.value}
               type="button"
-              onClick={() => onRemove(i)}
-              className="text-muted-foreground hover:text-destructive"
-              aria-label="Remove"
+              onClick={() => onChange(opt.value)}
+              className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                value === opt.value
+                  ? "border-accent bg-accent/10 font-medium"
+                  : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground"
+              }`}
             >
-              <X className="size-4" />
+              {opt.label}
             </button>
-          </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Tier
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium">{input.label}</label>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {input.options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`flex flex-col gap-0.5 rounded-lg border p-3 text-left transition-colors ${
+              value === opt.value
+                ? "border-accent bg-accent/10"
+                : "border-border bg-background hover:border-border/80"
+            }`}
+          >
+            <span className="text-sm font-semibold">{opt.label}</span>
+            {opt.sublabel && <span className="text-xs text-muted-foreground">{opt.sublabel}</span>}
+          </button>
         ))}
       </div>
-      <div className="mt-4 space-y-2 border-t pt-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span>{formatUsd(total)}</span>
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>+ 3% processing on final charge</span>
-          <span>calculated at checkout</span>
-        </div>
-      </div>
-      <Button onClick={onCheckout} size="lg" className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">
-        Continue to Booking →
-      </Button>
-      <p className="mt-2 text-center text-xs text-muted-foreground">
-        Card authorization only — no charge until we confirm
-      </p>
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Timeline slider
+// ─────────────────────────────────────────────────────────────
+function TimelineSlider({
+  value,
+  onChange,
+  quote,
+}: {
+  value: TimelineOption;
+  onChange: (v: TimelineOption) => void;
+  quote: ReturnType<typeof buildQuote> | null;
+}) {
+  const currentIdx = TIMELINE_ORDER.indexOf(value);
+
+  return (
+    <div className="space-y-4">
+      {/* Slider */}
+      <div className="px-2">
+        <input
+          type="range"
+          min={0}
+          max={TIMELINE_ORDER.length - 1}
+          step={1}
+          value={currentIdx}
+          onChange={(e) => onChange(TIMELINE_ORDER[parseInt(e.target.value, 10)])}
+          className="w-full accent-accent"
+        />
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          {TIMELINE_ORDER.map((opt) => (
+            <span key={opt} className={value === opt ? "font-semibold text-foreground" : ""}>
+              {TIMELINE_CONFIG[opt].days}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Price comparison grid */}
+      {quote && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {TIMELINE_ORDER.map((opt) => {
+            const mult = TIMELINE_CONFIG[opt].multiplier;
+            const price = Math.round(quote.subtotalCents * mult);
+            const isSelected = value === opt;
+            const isRush = opt === "rush_48h";
+            const isFlexible = opt === "flexible";
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => onChange(opt)}
+                className={`rounded-lg border p-3 text-left transition-all ${
+                  isSelected
+                    ? "border-accent bg-accent/10 ring-2 ring-accent/20"
+                    : "border-border bg-background hover:border-border/80"
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  {isRush && <Zap className="size-3 text-amber-500" />}
+                  <p className="text-xs font-medium">{TIMELINE_CONFIG[opt].label}</p>
+                </div>
+                <p className={`mt-1 text-lg font-bold ${isRush ? "text-amber-600" : isFlexible ? "text-green-600" : "text-primary"}`}>
+                  {formatUsd(price)}
+                </p>
+                {isRush && <p className="text-[10px] text-amber-600">Rush</p>}
+                {isFlexible && <p className="text-[10px] text-green-600">Save 8%</p>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Custom project modal
+// ─────────────────────────────────────────────────────────────
 function CustomProjectModal({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -410,10 +568,8 @@ function CustomProjectModal({ onClose }: { onClose: () => void }) {
         {done ? (
           <div className="space-y-4 text-center">
             <CheckCircle2 className="mx-auto size-12 text-green-600" />
-            <h2 className="text-xl font-bold">Thanks — we got it.</h2>
-            <p className="text-sm text-muted-foreground">
-              We'll call or text you within 24 hours with a custom quote.
-            </p>
+            <h2 className="text-xl font-bold">Got it — we'll be in touch.</h2>
+            <p className="text-sm text-muted-foreground">We'll call or text within 24 hours with a custom quote.</p>
             <Button onClick={onClose} className="w-full">Close</Button>
           </div>
         ) : (
@@ -448,7 +604,7 @@ function CustomProjectModal({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Property Address</label>
+              <label className="mb-1 block text-sm font-medium">Property address</label>
               <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
                 placeholder="Street, City, NY ZIP"
                 className="w-full rounded-md border px-3 py-2 text-sm" />
@@ -456,24 +612,9 @@ function CustomProjectModal({ onClose }: { onClose: () => void }) {
 
             <div>
               <label className="mb-1 block text-sm font-medium">Describe your project *</label>
-              <textarea required rows={5} value={form.projectDescription} onChange={(e) => setForm({ ...form, projectDescription: e.target.value })}
-                placeholder="What are you thinking? Size, materials, timing, any photos you can share..."
+              <textarea required rows={4} value={form.projectDescription} onChange={(e) => setForm({ ...form, projectDescription: e.target.value })}
+                placeholder="Size, materials, timing, any photos you can share..."
                 className="w-full rounded-md border px-3 py-2 text-sm" />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Budget (optional)</label>
-                <input value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })}
-                  placeholder="e.g. $5–10k"
-                  className="w-full rounded-md border px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Timeline (optional)</label>
-                <input value={form.timeline} onChange={(e) => setForm({ ...form, timeline: e.target.value })}
-                  placeholder="e.g. next month"
-                  className="w-full rounded-md border px-3 py-2 text-sm" />
-              </div>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -481,7 +622,7 @@ function CustomProjectModal({ onClose }: { onClose: () => void }) {
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
               <Button type="submit" disabled={submitting} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
-                {submitting ? <><Loader2 className="size-4 animate-spin" /> Sending...</> : <>Send Request</>}
+                {submitting ? <><Loader2 className="size-4 animate-spin" /> Sending...</> : "Send Request"}
               </Button>
             </div>
           </form>
