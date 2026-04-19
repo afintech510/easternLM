@@ -204,6 +204,7 @@ async function ensureOrderItemsForOrder(input: {
   orderId: string;
   lineItems: Stripe.LineItem[];
   deliverySchedule: DeliveryScheduleEntry[];
+  metadata?: Record<string, string>;
 }) {
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -217,19 +218,95 @@ async function ensureOrderItemsForOrder(input: {
     return;
   }
 
-  const orderItemRows = buildOrderItemsFromLineItems({
+  // Try Stripe line items first, then fall back to metadata cartItems
+  let orderItemRows: Record<string, unknown>[] = buildOrderItemsFromLineItems({
     orderId: input.orderId,
     lineItems: input.lineItems,
     deliverySchedule: input.deliverySchedule,
   });
 
+  if (orderItemRows.length === 0 && input.metadata?.cartItems) {
+    orderItemRows = buildOrderItemsFromMetadata(input.orderId, input.metadata.cartItems, input.deliverySchedule);
+  }
+
   if (orderItemRows.length === 0) {
     return;
   }
 
-  const insertedItems = await supabaseAdmin.from("order_items").insert(orderItemRows);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertedItems = await supabaseAdmin.from("order_items").insert(orderItemRows as any);
   if (insertedItems.error) {
     throw new Error(insertedItems.error.message);
+  }
+}
+
+function buildOrderItemsFromMetadata(
+  orderId: string,
+  cartItemsJson: string,
+  deliverySchedule: DeliveryScheduleEntry[],
+) {
+  try {
+    const items = JSON.parse(cartItemsJson) as Array<{
+      id: string;
+      name: string;
+      qty: number;
+      upc: number;
+      dt: string;
+      mc: string;
+      lst: number;
+    }>;
+
+    const rows: Array<{
+      order_id: string;
+      product_id: string | null;
+      product_name: string;
+      product_slug: null;
+      quantity: number;
+      unit: string;
+      unit_price_cents: number;
+      line_subtotal_cents: number;
+      delivery_type: string | null;
+      material_class: string | null;
+      load_number: number | null;
+      delivery_day: number | null;
+      notes: string | null;
+    }> = items.map((item) => ({
+      order_id: orderId,
+      product_id: item.id || null,
+      product_name: item.name,
+      product_slug: null,
+      quantity: item.qty,
+      unit: item.dt === "bulk" ? "cu. yard" : "ea",
+      unit_price_cents: item.upc,
+      line_subtotal_cents: item.lst,
+      delivery_type: item.dt || null,
+      material_class: item.mc || null,
+      load_number: null,
+      delivery_day: null,
+      notes: null,
+    }));
+
+    deliverySchedule.forEach((load, index) => {
+      rows.push({
+        order_id: orderId,
+        product_id: null,
+        product_name: `Delivery Load ${index + 1} - ${load.truckName}`,
+        product_slug: null,
+        quantity: 1,
+        unit: "load",
+        unit_price_cents: load.feeCents,
+        line_subtotal_cents: load.feeCents,
+        delivery_type: null,
+        material_class: null,
+        load_number: index + 1,
+        delivery_day: load.day,
+        notes: `Material: ${load.materialClass}; Qty: ${Number(load.quantity.toFixed(2))}`,
+      });
+    });
+
+    return rows;
+  } catch {
+    return [];
   }
 }
 
@@ -256,6 +333,7 @@ async function ensureOrderFromSession(input: {
       orderId: existing.data.id,
       lineItems: input.lineItems,
       deliverySchedule,
+      metadata,
     });
 
     return existing.data;
@@ -321,6 +399,7 @@ async function ensureOrderFromSession(input: {
           orderId: concurrentOrder.data.id,
           lineItems: input.lineItems,
           deliverySchedule,
+          metadata,
         });
         return concurrentOrder.data;
       }
@@ -333,6 +412,7 @@ async function ensureOrderFromSession(input: {
     orderId: insertedOrder.data.id,
     lineItems: input.lineItems,
     deliverySchedule,
+    metadata,
   });
 
   return insertedOrder.data;
@@ -442,8 +522,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
   }
 
   const supabaseAdmin = getSupabaseAdminClient();
-  const lineItemsResult = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
-  const lineItems = lineItemsResult.data;
+
+  let lineItems: Stripe.LineItem[] = [];
+  try {
+    const lineItemsResult = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+    lineItems = lineItemsResult.data;
+  } catch {
+    // PaymentIntent flow — no Checkout Session to list line items from.
+    // Items are pre-inserted by checkout API; if missing, rebuild from metadata.
+  }
 
   const ensuredOrder = await ensureOrderFromSession({
     session,

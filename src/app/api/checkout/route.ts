@@ -546,6 +546,17 @@ export async function POST(request: Request) {
       deliverySchedule: deliveryScheduleMetadata,
       optInSms: String(payload.customer.optInSms ?? false),
       optInEmail: String(payload.customer.optInEmail ?? false),
+      cartItems: JSON.stringify(
+        payload.cartItems.map((item, index) => ({
+          id: item.id,
+          name: item.name,
+          qty: item.quantity,
+          upc: item.unitPriceCents,
+          dt: item.deliveryType,
+          mc: item.materialClass,
+          lst: discountedLineTotals[index] ?? 0,
+        }))
+      ).slice(0, 500),
     };
 
     // Embedded mode: create PaymentIntent (customer stays on our domain)
