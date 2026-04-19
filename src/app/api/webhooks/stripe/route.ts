@@ -607,31 +607,87 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
     // Notify office: SMS to yard phone + email to Adam & Ronnie
     try {
       const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
-      const itemsList = itemsResult.data?.map((i: any) => `${i.quantity} ${i.unit} ${i.product_name}`).join(", ") ?? "items";
+      const materialItems = (itemsResult.data ?? []).filter((i: any) => i.unit !== "load");
+      const itemsList = materialItems.map((i: any) => `${i.quantity} ${i.unit} ${i.product_name}`).join(", ") || "items";
       const orderTotal = fmt(order.grand_total_cents);
+      const materialsTotal = fmt(order.materials_subtotal_cents);
+      const deliveryFee = fmt(order.delivery_total_cents);
+      const isDelivery = order.delivery_method === "delivery";
+      const deliveryDate = (order as any).delivery_date || "Not specified";
+      const timeWindow = (order as any).delivery_time_window || "Flexible";
+      const deliveryNotes = (order as any).delivery_notes || "";
 
-      // SMS to office
-      const smsBody = `New order! ${order.customer_name} — ${orderTotal}\n${order.delivery_method === "delivery" ? `Delivery: ${order.delivery_address}` : "Pickup"}\n${itemsList}`;
-      await sendSms("+16318746244", smsBody).catch(() => {});
+      // SMS to office — full details
+      const smsLines = [
+        `🆕 ORDER — ${order.customer_name}`,
+        `📦 ${itemsList}`,
+        `💰 ${orderTotal} (materials ${materialsTotal})`,
+      ];
+      if (isDelivery) {
+        smsLines.push(`🚛 Delivery: ${order.delivery_address}`);
+        smsLines.push(`📅 ${deliveryDate} · ${timeWindow}`);
+        if (order.delivery_total_cents > 0) smsLines.push(`Delivery fee: ${deliveryFee}`);
+        if (deliveryNotes) smsLines.push(`📝 ${deliveryNotes}`);
+      } else {
+        smsLines.push("🏗️ Pickup");
+      }
+      smsLines.push(`📞 ${order.customer_phone ?? "No phone"}`);
+      await sendSms("+16318746244", smsLines.join("\n")).catch(() => {});
 
-      // Email to Adam & Ronnie
+      // Email to Adam & Ronnie — full details
       try {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
+
+        const itemsHtml = materialItems.map((i: any) =>
+          `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;">${i.product_name}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:center;">${i.quantity} ${i.unit}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;">${fmt(i.line_subtotal_cents)}</td></tr>`
+        ).join("");
+
+        const deliveryHtml = isDelivery ? `
+            <div style="background:#f0f4f8;border-radius:6px;padding:12px;margin:12px 0;">
+              <p style="margin:0 0 4px;font-weight:600;color:#1a3a5c;">🚛 Delivery Details</p>
+              <p style="margin:2px 0;"><strong>Address:</strong> ${order.delivery_address}</p>
+              <p style="margin:2px 0;"><strong>Date:</strong> ${deliveryDate}</p>
+              <p style="margin:2px 0;"><strong>Time:</strong> ${timeWindow}</p>
+              <p style="margin:2px 0;"><strong>Delivery Fee:</strong> ${deliveryFee}</p>
+              ${deliveryNotes ? `<p style="margin:2px 0;"><strong>Notes:</strong> ${deliveryNotes}</p>` : ""}
+            </div>` : `<p style="margin:8px 0;">🏗️ <strong>Pickup</strong></p>`;
+
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com",
           to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
-          subject: `New Order — ${order.customer_name} — ${orderTotal}`,
-          html: `<div style="font-family:sans-serif;max-width:500px;">
-            <h2 style="color:#1a3a5c;">New Order Received</h2>
-            <p><strong>Customer:</strong> ${order.customer_name}</p>
-            <p><strong>Phone:</strong> ${order.customer_phone ?? "—"}</p>
-            <p><strong>Email:</strong> ${order.customer_email}</p>
-            <p><strong>Total:</strong> ${orderTotal}</p>
-            <p><strong>Type:</strong> ${order.delivery_method === "delivery" ? `Delivery to ${order.delivery_address}` : "Pickup"}</p>
-            <p><strong>Items:</strong> ${itemsList}</p>
-            <p><strong>Source:</strong> ${(order as any).source ?? "web"}</p>
-            <p style="margin-top:16px;"><a href="https://easternlm.com/admin/operations" style="background:#c8952e;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">View in Admin</a></p>
+          subject: `New Order — ${order.customer_name} — ${itemsList} — ${orderTotal}`,
+          html: `<div style="font-family:sans-serif;max-width:560px;">
+            <h2 style="color:#1a3a5c;margin-bottom:4px;">New Order Received</h2>
+            <p style="color:#666;margin-top:0;">Order #${order.id.slice(0, 8).toUpperCase()}</p>
+
+            <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+              <tr style="background:#1a3a5c;color:white;">
+                <th style="padding:6px 8px;text-align:left;">Material</th>
+                <th style="padding:6px 8px;text-align:center;">Qty</th>
+                <th style="padding:6px 8px;text-align:right;">Subtotal</th>
+              </tr>
+              ${itemsHtml}
+            </table>
+
+            ${deliveryHtml}
+
+            <table style="width:100%;margin:12px 0;font-size:14px;">
+              <tr><td>Materials:</td><td style="text-align:right;">${materialsTotal}</td></tr>
+              ${isDelivery ? `<tr><td>Delivery:</td><td style="text-align:right;">${deliveryFee}</td></tr>` : ""}
+              <tr><td>Tax:</td><td style="text-align:right;">${fmt(order.tax_cents)}</td></tr>
+              ${order.cc_surcharge_cents > 0 ? `<tr><td>CC Surcharge:</td><td style="text-align:right;">${fmt(order.cc_surcharge_cents)}</td></tr>` : ""}
+              <tr style="font-weight:bold;font-size:16px;"><td>Total:</td><td style="text-align:right;">${orderTotal}</td></tr>
+            </table>
+
+            <div style="background:#f9f9f9;border-radius:6px;padding:12px;margin:12px 0;">
+              <p style="margin:2px 0;"><strong>Customer:</strong> ${order.customer_name}</p>
+              <p style="margin:2px 0;"><strong>Phone:</strong> ${order.customer_phone ?? "—"}</p>
+              <p style="margin:2px 0;"><strong>Email:</strong> ${order.customer_email}</p>
+              <p style="margin:2px 0;"><strong>Source:</strong> ${(order as any).source ?? "web"}</p>
+            </div>
+
+            <p style="margin-top:16px;"><a href="https://easternlm.com/admin/operations" style="background:#c8952e;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">View in Admin →</a></p>
           </div>`,
         });
       } catch {}

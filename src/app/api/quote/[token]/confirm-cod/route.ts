@@ -91,16 +91,80 @@ export async function POST(
     const { Resend } = await import("resend");
     const resend = new Resend(process.env.RESEND_API_KEY);
     const f = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const lineItems = (quote.line_items || []) as Array<{ description: string; quantity: number; unit: string; total_cents: number; unit_price_cents: number }>;
+    const materialItems = lineItems.filter((i) => i.unit !== "trip" && i.unit !== "load");
+    const itemsSummary = materialItems.map((i) => `${i.quantity} ${i.unit} ${i.description}`).join(", ") || "items";
+    const isDelivery = !!quote.delivery_address;
+
+    const itemsHtml = materialItems.map((i) =>
+      `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;">${i.description}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:center;">${i.quantity} ${i.unit}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;">${f(i.total_cents)}</td></tr>`
+    ).join("");
+
+    // SMS to office
+    const { sendSms } = await import("@/lib/sms");
+    const smsLines = [
+      `🆕 COD ORDER — ${quote.customer_name}`,
+      `📦 ${itemsSummary}`,
+      `💰 ${f(quote.total_cents)} (materials ${f(quote.subtotal_cents)})`,
+      `💵 Collect on delivery (${quote.quote_number})`,
+    ];
+    if (isDelivery) {
+      smsLines.push(`🚛 Delivery: ${quote.delivery_address}`);
+      if (quote.delivery_date || quote.delivery_time_window) smsLines.push(`📅 ${quote.delivery_date || "TBD"} · ${quote.delivery_time_window || "Flexible"}`);
+      if (quote.delivery_fee_cents > 0) smsLines.push(`Delivery fee: ${f(quote.delivery_fee_cents)}`);
+      if (quote.delivery_notes) smsLines.push(`📝 ${quote.delivery_notes}`);
+    } else {
+      smsLines.push("🏗️ Pickup");
+    }
+    smsLines.push(`📞 ${quote.customer_phone || "No phone"}`);
+    await sendSms("+16318746244", smsLines.join("\n")).catch(() => {});
+
     await resend.emails.send({
       from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
       to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
-      subject: `COD Order: ${quote.customer_name} — ${f(quote.total_cents)}`,
-      html: `<p>Quote ${quote.quote_number} accepted as COD.</p>
-        <p>${quote.customer_name} — ${f(quote.total_cents)}</p>
-        <p>${quote.delivery_address ? `Delivery: ${quote.delivery_address}` : "Pickup"}</p>
-        ${quote.delivery_date ? `<p>Date: ${quote.delivery_date}</p>` : ""}
-        ${quote.delivery_time_window ? `<p>Time: ${quote.delivery_time_window}</p>` : ""}
-        ${quote.delivery_notes ? `<p>Notes: ${quote.delivery_notes}</p>` : ""}`,
+      subject: `COD Order: ${quote.customer_name} — ${itemsSummary} — ${f(quote.total_cents)}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;">
+        <h2 style="color:#1a3a5c;margin-bottom:4px;">Quote Order — COD</h2>
+        <p style="color:#666;margin-top:0;">${quote.quote_number} · Collect on Delivery</p>
+
+        <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+          <tr style="background:#1a3a5c;color:white;">
+            <th style="padding:6px 8px;text-align:left;">Material</th>
+            <th style="padding:6px 8px;text-align:center;">Qty</th>
+            <th style="padding:6px 8px;text-align:right;">Subtotal</th>
+          </tr>
+          ${itemsHtml}
+        </table>
+
+        ${isDelivery ? `
+        <div style="background:#f0f4f8;border-radius:6px;padding:12px;margin:12px 0;">
+          <p style="margin:0 0 4px;font-weight:600;color:#1a3a5c;">🚛 Delivery Details</p>
+          <p style="margin:2px 0;"><strong>Address:</strong> ${quote.delivery_address}</p>
+          <p style="margin:2px 0;"><strong>Date:</strong> ${quote.delivery_date || "Not specified"}</p>
+          <p style="margin:2px 0;"><strong>Time:</strong> ${quote.delivery_time_window || "Flexible"}</p>
+          <p style="margin:2px 0;"><strong>Delivery Fee:</strong> ${f(quote.delivery_fee_cents || 0)}</p>
+          ${quote.delivery_notes ? `<p style="margin:2px 0;"><strong>Notes:</strong> ${quote.delivery_notes}</p>` : ""}
+        </div>` : `<p>🏗️ <strong>Pickup</strong></p>`}
+
+        <div style="background:#fff3cd;border-radius:6px;padding:12px;margin:12px 0;border:1px solid #ffc107;">
+          <p style="margin:0;font-weight:bold;font-size:16px;">💵 Collect: ${f(quote.total_cents)}</p>
+        </div>
+
+        <table style="width:100%;margin:12px 0;font-size:14px;">
+          <tr><td>Materials:</td><td style="text-align:right;">${f(quote.subtotal_cents)}</td></tr>
+          ${isDelivery ? `<tr><td>Delivery:</td><td style="text-align:right;">${f(quote.delivery_fee_cents || 0)}</td></tr>` : ""}
+          <tr><td>Tax:</td><td style="text-align:right;">${f(quote.tax_cents)}</td></tr>
+          <tr style="font-weight:bold;font-size:16px;"><td>Total:</td><td style="text-align:right;">${f(quote.total_cents)}</td></tr>
+        </table>
+
+        <div style="background:#f9f9f9;border-radius:6px;padding:12px;margin:12px 0;">
+          <p style="margin:2px 0;"><strong>Customer:</strong> ${quote.customer_name}</p>
+          <p style="margin:2px 0;"><strong>Phone:</strong> ${quote.customer_phone || "—"}</p>
+          <p style="margin:2px 0;"><strong>Email:</strong> ${quote.customer_email || "—"}</p>
+        </div>
+
+        <p style="margin-top:16px;"><a href="https://easternlm.com/admin/operations" style="background:#c8952e;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">View in Admin →</a></p>
+      </div>`,
     });
   } catch {}
 
