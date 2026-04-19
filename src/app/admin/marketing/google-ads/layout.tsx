@@ -9,6 +9,7 @@ const tabs = [
   { href: "/admin/marketing/google-ads/campaigns", label: "Campaigns" },
   { href: "/admin/marketing/google-ads/recommendations", label: "Recommendations" },
   { href: "/admin/marketing/google-ads/conversions", label: "Conversions" },
+  { href: "/admin/marketing/google-ads/designer", label: "AI Designer" },
 ];
 
 export default function GoogleAdsLayout({ children }: { children: React.ReactNode }) {

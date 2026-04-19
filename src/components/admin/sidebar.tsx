@@ -85,6 +85,7 @@ const SECTIONS: NavSection[] = [
       { label: "Review Requests", href: "/admin/marketing/review-requests", icon: Send },
       { label: "Promo Codes", href: "/admin/marketing/promos", icon: Tag },
       { label: "Settings", href: "/admin/marketing/settings", icon: Settings },
+      { label: "Google Ads", href: "/admin/marketing/google-ads", icon: TrendingUp },
     ],
   },
   {
@@ -94,6 +95,8 @@ const SECTIONS: NavSection[] = [
       { label: "Dispatch", href: "/admin/operations/dispatch", icon: Truck },
       { label: "Projects", href: "/admin/projects", icon: HardHat },
       { label: "Maintenance", href: "/admin/maintenance", icon: Wrench },
+      { label: "Book-a-Crew", href: "/admin/services/book-now", icon: Calendar },
+      { label: "Providers", href: "/admin/providers", icon: Users },
     ],
   },
   {
