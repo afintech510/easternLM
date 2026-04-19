@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["google-ads-api", "google-gax", "@grpc/grpc-js", "@grpc/proto-loader"],
   turbopack: {
     root: __dirname,
   },
