@@ -113,7 +113,7 @@ const pages: MaterialLandingPage[] = [
       serviceCategory: "landscaping",
       cta: "Get a Free Install Quote",
     },
-    relatedSlugs: ["topsoil", "natural-stone", "sand"],
+    relatedSlugs: ["topsoil", "pea-gravel", "sand"],
   },
   {
     slug: "sand",

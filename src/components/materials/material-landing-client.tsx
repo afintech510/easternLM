@@ -81,7 +81,7 @@ export function MaterialLandingClient({ page, products }: Props) {
             <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
               <a href="#products">Shop Now <ArrowRight className="ml-1 size-4" /></a>
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
+            <Button asChild variant="outline" size="lg" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10">
               <a href="#calculator">Calculate How Much</a>
             </Button>
           </div>
@@ -198,7 +198,7 @@ export function MaterialLandingClient({ page, products }: Props) {
             <div className="flex flex-wrap gap-3">
               {page.relatedSlugs.map((slug) => (
                 <Button key={slug} asChild variant="outline" size="sm">
-                  <Link href={`/materials/${slug}`}>
+                  <Link href={`/buy/${slug}`}>
                     {slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
                     <ArrowRight className="ml-1 size-3" />
                   </Link>

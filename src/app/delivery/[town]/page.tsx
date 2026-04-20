@@ -86,8 +86,8 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Badge className="bg-accent/20 text-accent border-0">Delivery Area</Badge>
-            <Badge variant="outline" className="border-primary-foreground/20 text-primary-foreground/60">Tier {tp.tier}</Badge>
-            <Badge variant="outline" className="border-primary-foreground/20 text-primary-foreground/60">ZIP {tp.zipCodes.join(", ")}</Badge>
+            <Badge variant="outline" className="border-primary-foreground/20 bg-transparent text-primary-foreground/60">Tier {tp.tier}</Badge>
+            <Badge variant="outline" className="border-primary-foreground/20 bg-transparent text-primary-foreground/60">ZIP {tp.zipCodes.join(", ")}</Badge>
           </div>
           <h1 className="mt-3 [font-family:var(--font-display)] text-3xl text-primary-foreground md:text-5xl">
             Material Delivery to {tp.name}, {tp.state}
@@ -241,7 +241,7 @@ export default async function TownDeliveryPage({ params }: TownRouteProps) {
             <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Link href="/services">Get a Free Quote <ArrowRight className="size-4" /></Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+            <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
               <a href={siteConfig.phoneHref}><Phone className="size-4" /> {siteConfig.phoneDisplay}</a>
             </Button>
           </div>

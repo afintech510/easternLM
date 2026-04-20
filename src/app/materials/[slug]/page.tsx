@@ -178,10 +178,10 @@ export default async function ProductTownPage({ params }: PageProps) {
             <Badge className="border-0 bg-accent/20 px-3 py-1.5 text-sm font-semibold text-accent">
               <Truck className="mr-1.5 size-4" /> Delivery from {formatUsd(town.deliveryFeeCents)}
             </Badge>
-            <Badge variant="outline" className="border-primary-foreground/20 px-3 py-1.5 text-sm text-primary-foreground/70">
+            <Badge variant="outline" className="border-primary-foreground/20 bg-transparent px-3 py-1.5 text-sm text-primary-foreground/70">
               <Clock className="mr-1.5 size-4" /> ~{town.driveMinutes} min from our yard
             </Badge>
-            <Badge variant="outline" className="border-primary-foreground/20 px-3 py-1.5 text-sm text-primary-foreground/70">
+            <Badge variant="outline" className="border-primary-foreground/20 bg-transparent px-3 py-1.5 text-sm text-primary-foreground/70">
               <MapPin className="mr-1.5 size-4" /> {town.distanceMiles.toFixed(1)} miles
             </Badge>
           </div>
@@ -194,7 +194,7 @@ export default async function ProductTownPage({ params }: PageProps) {
               </Link>
             </Button>
             {page.relatedServiceSlug && (
-              <Button asChild size="lg" variant="outline" className="border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+              <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                 <Link href={`/services/${page.relatedServiceSlug}`}>
                   <Users className="size-4" /> Get a Service Quote
                 </Link>
@@ -288,7 +288,7 @@ export default async function ProductTownPage({ params }: PageProps) {
               <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
                 <Link href={`/services/${page.relatedServiceSlug}`}>Get a Free Quote <ArrowRight className="size-4" /></Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+              <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                 <a href={siteConfig.phoneHref}><Phone className="size-4" /> {siteConfig.phoneDisplay}</a>
               </Button>
             </div>

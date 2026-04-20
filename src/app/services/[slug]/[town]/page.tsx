@@ -84,7 +84,7 @@ export default async function ServiceTownPage({ params }: PageProps) {
           <p className="mt-3 max-w-2xl text-base text-primary-foreground/60">{page.introParagraph}</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Badge className="border-0 bg-accent/20 px-3 py-1.5 text-sm font-semibold text-accent"><MapPin className="mr-1.5 size-4" /> {town.name}, NY</Badge>
-            <Badge variant="outline" className="border-primary-foreground/20 px-3 py-1.5 text-sm text-primary-foreground/70"><Clock className="mr-1.5 size-4" /> Free estimates</Badge>
+            <Badge variant="outline" className="border-primary-foreground/20 bg-transparent px-3 py-1.5 text-sm text-primary-foreground/70"><Clock className="mr-1.5 size-4" /> Free estimates</Badge>
           </div>
         </div>
       </section>

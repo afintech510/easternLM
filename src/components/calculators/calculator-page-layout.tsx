@@ -82,7 +82,7 @@ export function CalculatorPageLayout({ title, subtitle, calculator, products, ti
             <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Link href={`/services/${serviceSlug}`}><Users className="size-4" /> Get a Free Quote</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-primary-foreground/25 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+            <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
               <a href="tel:+16318746244"><Phone className="size-4" /> Call</a>
             </Button>
           </div>
