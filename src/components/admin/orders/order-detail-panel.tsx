@@ -15,8 +15,11 @@ import {
 import {
   AlertTriangle,
   Calendar,
+  CheckCircle2,
   Clock,
+  CreditCard,
   ExternalLink,
+  Loader2,
   Mail,
   MapPin,
   MessageSquare,
@@ -24,9 +27,12 @@ import {
   Phone,
   Printer,
   RotateCcw,
+  Send,
   Truck,
+  Users,
   X,
   XCircle,
+  XOctagon,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -121,7 +127,7 @@ interface TimelineEntry {
 // ─── Constants ────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  "new", "confirmed", "scheduled", "loading",
+  "new", "pending", "awaiting_confirmation", "confirmed", "scheduled", "loading",
   "out_for_delivery", "delivered", "paid",
   "cancelled", "issue",
 ];
@@ -137,18 +143,20 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-600",
   issue: "bg-red-100 text-red-800",
   pending: "bg-yellow-100 text-yellow-800",
+  awaiting_confirmation: "bg-purple-100 text-purple-800",
   pending_payment: "bg-yellow-100 text-yellow-800",
   refunded: "bg-red-200 text-red-800",
   partially_refunded: "bg-orange-100 text-orange-600",
 };
 
-const SOURCE_LABELS: Record<string, string> = { web: "WEB", pos: "POS", phone: "PHONE", admin: "ADMIN", quote: "QUOTE" };
+const SOURCE_LABELS: Record<string, string> = { web: "WEB", pos: "POS", phone: "PHONE", admin: "ADMIN", quote: "QUOTE", book_now: "CREW" };
 const SOURCE_COLORS: Record<string, string> = {
   web: "bg-blue-100 text-blue-700",
   pos: "bg-green-100 text-green-700",
   phone: "bg-amber-100 text-amber-700",
   admin: "bg-gray-100 text-gray-700",
   quote: "bg-purple-100 text-purple-700",
+  book_now: "bg-teal-100 text-teal-700",
 };
 
 const CONSTRAINT_LABELS: Record<string, string> = {
@@ -496,6 +504,11 @@ export function OrderDetailPanel({
           </div>
         </Section>
 
+        {/* Book-a-Crew Actions (only for book_now orders with manual capture) */}
+        {order.source === "book_now" && !!(order.metadata as any)?.authorizationStatus && (
+          <BookNowActions order={order} onStatusChange={onStatusChange} />
+        )}
+
         {/* Status Change */}
         <Section title="Status">
           <div className="flex flex-wrap gap-1">
@@ -649,3 +662,180 @@ function buildTimeline(order: OrderFull, notes: OrderNote[]): TimelineEntry[] {
 
   return entries.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 }
+
+// ─── Book-a-Crew Admin Actions ─────────────────────────────
+
+function BookNowActions({
+  order,
+  onStatusChange,
+}: {
+  order: OrderFull;
+  onStatusChange: (orderId: string, status: string) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [confirmedDate, setConfirmedDate] = useState(order.delivery_date || "");
+  const [captureAmount, setCaptureAmount] = useState("");
+  const [showCapture, setShowCapture] = useState(false);
+
+  const authStatus = (order.metadata as any)?.authorizationStatus || "unknown";
+  const isAuthorized = authStatus === "authorized";
+  const isPending = order.status === "pending" || order.status === "awaiting_confirmation";
+
+  const sendConfirmation = async () => {
+    setBusy("confirm");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/book-now/${order.id}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmedDate: confirmedDate || null }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResult(`Confirmation link sent! ${data.confirmUrl ? "(Link copied)" : ""}`);
+        onStatusChange(order.id, "awaiting_confirmation");
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch { setResult("Network error"); }
+    setBusy(null);
+  };
+
+  const captureAuth = async () => {
+    setBusy("capture");
+    setResult(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (captureAmount) body.amountCents = Math.round(parseFloat(captureAmount) * 100);
+      const res = await fetch(`/api/admin/book-now/${order.id}/capture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResult(`Captured $${(data.capturedCents / 100).toFixed(2)}`);
+        setShowCapture(false);
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch { setResult("Network error"); }
+    setBusy(null);
+  };
+
+  const cancelAuth = async () => {
+    if (!confirm("Release the authorization hold? Customer will not be charged.")) return;
+    setBusy("cancel");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/book-now/${order.id}/cancel-auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResult("Authorization released");
+        onStatusChange(order.id, "cancelled");
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch { setResult("Network error"); }
+    setBusy(null);
+  };
+
+  return (
+    <Section title="Book-a-Crew">
+      <div className="space-y-3">
+        {/* Status indicator */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Auth status:</span>
+          <Badge variant={isAuthorized ? "default" : "secondary"} className="text-xs">
+            {authStatus}
+          </Badge>
+        </div>
+
+        {result && (
+          <div className={`text-xs px-2 py-1.5 rounded ${result.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+            {result}
+          </div>
+        )}
+
+        {isPending && isAuthorized && (
+          <>
+            {/* Send confirmation link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Confirmed date (optional)</label>
+              <input
+                type="date"
+                value={confirmedDate}
+                onChange={(e) => setConfirmedDate(e.target.value)}
+                className="w-full h-8 rounded-lg border px-2 text-xs"
+              />
+              <Button
+                size="sm"
+                className="w-full text-xs"
+                onClick={sendConfirmation}
+                disabled={!!busy}
+              >
+                {busy === "confirm" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                Send Confirmation Link
+              </Button>
+            </div>
+
+            <div className="border-t pt-2 grid grid-cols-2 gap-2">
+              {/* Capture */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => setShowCapture(!showCapture)}
+                disabled={!!busy}
+              >
+                <CreditCard className="h-3 w-3 mr-1" /> Capture
+              </Button>
+
+              {/* Cancel auth */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs text-red-600"
+                onClick={cancelAuth}
+                disabled={!!busy}
+              >
+                {busy === "cancel" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <XOctagon className="h-3 w-3 mr-1" />}
+                Release Auth
+              </Button>
+            </div>
+
+            {showCapture && (
+              <div className="space-y-1.5 border rounded-lg p-2">
+                <label className="text-xs font-medium">Amount to capture (leave empty for full)</label>
+                <input
+                  type="text"
+                  value={captureAmount}
+                  onChange={(e) => setCaptureAmount(e.target.value)}
+                  placeholder={`Full: $${(order.grand_total_cents / 100).toFixed(2)}`}
+                  className="w-full h-8 rounded-lg border px-2 text-xs"
+                />
+                <Button size="sm" className="w-full text-xs" onClick={captureAuth} disabled={!!busy}>
+                  {busy === "capture" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Capture {captureAmount ? `$${captureAmount}` : "Full Amount"}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {!isAuthorized && (
+          <p className="text-xs text-muted-foreground">
+            {authStatus === "captured" && "Payment captured."}
+            {authStatus === "released" && "Authorization released — no charge."}
+            {authStatus === "partial_captured" && `Platform fee captured. Metadata: ${JSON.stringify((order.metadata as any)?.platform_fee_cents)}`}
+          </p>
+        )}
+      </div>
+    </Section>
+  );
+}
+
