@@ -7,7 +7,7 @@ import { buildQuote, formatUsd } from "@/lib/book-now/pricing";
 import { TIMELINE_CONFIG, type TimelineOption } from "@/lib/book-now/types";
 import type { InstantBookService } from "@/lib/book-now/types";
 
-const CC_SURCHARGE_RATE = 0.03;
+const CC_SURCHARGE_RATE = 0.035;
 
 const quoteItemSchema = z.object({
   serviceSlug: z.string(),

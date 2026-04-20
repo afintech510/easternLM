@@ -105,7 +105,7 @@ export function CheckoutPageClient() {
       calculation.discountedSubtotalCents +
       calculation.deliveryFeeCents +
       calculation.taxCents;
-    const codDiscountCents = Math.round(preCcTotal * 0.03);
+    const codDiscountCents = Math.round(preCcTotal * 0.035);
     return {
       codDiscountCents,
       grandTotalCents: preCcTotal - codDiscountCents,

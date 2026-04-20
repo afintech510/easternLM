@@ -1355,7 +1355,7 @@ export default function PosRegisterPage() {
       {/* Phone Order Modal */}
       {showPhoneOrder && (
         <PhoneOrderModal
-          amountCents={cashTotalCents + Math.round(cashTotalCents * 0.03)}
+          amountCents={cashTotalCents + Math.round(cashTotalCents * 0.035)}
           customerName={delName || customerName}
           customerPhone={delPhone || customerPhone}
           customerEmail={delEmail}
@@ -1395,9 +1395,9 @@ export default function PosRegisterPage() {
                 })),
                 subtotal_cents: subtotalCents,
                 tax_cents: taxCents,
-                cc_fee_cents: Math.round(cashTotalCents * 0.03),
+                cc_fee_cents: Math.round(cashTotalCents * 0.035),
                 delivery_fee_cents: deliveryFeeCents,
-                grand_total_cents: cashTotalCents + Math.round(cashTotalCents * 0.03),
+                grand_total_cents: cashTotalCents + Math.round(cashTotalCents * 0.035),
                 payment_method: "card_online",
                 customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
                 delivery_method: deliveryMethod,
@@ -2889,7 +2889,7 @@ export default function PosRegisterPage() {
               const orderPayload: any = {
                 items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
-                cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.03 / 1.03), 0),
+                cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.035 / 1.035), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
                 payment_method: paymentMethod, delivery_method: deliveryMethod,
                 delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,

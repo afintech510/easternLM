@@ -58,7 +58,7 @@ export type QuoteDelivery = {
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const TAX_RATE = 0.0875;
-const CC_RATE = 0.03;
+const CC_RATE = 0.035;
 
 const ACCESS_CONSTRAINTS = [
   { key: "low_wires", label: "Low Wires" },

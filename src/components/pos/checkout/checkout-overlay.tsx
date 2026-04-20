@@ -58,7 +58,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
   const split1Cents = Math.round((parseFloat(splitAmount1) || 0) * 100);
   const split2Cents = cart.cashTotalCents - split1Cents;
   const splitCardPortion = splitMethod1 === "card_terminal" ? split1Cents : splitMethod2 === "card_terminal" ? split2Cents : 0;
-  const splitCcFee = Math.round(splitCardPortion * 0.03);
+  const splitCcFee = Math.round(splitCardPortion * 0.035);
   const splitTotal = cart.cashTotalCents + splitCcFee;
 
   async function handleCashComplete() {
@@ -102,7 +102,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
     } else {
       // Split: credit + another method
       if (creditRemainderMethod === "card_terminal") {
-        const ccFee = Math.round(remainderCents * 0.03);
+        const ccFee = Math.round(remainderCents * 0.035);
         setCardProcessing(true);
         const result = await onProcessCard(remainderCents + ccFee);
         setCardProcessing(false);
@@ -133,7 +133,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
     setCardProcessing(true);
     for (const { method, amount } of methods) {
       if (method === "card_terminal") {
-        const ccFee = Math.round(amount * 0.03);
+        const ccFee = Math.round(amount * 0.035);
         const result = await onProcessCard(amount + ccFee);
         if (!result.success) {
           setCardError(result.error ?? "Card failed");

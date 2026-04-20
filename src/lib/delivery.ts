@@ -53,7 +53,7 @@ export type DeliveryLoad = {
 
 export type PaymentMethod = "card" | "cod";
 
-export const COD_DISCOUNT_RATE = 0.03;
+export const COD_DISCOUNT_RATE = 0.035;
 
 export type DeliveryCalculationResult = {
   subtotalCents: number;

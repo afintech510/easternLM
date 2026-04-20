@@ -14,7 +14,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null;
 
-const CC_SURCHARGE_RATE = 0.03;
+const CC_SURCHARGE_RATE = 0.035;
 
 export function BookNowCheckoutClient() {
   const [quote, setQuote] = useState<Quote | null | undefined>(undefined);

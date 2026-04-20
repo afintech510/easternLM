@@ -4,7 +4,7 @@ import { generateQuoteNumber } from "@/lib/quotes/generate-number";
 import { sendSms } from "@/lib/sms";
 
 const TAX_RATE = 0.0875;
-const CC_RATE = 0.03;
+const CC_RATE = 0.035;
 
 function generateShortCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

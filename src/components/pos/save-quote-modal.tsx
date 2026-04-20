@@ -5,7 +5,7 @@ import { X, Loader2, Mail, MessageSquare, Save, MapPin, Truck, AlertTriangle, Cl
 import { formatUsd } from "@/lib/format";
 
 const TAX_RATE = 0.0875;
-const CC_RATE = 0.03;
+const CC_RATE = 0.035;
 
 const SERVICE_INTERESTS = [
   { value: "none", label: "None" },
