@@ -45,6 +45,7 @@ export function AddToCartButton({
       });
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 2000);
+      try { const { trackAddToOrder } = await import("@/lib/bulk-analytics"); trackAddToOrder({ id: productId, name, qty: quantity, valueCents: unitPriceCents * quantity }); } catch {}
 
       toast.success(`${name} added to cart`, {
         description: `${quantity} × ${formatUsd(unitPriceCents)} = ${formatUsd(unitPriceCents * quantity)}`,

@@ -1,11 +1,3 @@
-/**
- * Analytics event layer for the /app bulk ordering experience.
- * Fires both Google gtag and Meta Pixel events.
- *
- * Spec Section 10: Remarketing via Google + Meta.
- * All functions are no-ops if the tracking scripts aren't loaded.
- */
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Window {
@@ -14,38 +6,49 @@ declare global {
   }
 }
 
-// ── Google gtag events ───────────────────────────────────────────
+function gtag(...args: any[]) {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag(...args);
+  }
+}
 
 export function trackViewItem(product: { id: string; name: string; priceCents: number }) {
-  // TODO: implement — gtag("event", "view_item", ...)
+  gtag("event", "view_item", {
+    currency: "USD",
+    value: product.priceCents / 100,
+    items: [{ item_id: product.id, item_name: product.name, price: product.priceCents / 100 }],
+  });
 }
 
 export function trackAddToOrder(item: { id: string; name: string; qty: number; valueCents: number }) {
-  // TODO: implement — gtag("event", "add_to_cart", ...)
+  gtag("event", "add_to_cart", {
+    currency: "USD",
+    value: item.valueCents / 100,
+    items: [{ item_id: item.id, item_name: item.name, quantity: item.qty, price: item.valueCents / item.qty / 100 }],
+  });
 }
 
 export function trackBeginCheckout(valueCents: number, items: Array<{ id: string; name: string; qty: number }>) {
-  // TODO: implement — gtag("event", "begin_checkout", ...)
+  gtag("event", "begin_checkout", {
+    currency: "USD",
+    value: valueCents / 100,
+    items: items.map((i) => ({ item_id: i.id, item_name: i.name, quantity: i.qty })),
+  });
 }
 
 export function trackPurchase(orderId: string, valueCents: number, items: Array<{ id: string; name: string; qty: number }>) {
-  // TODO: implement — gtag("event", "purchase", ...)
+  gtag("event", "purchase", {
+    transaction_id: orderId,
+    currency: "USD",
+    value: valueCents / 100,
+    items: items.map((i) => ({ item_id: i.id, item_name: i.name, quantity: i.qty })),
+  });
 }
 
-// ── Meta Pixel events ────────────────────────────────────────────
-
-export function fbViewContent(product: { id: string; name: string; priceCents: number }) {
-  // TODO: implement — fbq("track", "ViewContent", ...)
-}
-
-export function fbAddToCart(item: { id: string; name: string; qty: number; valueCents: number }) {
-  // TODO: implement — fbq("track", "AddToCart", ...)
-}
-
-export function fbInitiateCheckout(valueCents: number) {
-  // TODO: implement — fbq("track", "InitiateCheckout", ...)
-}
-
-export function fbPurchase(orderId: string, valueCents: number) {
-  // TODO: implement — fbq("track", "Purchase", ...)
+export function trackGenerateLead(formName: string) {
+  gtag("event", "generate_lead", {
+    currency: "USD",
+    value: 0,
+    event_label: formName,
+  });
 }

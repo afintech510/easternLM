@@ -119,6 +119,7 @@ export function ServiceQuoteForm({ defaultServiceType, serviceCategory }: Servic
       }
 
       setSubmitted(true);
+      try { const { trackGenerateLead } = await import("@/lib/bulk-analytics"); trackGenerateLead("service_quote"); } catch {}
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {

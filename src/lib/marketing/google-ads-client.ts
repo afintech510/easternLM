@@ -195,11 +195,11 @@ export async function pushCampaignToGoogleAds(
   if (design.sitelinks.length > 0) {
     const assetResult = await customer.assets.create(
       design.sitelinks.map((sl) => ({
+        final_urls: [`${SITE_URL}${sl.finalUrl}`],
         sitelink_asset: {
           link_text: sl.linkText.slice(0, 25),
           description1: sl.description1.slice(0, 35),
           description2: sl.description2.slice(0, 35),
-          final_urls: [`${SITE_URL}${sl.finalUrl}`],
         },
       })) as any[],
     );

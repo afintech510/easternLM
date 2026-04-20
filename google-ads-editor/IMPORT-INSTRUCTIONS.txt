@@ -1,0 +1,73 @@
+Google Ads Editor Import Instructions
+=====================================
+Account: 540-952-6270
+
+PREREQUISITES:
+- Download Google Ads Editor: https://ads.google.com/intl/en_us/home/tools/ads-editor/
+- Open it and sign in to the ELM account (540-952-6270)
+- Click "Get recent changes" to sync the 6 new campaigns
+
+IMPORT ORDER (do each one separately):
+--------------------------------------
+
+FILE 1: 1-negative-keywords.csv
+  Menu: Account > Import > From CSV
+  Entity type: Campaign negative keywords
+  What it does: Adds 13 negative keywords to all 6 campaigns
+  (free, DIY, how to, rental, rent, jobs, hiring, career,
+   wholesale, clearance, home depot, lowes, menards)
+
+FILE 2: 2-ad-schedule.csv
+  Menu: Account > Import > From CSV
+  Entity type: Ad schedule
+  What it does: Sets bid adjustments across all 6 campaigns:
+    - Mon-Fri 6-9 AM: +15% (contractors)
+    - Mon-Fri 4-7 PM: +10% (homeowners)
+    - Mon-Fri 10 PM-6 AM: -30%
+    - Saturday 6 AM-12 PM: +10%
+    - Saturday 6-10 PM: -20%
+    - Sunday: NOT SCHEDULED (yard closed)
+
+FILE 3: 3-location-targets.csv
+  Menu: Account > Import > From CSV
+  Entity type: Campaign location target
+  What it does: Adds 6 missing geo targets to all campaigns:
+    Yaphank, Middle Island, Brookhaven, Sayville, Bayport, Holbrook
+
+FILE 4: 4-structured-snippets.csv
+  Menu: Account > Import > From CSV
+  Entity type: Structured snippet extensions
+  What it does: Adds 3 account-level structured snippets:
+    - Types: Topsoil, Mulch, Gravel, Sand, Compost, Bluestone, River Rock
+    - Neighborhoods: Patchogue, Riverhead, Hampton Bays, Southampton, Center Moriches, Medford
+    - Service catalog: Bulk Delivery, Landscaping, Masonry, Driveway Install, Grading
+
+FILE 5: 5-call-extension.csv
+  Menu: Account > Import > From CSV
+  Entity type: Call extensions
+  What it does: Adds account-level call extension: (631) 874-6244
+  NOTE: After import, go to the call extension settings and:
+    - Enable call reporting
+    - Set minimum call duration for conversion: 60 seconds
+
+FILE 6: 6-bid-strategy.csv
+  Menu: Account > Import > From CSV
+  Entity type: Campaigns
+  What it does: Sets Max CPC bid caps on Maximize Clicks:
+    - Topsoil, Mulch, Gravel, Sand: $4.00
+    - Hardscape & Services: $3.50
+    - Contractor & Yard Search: $5.00
+
+AFTER ALL IMPORTS:
+  Click "Post" (top bar) to push all changes to Google Ads.
+
+STILL NEEDS MANUAL SETUP (cannot be done via CSV):
+---------------------------------------------------
+1. CONVERSION ACTIONS - In Google Ads web UI:
+   Goals > Conversions > New conversion action:
+   a) "Purchase" - Website, category: Purchase, value: use order value
+   b) "Lead Form" - Website, category: Submit lead form
+   c) "Calls from ads" - Phone calls, calls from ads or extensions, 60 sec min
+
+2. ENABLE CAMPAIGNS - Toggle each from Paused to Enabled when ready.
+   Recommended: enable one per day, starting with Topsoil.

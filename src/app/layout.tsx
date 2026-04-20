@@ -3,6 +3,7 @@ import { Bree_Serif, Public_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { Footer } from "@/components/layout/footer";
+import { GoogleAnalytics } from "@/components/analytics/gtag";
 import "./globals.css";
 
 const publicSans = Public_Sans({
@@ -69,6 +70,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <GoogleAnalytics />
+      </head>
       <body className={`${publicSans.variable} ${breeSerif.variable} antialiased`}>
         <LayoutShell footer={<Footer />}>{children}</LayoutShell>
         <Toaster position="top-right" richColors toastOptions={{ className: "text-sm" }} />

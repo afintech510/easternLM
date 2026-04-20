@@ -59,6 +59,7 @@ export function ContactForm() {
 
       reset(defaultValues);
       setSubmitted(true);
+      try { const { trackGenerateLead } = await import("@/lib/bulk-analytics"); trackGenerateLead("contact_form"); } catch {}
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     }

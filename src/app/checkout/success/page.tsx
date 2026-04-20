@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CheckCircle2, MapPin, Phone, Truck } from "lucide-react";
 import { CartClearer } from "@/components/checkout/cart-clearer";
+import { PurchaseEvent } from "@/components/analytics/purchase-event";
 
 type CheckoutSuccessPageProps = {
   searchParams: Promise<{
@@ -90,6 +91,13 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-16">
       <CartClearer />
+      {order && (
+        <PurchaseEvent
+          orderId={order.id}
+          valueCents={order.grand_total_cents}
+          items={items.map((i) => ({ id: i.product_name, name: i.product_name, qty: i.quantity }))}
+        />
+      )}
       {/* Header */}
       <div className="text-center space-y-3">
         <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-100">
