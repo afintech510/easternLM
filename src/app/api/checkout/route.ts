@@ -673,10 +673,11 @@ export async function POST(request: Request) {
       if (!insertedOrder.error && insertedOrder.data) {
         const orderId = insertedOrder.data.id;
         createdOrderId = orderId;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const orderItemRows: Database["public"]["Tables"]["order_items"]["Insert"][] = payload.cartItems.map(
           (item, index) => ({
           order_id: orderId,
-          product_id: item.id,
+          product_id: uuidRegex.test(item.id) ? item.id : null,
           product_name: item.name,
           product_slug: null,
           quantity: item.quantity,
@@ -703,10 +704,13 @@ export async function POST(request: Request) {
           });
         });
 
-        await supabaseAdmin.from("order_items").insert(orderItemRows);
+        const itemInsert = await supabaseAdmin.from("order_items").insert(orderItemRows);
+        if (itemInsert.error) {
+          console.error("[checkout] order_items insert failed:", itemInsert.error.message, { orderId });
+        }
       }
-    } catch {
-      // Do not block checkout on order pre-save; webhook fallback will persist.
+    } catch (err) {
+      console.error("[checkout] order pre-save failed:", err instanceof Error ? err.message : err);
     }
 
     // COD response: no Stripe — fire notifications + return success

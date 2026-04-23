@@ -667,9 +667,9 @@ export function CartPageClient() {
 // ─── Installation Upsell Component ──────────────────────────
 
 const WEED_BLOCK_OPTIONS = [
-  { id: "fabric-300", name: "Landscape Fabric 3'×100' (300 sq ft)", label: "300 sq ft", priceCents: 2900 },
-  { id: "fabric-900", name: "Landscape Fabric 3'×300' (900 sq ft)", label: "900 sq ft", priceCents: 6000 },
-  { id: "fabric-1800", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
+  { id: "60b8e8c6-e358-4be0-8ace-9662acfbfd7a", name: "Landscape Fabric 3'×100' (300 sq ft)", label: "300 sq ft", priceCents: 2900 },
+  { id: "7e8acff7-8e14-4e70-9f53-08a320dc1317", name: "Landscape Fabric 3'×300' (900 sq ft)", label: "900 sq ft", priceCents: 6000 },
+  { id: "d7c6ca4c-8118-48fe-a4f4-06c327b956ec", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
 ];
 
 // ─── Pricing formulas (all round up to nearest $5) ──────────

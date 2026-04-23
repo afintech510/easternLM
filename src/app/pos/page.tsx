@@ -23,6 +23,7 @@ import {
   UserPlus,
   Users,
   Phone as PhoneIcon,
+  Mail,
   Wifi,
   X,
 } from "lucide-react";
@@ -124,6 +125,9 @@ export default function PosRegisterPage() {
   const [showAccountConfirm, setShowAccountConfirm] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showRefund, setShowRefund] = useState<any>(null);
+  const [emailReceiptOrder, setEmailReceiptOrder] = useState<{ id: string; email: string | null } | null>(null);
+  const [emailReceiptInput, setEmailReceiptInput] = useState("");
+  const [emailReceiptSending, setEmailReceiptSending] = useState(false);
   const [showAddCredit, setShowAddCredit] = useState(false);
   const [disableQuoteTarget, setDisableQuoteTarget] = useState<{ id: string; action: "disable" | "flag_scammer" } | null>(null);
   const [disableQuoteReason, setDisableQuoteReason] = useState("");
@@ -1355,7 +1359,7 @@ export default function PosRegisterPage() {
       {/* Phone Order Modal */}
       {showPhoneOrder && (
         <PhoneOrderModal
-          amountCents={cashTotalCents + Math.round(cashTotalCents * 0.035)}
+          amountCents={cardTotalCents}
           customerName={delName || customerName}
           customerPhone={delPhone || customerPhone}
           customerEmail={delEmail}
@@ -1395,9 +1399,9 @@ export default function PosRegisterPage() {
                 })),
                 subtotal_cents: subtotalCents,
                 tax_cents: taxCents,
-                cc_fee_cents: Math.round(cashTotalCents * 0.035),
+                cc_fee_cents: ccFeeCents,
                 delivery_fee_cents: deliveryFeeCents,
-                grand_total_cents: cashTotalCents + Math.round(cashTotalCents * 0.035),
+                grand_total_cents: cardTotalCents,
                 payment_method: "card_online",
                 customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
                 delivery_method: deliveryMethod,
@@ -1408,7 +1412,11 @@ export default function PosRegisterPage() {
                 delivery_date: delDate || null,
                 delivery_time_window: deliveryMethod === "delivery" ? delTimeWindow : null,
                 delivery_notes: delNotes || null,
+                notes: delNotes || orderNotes || null,
                 access_constraints: accessConstraints,
+                discount_amount_cents: proDiscountCents + manualDiscountCents,
+                discount_reason: discountReason || (proDiscountCents > 0 ? "Pro pickup discount" : null),
+                tax_exempt: taxExempt,
                 stripe_payment_intent_id: piId,
               };
               const orderRes = await fetch("/api/pos/checkout", {
@@ -1544,6 +1552,60 @@ export default function PosRegisterPage() {
           onClose={() => setShowRefund(null)}
           onRefund={() => { setShowRefund(null); fetchTransactions(); if (selectedTxn) fetchTxnDetail(selectedTxn); }}
         />
+      )}
+
+      {/* Email Receipt Modal */}
+      {emailReceiptOrder && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Mail className="size-5 text-amber-400" />
+                <h2 className="text-lg font-semibold text-zinc-100">Email Receipt</h2>
+              </div>
+              <button onClick={() => setEmailReceiptOrder(null)} className="text-zinc-500 hover:text-zinc-300"><X className="size-5" /></button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <label className="block text-sm text-zinc-400">
+                {emailReceiptOrder.email ? "Send receipt to:" : "No email on file — enter email:"}
+              </label>
+              <input
+                type="email"
+                value={emailReceiptInput}
+                onChange={(e) => setEmailReceiptInput(e.target.value)}
+                placeholder="customer@example.com"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                autoFocus
+              />
+              <button
+                disabled={emailReceiptSending || !emailReceiptInput.includes("@")}
+                onClick={async () => {
+                  setEmailReceiptSending(true);
+                  try {
+                    const res = await fetch(`/api/admin/orders/${emailReceiptOrder.id}/email-receipt`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email: emailReceiptInput }),
+                    });
+                    if (res.ok) {
+                      setEmailReceiptOrder(null);
+                      if (txnDetail && txnDetail.id === emailReceiptOrder.id) {
+                        setTxnDetail({ ...txnDetail, customer_email: emailReceiptInput });
+                      }
+                    } else {
+                      const err = await res.json();
+                      alert("Failed: " + (err.error || "Unknown error"));
+                    }
+                  } catch { alert("Failed to send email"); }
+                  setEmailReceiptSending(false);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {emailReceiptSending ? "Sending..." : "Send Receipt"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Disable Quote / Flag Scammer Modal */}
@@ -2351,6 +2413,17 @@ export default function PosRegisterPage() {
                                 <Truck className="w-3.5 h-3.5" /> Delivery Ticket
                               </button>
                             )}
+                            <button onClick={() => {
+                              if (txnDetail.customer_email) {
+                                setEmailReceiptOrder({ id: txnDetail.id, email: txnDetail.customer_email });
+                                setEmailReceiptInput(txnDetail.customer_email);
+                              } else {
+                                setEmailReceiptOrder({ id: txnDetail.id, email: null });
+                                setEmailReceiptInput("");
+                              }
+                            }} className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5" /> Email
+                            </button>
                             {(txnDetail.status === "paid" || txnDetail.status === "delivered" || txnDetail.status === "confirmed") && (
                               <button onClick={() => setShowRefund(txnDetail)} className="flex-1 rounded bg-red-900/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/50 flex items-center justify-center gap-1.5 border border-red-500/20">
                                 Refund
@@ -2860,7 +2933,7 @@ export default function PosRegisterPage() {
                 // Full store credit payment — create order as "paid" with store_credit method
                 setProcessing(true);
                 const orderPayload: any = {
-                  items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: lineTotal(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+                  items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: lineTotal(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0 })),
                   subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : taxCents,
                   cc_fee_cents: 0, delivery_fee_cents: deliveryFeeCents,
                   grand_total_cents: cashTotalCents,
@@ -2870,13 +2943,19 @@ export default function PosRegisterPage() {
                   customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
                   access_constraints: accessConstraints,
                   delivery_date: delDate || null, delivery_time_window: delTimeWindow || null,
-                  delivery_notes: delNotes || null, store_credit_applied_cents: storeCreditCents,
+                  delivery_notes: delNotes || null, notes: delNotes || orderNotes || null,
+                  store_credit_applied_cents: storeCreditCents,
+                  discount_amount_cents: proDiscountCents + manualDiscountCents,
+                  discount_reason: discountReason || (proDiscountCents > 0 ? "Pro pickup discount" : null),
+                  tax_exempt: taxExempt,
                 };
                 const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });
                 if (res.ok) {
                   const { orderId } = await res.json();
+                  orderPayload.order_id = orderId;
                   await redeemCredit(orderId, storeCreditCents);
-                  clearSale();
+                  await afterSale("store_credit", orderPayload);
+                  resetRegister();
                 } else { alert("Checkout failed"); }
                 setProcessing(false);
               }
@@ -2887,7 +2966,7 @@ export default function PosRegisterPage() {
                 ? `split_store_credit_${payments.find(p => p.method !== "store_credit")?.method || "cash"}`
                 : "split";
               const orderPayload: any = {
-                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0 })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
                 cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.035 / 1.035), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
@@ -2897,14 +2976,20 @@ export default function PosRegisterPage() {
                 customer_email: delEmail || null, customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
                 access_constraints: accessConstraints,
                 delivery_date: delDate || null, delivery_time_window: delTimeWindow || null,
-                delivery_notes: delNotes || null, store_credit_applied_cents: storeCreditCents,
+                delivery_notes: delNotes || null, notes: delNotes || orderNotes || null,
+                store_credit_applied_cents: storeCreditCents,
+                discount_amount_cents: proDiscountCents + manualDiscountCents,
+                discount_reason: discountReason || (proDiscountCents > 0 ? "Pro pickup discount" : null),
+                tax_exempt: taxExempt,
               };
               setProcessing(true);
               const res = await fetch("/api/pos/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderPayload) });
               if (res.ok) {
                 const { orderId } = await res.json();
+                orderPayload.order_id = orderId;
                 if (storeCreditCents > 0) await redeemCredit(orderId, storeCreditCents);
-                clearSale();
+                await afterSale(paymentMethod, orderPayload);
+                resetRegister();
               } else { alert("Checkout failed"); }
               setProcessing(false);
             }

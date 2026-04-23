@@ -327,7 +327,9 @@ export function buildReceiptHtml(order: PrintableOrder): string {
       ${order.delivery_date ? `<div>Date: ${formatShortDeliveryDate(order.delivery_date)}</div>` : ""}
       ${order.delivery_time_window ? `<div>Time: ${formatTimeWindow(order.delivery_time_window)}</div>` : ""}
       ${order.delivery_notes ? `<div>Notes: ${order.delivery_notes}</div>` : ""}`
-      : "";
+      : order.delivery_notes
+        ? `<div class="line"></div><div class="bold">ORDER NOTES</div><div>${order.delivery_notes}</div>`
+        : "";
 
   const discountLine =
     (order.discount_amount_cents ?? 0) > 0

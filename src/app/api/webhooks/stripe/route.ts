@@ -256,6 +256,7 @@ function buildOrderItemsFromMetadata(
       lst: number;
     }>;
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const rows: Array<{
       order_id: string;
       product_id: string | null;
@@ -272,7 +273,7 @@ function buildOrderItemsFromMetadata(
       notes: string | null;
     }> = items.map((item) => ({
       order_id: orderId,
-      product_id: item.id || null,
+      product_id: item.id && uuidRegex.test(item.id) ? item.id : null,
       product_name: item.name,
       product_slug: null,
       quantity: item.qty,
@@ -305,7 +306,8 @@ function buildOrderItemsFromMetadata(
     });
 
     return rows;
-  } catch {
+  } catch (err) {
+    console.error("[webhook] buildOrderItemsFromMetadata failed:", err instanceof Error ? err.message : err, { orderId });
     return [];
   }
 }

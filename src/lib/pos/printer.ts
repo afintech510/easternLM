@@ -386,6 +386,10 @@ export class ReceiptPrinter {
           this.txt(c, line("  Fee:", fmt(load.feeCents)));
         }
       }
+    } else if (o.deliveryNotes) {
+      this.txt(c, div());
+      this.bold(c, true); this.txt(c, "ORDER NOTES"); this.bold(c, false);
+      for (let i = 0; i < o.deliveryNotes.length; i += W - 2) this.txt(c, `  ${o.deliveryNotes.substring(i, i + W - 2)}`);
     }
 
     // Footer
