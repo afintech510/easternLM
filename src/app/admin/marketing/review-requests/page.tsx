@@ -808,20 +808,27 @@ function OrderRow({
       <td className="px-3 py-2.5 text-center">
         <Badge className={`text-[10px] ${badge.className}`}>{badge.label}</Badge>
       </td>
-      <td className="px-3 py-2.5 text-center">
+      <td className="px-3 py-2.5">
         {sentCount === 0 ? (
           <span className="text-muted-foreground text-xs">—</span>
-        ) : anyClicked ? (
-          <span title={`Clicked! Sent ${sentCount}x`}>
-            <CheckCircle className="size-4 inline text-green-600" />
-          </span>
         ) : (
-          <span
-            title={`Sent ${sentCount}x — ${sentOutreach.map((o) => formatDate(o.sent_at!)).join(", ")}`}
-          >
-            <Mail className="size-4 inline text-yellow-500" />
-            {sentCount > 1 && <span className="text-[10px] text-muted-foreground ml-0.5">{sentCount}x</span>}
-          </span>
+          <div className="flex flex-col gap-0.5 items-start">
+            {sentOutreach.map((o, i) => (
+              <span
+                key={o.id || i}
+                className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                  o.link_clicked
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}
+              >
+                {o.channel === "sms" ? <MessageSquare className="size-2.5" /> : <Mail className="size-2.5" />}
+                {o.channel === "sms" ? "SMS" : "Email"}
+                {o.sent_at && <span className="text-[9px] opacity-70">{formatDate(o.sent_at)}</span>}
+                {o.link_clicked && <CheckCircle className="size-2.5" />}
+              </span>
+            ))}
+          </div>
         )}
       </td>
       <td className="px-3 py-2.5 relative">
