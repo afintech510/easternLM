@@ -64,15 +64,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No orders found" }, { status: 404 });
   }
 
-  // Get review URL
+  // Get review URLs
   const { data: settings } = await supabase
     .from("site_settings")
-    .select("google_review_url")
+    .select("google_review_url, yelp_review_url")
     .eq("id", 1)
     .single();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://easternlm.com";
-  const googleReviewUrl = settings?.google_review_url || "https://www.google.com/maps";
+  const hasYelp = !!settings?.yelp_review_url;
 
   let sent = 0;
   let skipped = 0;
@@ -152,18 +152,20 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const trackingUrl = `${siteUrl}/api/review/redirect?id=${followUp.id}`;
+    const googleTrackingUrl = `${siteUrl}/api/review/redirect?id=${followUp.id}`;
+    const yelpTrackingUrl = `${siteUrl}/api/review/redirect?id=${followUp.id}&platform=yelp`;
 
     if (channel === "sms") {
       let messageBody: string;
       if (custom_message) {
         messageBody = custom_message
           .replace(/\{name\}/g, name)
-          .replace(/\{review_link\}/g, trackingUrl);
+          .replace(/\{review_link\}/g, googleTrackingUrl)
+          .replace(/\{yelp_link\}/g, yelpTrackingUrl);
       } else if (message_type === "review_request") {
-        messageBody = `Hi ${name}! Thanks for choosing Eastern Landscape & Mason Supply for your recent delivery. We'd love to hear about your experience! ${trackingUrl} - Reply STOP to opt out`;
+        messageBody = `Hi ${name}! Thanks for choosing Eastern Landscape & Mason Supply. We'd love to hear about your experience!\n\nGoogle: ${googleTrackingUrl}${hasYelp ? `\nYelp: ${yelpTrackingUrl}` : ""}\n\nReply STOP to opt out`;
       } else if (message_type === "review_reminder") {
-        messageBody = `Hi ${name}, just a friendly reminder — if you enjoyed your recent delivery from Eastern LM, we'd really appreciate a quick review! ${trackingUrl} - Reply STOP to opt out`;
+        messageBody = `Hi ${name}, just a friendly reminder — if you enjoyed your recent delivery from Eastern LM, we'd really appreciate a quick review!\n\nGoogle: ${googleTrackingUrl}${hasYelp ? `\nYelp: ${yelpTrackingUrl}` : ""}\n\nReply STOP to opt out`;
       } else {
         messageBody = custom_message || "";
       }
@@ -206,10 +208,10 @@ export async function POST(request: Request) {
 
       if (message_type === "review_request") {
         subject = "How was your delivery?";
-        html = buildReviewEmailHtml(name, trackingUrl, unsubUrl);
+        html = buildReviewEmailHtml(name, googleTrackingUrl, unsubUrl, false, hasYelp ? yelpTrackingUrl : undefined);
       } else if (message_type === "review_reminder") {
         subject = "Quick reminder — share your experience";
-        html = buildReviewEmailHtml(name, trackingUrl, unsubUrl, true);
+        html = buildReviewEmailHtml(name, googleTrackingUrl, unsubUrl, true, hasYelp ? yelpTrackingUrl : undefined);
       } else {
         subject = "News from Eastern LM";
         html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;"><p>${custom_message}</p><p style="color:#999;font-size:11px;margin-top:24px;"><a href="${unsubUrl}" style="color:#999;">Unsubscribe</a></p></div>`;
@@ -246,18 +248,25 @@ export async function POST(request: Request) {
   return NextResponse.json({ sent, skipped, errors, skippedReasons });
 }
 
-function buildReviewEmailHtml(name: string, reviewUrl: string, unsubUrl: string, isReminder = false): string {
+function buildReviewEmailHtml(name: string, googleUrl: string, unsubUrl: string, isReminder = false, yelpUrl?: string): string {
   const heading = isReminder ? "Quick reminder!" : "Thanks for your order!";
   const intro = isReminder
     ? `Just a friendly follow-up — if you enjoyed your recent delivery from Eastern LM, we'd really appreciate a quick review.`
     : `We hope your recent delivery arrived just right. Our family business has been proudly serving Suffolk County, and we'd love to hear how we did.`;
 
+  const yelpButton = yelpUrl
+    ? `<a href="${yelpUrl}" style="display:inline-block;background:#d32323;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 0 16px 12px;">Review on Yelp</a>`
+    : "";
+
   return `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;">
   <h2 style="color:#1a3a5c;">${heading}</h2>
   <p>Hi ${name},</p>
   <p>${intro}</p>
-  <p>Would you take 30 seconds to leave us a Google review?</p>
-  <a href="${reviewUrl}" style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 0;">Leave a Review</a>
+  <p>Would you take 30 seconds to leave us a review?</p>
+  <div>
+    <a href="${googleUrl}" style="display:inline-block;background:#1a3a5c;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 0;">Review on Google</a>
+    ${yelpButton}
+  </div>
   <p style="color:#666;font-size:13px;margin-top:24px;">Eastern Landscape &amp; Mason Supply<br>110 Frowein Road, Center Moriches, NY 11934<br>(631) 874-6244</p>
   <p style="color:#999;font-size:11px;"><a href="${unsubUrl}" style="color:#999;">Unsubscribe</a></p>
 </div>`;

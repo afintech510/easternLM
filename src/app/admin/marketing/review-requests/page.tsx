@@ -313,10 +313,10 @@ export default function ReviewRequestsPage() {
   function getDefaultMessage(): string {
     if (!sendModal) return "";
     if (sendModal.messageType === "review_request") {
-      return `Hi {name}! Thanks for choosing Eastern Landscape & Mason Supply for your recent delivery. We'd love to hear about your experience! {review_link} - Reply STOP to opt out`;
+      return `Hi {name}! Thanks for choosing Eastern Landscape & Mason Supply. We'd love to hear about your experience!\n\nGoogle: {review_link}\nYelp: {yelp_link}\n\nReply STOP to opt out`;
     }
     if (sendModal.messageType === "review_reminder") {
-      return `Hi {name}, just a friendly reminder — if you enjoyed your recent delivery from Eastern LM, we'd really appreciate a quick review! {review_link} - Reply STOP to opt out`;
+      return `Hi {name}, just a friendly reminder — if you enjoyed your recent delivery from Eastern LM, we'd really appreciate a quick review!\n\nGoogle: {review_link}\nYelp: {yelp_link}\n\nReply STOP to opt out`;
     }
     return "";
   }
