@@ -104,6 +104,9 @@ export async function POST(
   const ccLine = (order.cc_surcharge_cents ?? 0) > 0
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">CC Fee (3.5%)</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.cc_surcharge_cents)}</td></tr>`
     : "";
+  const onlineFeeLine = (order.online_order_fee_cents ?? 0) > 0
+    ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Online Order Fee</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.online_order_fee_cents)}</td></tr>`
+    : "";
   const storeCreditLine = (order.store_credit_applied_cents ?? 0) > 0
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Store Credit Applied</td><td style="padding:4px 12px;text-align:right;color:#16a34a;">-${formatUsd(order.store_credit_applied_cents)}</td></tr>`
     : "";
@@ -168,6 +171,7 @@ export async function POST(
       ${deliveryLine}
       ${taxLine}
       ${ccLine}
+      ${onlineFeeLine}
       ${storeCreditLine}
       <tr style="border-top:2px solid #111827;">
         <td style="padding:10px 12px;text-align:right;font-size:16px;font-weight:bold;" colspan="3">Total</td>

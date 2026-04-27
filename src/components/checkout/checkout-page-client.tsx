@@ -81,6 +81,7 @@ export function CheckoutPageClient() {
   const isCalculating = useCartStore((s) => s.isCalculating);
   const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
+  const onlineOrderFeeCents = useCartStore((s) => s.onlineOrderFeeCents);
 
   // Read directly from store — no local useState so Zustand hydration timing never causes stale values
   const fullName = customerInfo?.fullName ?? "";
@@ -104,18 +105,19 @@ export function CheckoutPageClient() {
     const preCcTotal =
       calculation.discountedSubtotalCents +
       calculation.deliveryFeeCents +
-      calculation.taxCents;
+      calculation.taxCents +
+      onlineOrderFeeCents;
     const codDiscountCents = Math.round(preCcTotal * 0.035);
     return {
       codDiscountCents,
       grandTotalCents: preCcTotal - codDiscountCents,
     };
-  }, [calculation]);
+  }, [calculation, onlineOrderFeeCents]);
 
   const displayTotalCents =
     paymentMethod === "cod" && codPreview
       ? codPreview.grandTotalCents
-      : calculation?.grandTotalCents ?? 0;
+      : (calculation?.grandTotalCents ?? 0) + onlineOrderFeeCents;
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
@@ -179,7 +181,7 @@ export function CheckoutPageClient() {
       const clientGrandTotal =
         paymentMethod === "cod" && codPreview
           ? codPreview.grandTotalCents
-          : calculation!.grandTotalCents;
+          : calculation!.grandTotalCents + onlineOrderFeeCents;
 
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -532,6 +534,9 @@ export function CheckoutPageClient() {
               )}
               {deliveryMethod === "delivery" && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
+              )}
+              {onlineOrderFeeCents > 0 && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Online Order Fee</span><span>{formatUsd(onlineOrderFeeCents)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
               {paymentMethod === "cod" && codPreview && codPreview.codDiscountCents > 0 && (

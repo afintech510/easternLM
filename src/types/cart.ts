@@ -42,6 +42,7 @@ export type CartStoreState = {
   distanceResult: DistanceMatrixResult | null;
   accessConstraints: DeliveryAccessInfo;
   deliveryTimeWindow: string;
+  onlineOrderFeeCents: number;
   isCalculating: boolean;
   isConfigLoading: boolean;
   error: string | null;

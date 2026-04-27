@@ -62,6 +62,7 @@ export function CartPageClient() {
   const applyPromoCode = useCartStore((s) => s.applyPromoCode);
   const setAccessConstraints = useCartStore((s) => s.setAccessConstraints);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
+  const onlineOrderFeeCents = useCartStore((s) => s.onlineOrderFeeCents);
   const addItem = useCartStore((s) => s.addItem);
   const swapItems = useCartStore((s) => s.swapItems);
   const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
@@ -171,7 +172,7 @@ export function CartPageClient() {
   const installItems = items.filter((i) => i.id.startsWith("install-") || i.id.startsWith("fabric-"));
   const installTotalCents = installItems.reduce((s, i) => s + Math.round(i.quantity * i.unitPriceCents), 0);
 
-  const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) : 0;
+  const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) + onlineOrderFeeCents : 0;
 
   // Save cart handler
   async function handleSaveCart() {
@@ -581,6 +582,12 @@ export function CartPageClient() {
 
                 {/* Tax + Total */}
                 <div className="border-t pt-2 space-y-1">
+                  {onlineOrderFeeCents > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Online Order Fee</span>
+                      <span>{formatUsd(onlineOrderFeeCents)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Tax (8.75%)</span>
                     <span>{formatUsd(calculation.taxCents)}</span>

@@ -80,6 +80,7 @@ export const siteSettingsSchema = z.object({
   max_loads_per_day_per_address: z.number().int().positive(),
   pro_discount_rate: z.number().min(0).max(1),
   pro_discount_pickup_only: z.boolean(),
+  online_order_fee_cents: z.number().int().nonnegative(),
 });
 
 export type SiteSettingsFormValues = z.infer<typeof siteSettingsSchema>;

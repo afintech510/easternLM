@@ -306,6 +306,7 @@ export async function POST(request: Request) {
     }
 
     const runtimeConfig = await getDeliveryRuntimeConfig();
+    const onlineOrderFeeCents: number = runtimeConfig.onlineOrderFeeCents ?? 0;
     const supabaseAdmin = getSupabaseAdminClient();
     const customerType = await resolveCustomerType(payload.promoCode);
     const addressHash =
@@ -407,12 +408,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const diff = Math.abs(calculation.grandTotalCents - payload.clientGrandTotalCents);
+    const serverGrandTotal = calculation.grandTotalCents + onlineOrderFeeCents;
+    const diff = Math.abs(serverGrandTotal - payload.clientGrandTotalCents);
     if (diff > 100) {
       return NextResponse.json(
         {
           error: "Client and server totals do not match.",
-          expectedGrandTotalCents: calculation.grandTotalCents,
+          expectedGrandTotalCents: serverGrandTotal,
           clientGrandTotalCents: payload.clientGrandTotalCents,
         },
         { status: 409 },
@@ -486,6 +488,19 @@ export async function POST(request: Request) {
       });
     }
 
+    if (onlineOrderFeeCents > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: onlineOrderFeeCents,
+          product_data: {
+            name: "Online Order Fee",
+          },
+        },
+      });
+    }
+
     if (lineItems.length === 0) {
       return NextResponse.json({ error: "No billable line items found." }, { status: 400 });
     }
@@ -532,7 +547,7 @@ export async function POST(request: Request) {
       deliveryDate: payload.deliveryDate ?? "",
       deliveryTimeWindow: payload.deliveryTimeWindow ?? "flexible",
       createAccount: String(Boolean(payload.createAccount)),
-      serverGrandTotalCents: String(calculation.grandTotalCents),
+      serverGrandTotalCents: String(serverGrandTotal),
       materialsSubtotalCents: String(calculation.discountedSubtotalCents),
       deliveryTotalCents: String(calculation.deliveryFeeCents),
       taxCents: String(calculation.taxCents),
@@ -570,7 +585,7 @@ export async function POST(request: Request) {
     if (!isCod) {
       if (useEmbedded) {
         paymentIntent = await stripe.paymentIntents.create({
-          amount: calculation.grandTotalCents,
+          amount: serverGrandTotal,
           currency: "usd",
           automatic_payment_methods: { enabled: true },
           receipt_email: payload.customer.email,
@@ -644,7 +659,8 @@ export async function POST(request: Request) {
           delivery_total_cents: calculation.deliveryFeeCents,
           tax_cents: calculation.taxCents,
           cc_surcharge_cents: calculation.ccSurchargeCents,
-          grand_total_cents: calculation.grandTotalCents,
+          online_order_fee_cents: onlineOrderFeeCents,
+          grand_total_cents: serverGrandTotal,
           distance_meters: cachedDistanceMeters,
           duration_seconds: cachedDurationSeconds,
           first_load_fee_cents: calculation.firstLoadFeeCents,
@@ -729,7 +745,7 @@ export async function POST(request: Request) {
           customerName: payload.customer.fullName,
           customerEmail: payload.customer.email,
           customerPhone: payload.customer.phone,
-          grandTotalCents: calculation.grandTotalCents,
+          grandTotalCents: serverGrandTotal,
           codDiscountCents: calculation.codDiscountCents,
           deliveryMethod: payload.deliveryMethod,
           deliveryAddress: resolvedDeliveryAddress?.fullAddress ?? null,
@@ -745,7 +761,7 @@ export async function POST(request: Request) {
         ok: true,
         codConfirmed: true,
         orderId: createdOrderId,
-        serverGrandTotalCents: calculation.grandTotalCents,
+        serverGrandTotalCents: serverGrandTotal,
       });
     }
 
@@ -753,14 +769,14 @@ export async function POST(request: Request) {
       return NextResponse.json({
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        serverGrandTotalCents: calculation.grandTotalCents,
+        serverGrandTotalCents: serverGrandTotal,
       });
     }
 
     return NextResponse.json({
       sessionId: session?.id,
       sessionUrl: session?.url,
-      serverGrandTotalCents: calculation.grandTotalCents,
+      serverGrandTotalCents: serverGrandTotal,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Checkout server error.";

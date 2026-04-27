@@ -31,6 +31,7 @@ type Settings = {
   max_loads_per_day_per_address: number;
   pro_discount_rate: number;
   pro_discount_pickup_only: boolean;
+  online_order_fee_cents: number;
   google_review_url: string;
   follow_up_enabled: boolean;
   twilio_enabled: boolean;
@@ -143,6 +144,11 @@ export function SettingsForm({ initialSettings }: { initialSettings: Settings })
               <div className="space-y-2">
                 <Label>CC Surcharge (%)</Label>
                 <Input type="number" step="0.01" value={Math.round(settings.cc_surcharge_rate * 10000) / 100} onChange={(e) => update("cc_surcharge_rate", (parseFloat(e.target.value) || 0) / 100)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Online Order Fee ($)</Label>
+                <Input type="number" step="1" value={(settings.online_order_fee_cents ?? 0) / 100} onChange={(e) => update("online_order_fee_cents", Math.round((parseFloat(e.target.value) || 0) * 100))} />
+                <p className="text-xs text-muted-foreground">Flat fee added to all online orders. Set to 0 to disable.</p>
               </div>
             </div>
           </CardContent>

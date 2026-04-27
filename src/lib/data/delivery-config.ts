@@ -58,9 +58,15 @@ export async function getDeliveryRuntimeConfig() {
       ? "110 Frowein Road, Center Moriches, NY 11934"
       : settingsResult.data.origin_address;
 
+  const onlineOrderFeeCents =
+    settingsResult.error || !settingsResult.data
+      ? 0
+      : (settingsResult.data as any).online_order_fee_cents ?? 0;
+
   return {
     pricingConfig,
     truckTypes,
     originAddress,
+    onlineOrderFeeCents,
   };
 }

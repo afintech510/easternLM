@@ -95,6 +95,7 @@ export const useCartStore = create<CartStore>()(
       distanceResult: null,
       accessConstraints: defaultAccessConstraints,
       deliveryTimeWindow: "flexible",
+      onlineOrderFeeCents: 0,
       isCalculating: false,
       isConfigLoading: false,
       error: null,
@@ -110,11 +111,13 @@ export const useCartStore = create<CartStore>()(
           const body = (await response.json()) as {
             pricingConfig: CartStoreState["deliveryPricingConfig"];
             truckTypes: CartStoreState["truckTypes"];
+            onlineOrderFeeCents?: number;
           };
 
           set({
             deliveryPricingConfig: body.pricingConfig,
             truckTypes: body.truckTypes,
+            onlineOrderFeeCents: body.onlineOrderFeeCents ?? 0,
             isConfigLoading: false,
             error: null,
           });
