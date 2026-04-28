@@ -172,7 +172,8 @@ export function CartPageClient() {
   const installItems = items.filter((i) => i.id.startsWith("install-") || i.id.startsWith("fabric-"));
   const installTotalCents = installItems.reduce((s, i) => s + Math.round(i.quantity * i.unitPriceCents), 0);
 
-  const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) + onlineOrderFeeCents : 0;
+  const effectiveOnlineFee = deliveryMethod === "delivery" ? onlineOrderFeeCents : 0;
+  const cashTotal = calculation ? calculation.grandTotalCents - (calculation.ccSurchargeCents ?? 0) + effectiveOnlineFee : 0;
 
   // Save cart handler
   async function handleSaveCart() {
@@ -305,7 +306,7 @@ export function CartPageClient() {
                 <div className="text-right">
                   <span className="font-bold text-lg">{formatUsd(Math.round(item.quantity * item.unitPriceCents))}</span>
                   {deliveryMethod === "delivery" && calculation && calculation.loads?.[i] && (
-                    <p className="text-xs text-muted-foreground">+ {formatUsd(calculation.loads[i].feeCents)} delivery</p>
+                    <p className="text-xs text-muted-foreground">+ {formatUsd(calculation.loads[i].feeCents + (i === 0 ? onlineOrderFeeCents : 0))} delivery</p>
                   )}
                 </div>
               </div>
@@ -435,7 +436,7 @@ export function CartPageClient() {
                 )}
                 {calculation && !isCalculating && deliveryAddress?.fullAddress && (
                   <p className="text-sm text-green-700 dark:text-green-400">
-                    ✅ {calculation.oneWayMiles ? `${calculation.oneWayMiles.toFixed(1)} mi` : ""} · Fee: {formatUsd(calculation.deliveryFeeCents)} {calculation.totalLoads > 1 ? `(${calculation.totalLoads} loads)` : "/load"}
+                    ✅ {calculation.oneWayMiles ? `${calculation.oneWayMiles.toFixed(1)} mi` : ""} · Fee: {formatUsd(calculation.deliveryFeeCents + onlineOrderFeeCents)} {calculation.totalLoads > 1 ? `(${calculation.totalLoads} loads)` : "/load"}
                   </p>
                 )}
 
@@ -553,7 +554,7 @@ export function CartPageClient() {
                     {calculation.loads.map((load, i) => (
                       <div key={`load-${i}`} className="flex justify-between text-xs py-0.5">
                         <span className="text-muted-foreground">Load {i + 1}: {load.materialClass === "mulch" ? "Mulch" : "Material"} — {load.quantity} yd</span>
-                        <span>{formatUsd(load.feeCents)}</span>
+                        <span>{formatUsd(load.feeCents + (i === 0 ? onlineOrderFeeCents : 0))}</span>
                       </div>
                     ))}
                     {calculation.totalLoads > 1 && (
@@ -582,12 +583,6 @@ export function CartPageClient() {
 
                 {/* Tax + Total */}
                 <div className="border-t pt-2 space-y-1">
-                  {onlineOrderFeeCents > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Online Order Fee</span>
-                      <span>{formatUsd(onlineOrderFeeCents)}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Tax (8.75%)</span>
                     <span>{formatUsd(calculation.taxCents)}</span>

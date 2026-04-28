@@ -95,17 +95,15 @@ export async function POST(
   const discountLine = (order.discount_amount_cents ?? 0) > 0
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Discount${order.discount_reason ? ` (${escapeHtml(order.discount_reason)})` : ""}</td><td style="padding:4px 12px;text-align:right;color:#16a34a;">-${formatUsd(order.discount_amount_cents)}</td></tr>`
     : "";
-  const deliveryLine = (order.delivery_total_cents ?? 0) > 0
-    ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Delivery</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.delivery_total_cents)}</td></tr>`
+  const deliveryDisplayCents = (order.delivery_total_cents ?? 0) + (order.online_order_fee_cents ?? 0);
+  const deliveryLine = deliveryDisplayCents > 0
+    ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Delivery</td><td style="padding:4px 12px;text-align:right;">${formatUsd(deliveryDisplayCents)}</td></tr>`
     : "";
   const taxLine = order.tax_exempt
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Tax</td><td style="padding:4px 12px;text-align:right;">EXEMPT</td></tr>`
     : `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Tax (8.75%)</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.tax_cents ?? 0)}</td></tr>`;
   const ccLine = (order.cc_surcharge_cents ?? 0) > 0
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">CC Fee (3.5%)</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.cc_surcharge_cents)}</td></tr>`
-    : "";
-  const onlineFeeLine = (order.online_order_fee_cents ?? 0) > 0
-    ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Online Order Fee</td><td style="padding:4px 12px;text-align:right;">${formatUsd(order.online_order_fee_cents)}</td></tr>`
     : "";
   const storeCreditLine = (order.store_credit_applied_cents ?? 0) > 0
     ? `<tr><td style="padding:4px 12px;text-align:right;" colspan="3">Store Credit Applied</td><td style="padding:4px 12px;text-align:right;color:#16a34a;">-${formatUsd(order.store_credit_applied_cents)}</td></tr>`
@@ -171,7 +169,6 @@ export async function POST(
       ${deliveryLine}
       ${taxLine}
       ${ccLine}
-      ${onlineFeeLine}
       ${storeCreditLine}
       <tr style="border-top:2px solid #111827;">
         <td style="padding:10px 12px;text-align:right;font-size:16px;font-weight:bold;" colspan="3">Total</td>

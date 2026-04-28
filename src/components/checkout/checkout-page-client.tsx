@@ -82,6 +82,7 @@ export function CheckoutPageClient() {
   const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
   const onlineOrderFeeCents = useCartStore((s) => s.onlineOrderFeeCents);
+  const effectiveOnlineFee = deliveryMethod === "delivery" ? onlineOrderFeeCents : 0;
 
   // Read directly from store — no local useState so Zustand hydration timing never causes stale values
   const fullName = customerInfo?.fullName ?? "";
@@ -106,18 +107,18 @@ export function CheckoutPageClient() {
       calculation.discountedSubtotalCents +
       calculation.deliveryFeeCents +
       calculation.taxCents +
-      onlineOrderFeeCents;
+      effectiveOnlineFee;
     const codDiscountCents = Math.round(preCcTotal * 0.035);
     return {
       codDiscountCents,
       grandTotalCents: preCcTotal - codDiscountCents,
     };
-  }, [calculation, onlineOrderFeeCents]);
+  }, [calculation, effectiveOnlineFee]);
 
   const displayTotalCents =
     paymentMethod === "cod" && codPreview
       ? codPreview.grandTotalCents
-      : (calculation?.grandTotalCents ?? 0) + onlineOrderFeeCents;
+      : (calculation?.grandTotalCents ?? 0) + effectiveOnlineFee;
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
 
@@ -181,7 +182,7 @@ export function CheckoutPageClient() {
       const clientGrandTotal =
         paymentMethod === "cod" && codPreview
           ? codPreview.grandTotalCents
-          : calculation!.grandTotalCents + onlineOrderFeeCents;
+          : calculation!.grandTotalCents + effectiveOnlineFee;
 
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -328,7 +329,7 @@ export function CheckoutPageClient() {
                         <span className="font-medium whitespace-nowrap">
                           {formatUsd(Math.round(item.quantity * item.unitPriceCents))}
                           {calculation.loads?.[i] && (
-                            <span className="text-xs text-muted-foreground ml-1">+ {formatUsd(calculation.loads[i].feeCents)}</span>
+                            <span className="text-xs text-muted-foreground ml-1">+ {formatUsd(calculation.loads[i].feeCents + (i === 0 ? effectiveOnlineFee : 0))}</span>
                           )}
                         </span>
                       </div>
@@ -442,7 +443,7 @@ export function CheckoutPageClient() {
                 ) : paymentMethod === "cod" ? (
                   <><CheckCircle className="size-4" /> Place Order — {formatUsd(displayTotalCents)} on delivery</>
                 ) : (
-                  <><Lock className="size-4" /> Continue to Payment — {formatUsd(calculation.grandTotalCents)}</>
+                  <><Lock className="size-4" /> Continue to Payment — {formatUsd(displayTotalCents)}</>
                 )}
               </Button>
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
@@ -510,7 +511,7 @@ export function CheckoutPageClient() {
                   {deliveryMethod === "delivery" && calculation.loads?.[i] && (
                     <div className="flex justify-between text-xs text-muted-foreground ml-2">
                       <span>Delivery fee</span>
-                      <span>{formatUsd(calculation.loads[i].feeCents)}</span>
+                      <span>{formatUsd(calculation.loads[i].feeCents + (i === 0 ? effectiveOnlineFee : 0))}</span>
                     </div>
                   )}
                 </div>
@@ -533,10 +534,7 @@ export function CheckoutPageClient() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Pro discount</span><span className="text-green-600">-{formatUsd(calculation.proDiscountCents)}</span></div>
               )}
               {deliveryMethod === "delivery" && (
-                <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents)}</span></div>
-              )}
-              {onlineOrderFeeCents > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">Online Order Fee</span><span>{formatUsd(onlineOrderFeeCents)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents + effectiveOnlineFee)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
               {paymentMethod === "cod" && codPreview && codPreview.codDiscountCents > 0 && (

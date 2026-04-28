@@ -306,7 +306,7 @@ export async function POST(request: Request) {
     }
 
     const runtimeConfig = await getDeliveryRuntimeConfig();
-    const onlineOrderFeeCents: number = runtimeConfig.onlineOrderFeeCents ?? 0;
+    const onlineOrderFeeCents: number = payload.deliveryMethod === "delivery" ? (runtimeConfig.onlineOrderFeeCents ?? 0) : 0;
     const supabaseAdmin = getSupabaseAdminClient();
     const customerType = await resolveCustomerType(payload.promoCode);
     const addressHash =
@@ -445,7 +445,8 @@ export async function POST(request: Request) {
     });
 
     calculation.loads.forEach((load, index) => {
-      if (load.feeCents <= 0) {
+      const loadAmount = load.feeCents + (index === 0 ? onlineOrderFeeCents : 0);
+      if (loadAmount <= 0) {
         return;
       }
 
@@ -453,7 +454,7 @@ export async function POST(request: Request) {
         quantity: 1,
         price_data: {
           currency: "usd",
-          unit_amount: load.feeCents,
+          unit_amount: loadAmount,
           product_data: {
             name: `Delivery Load ${index + 1} - ${load.truckName}`,
             description: `Day ${load.day} • ${load.materialClass} • Qty ${load.quantity}`,
@@ -483,19 +484,6 @@ export async function POST(request: Request) {
           unit_amount: calculation.ccSurchargeCents,
           product_data: {
             name: "Credit Card Processing Fee (3.5%)",
-          },
-        },
-      });
-    }
-
-    if (onlineOrderFeeCents > 0) {
-      lineItems.push({
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: onlineOrderFeeCents,
-          product_data: {
-            name: "Online Order Fee",
           },
         },
       });
