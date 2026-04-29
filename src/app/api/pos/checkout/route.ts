@@ -74,6 +74,7 @@ export async function POST(request: Request) {
     tax_exempt: tax_exempt || false,
     tax_exempt_certificate: tax_exempt_certificate || null,
     store_credit_applied_cents: store_credit_applied_cents || 0,
+    sms_opt_in: true,
   };
 
   if (customerId) orderData.customer_id = customerId;
