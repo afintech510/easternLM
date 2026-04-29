@@ -659,6 +659,7 @@ export async function POST(request: Request) {
           delivery_schedule: deliverySchedule as Json,
           delivery_date: payload.deliveryDate || null,
           delivery_time_window: payload.deliveryTimeWindow || null,
+          sms_opt_in: payload.customer.optInSms ?? true,
           source: "web",
           gclid: gclidValue,
           metadata: {
