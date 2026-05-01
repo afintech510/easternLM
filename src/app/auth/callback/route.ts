@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 const ADMIN_EMAILS = [
   "adam@easternbuilding.supply",
   "ronnie@easternbuilding.supply",
+  "office@easternbuilding.supply",
 ];
 
 function getOrigin(request: Request): string {
