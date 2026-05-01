@@ -43,9 +43,17 @@ export async function GET(request: Request) {
     },
   );
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
-    return NextResponse.redirect(new URL("/admin/login?error=auth_failed", origin));
+  let exchangeError: Error | null = null;
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error("[auth/callback] exchangeCodeForSession error:", error.message);
+      return NextResponse.redirect(new URL(`/admin/login?error=auth_failed&detail=${encodeURIComponent(error.message)}`, origin));
+    }
+  } catch (err) {
+    exchangeError = err instanceof Error ? err : new Error(String(err));
+    console.error("[auth/callback] exchangeCodeForSession threw:", exchangeError.message);
+    return NextResponse.redirect(new URL(`/admin/login?error=exchange_crash&detail=${encodeURIComponent(exchangeError.message)}`, origin));
   }
 
   const {
@@ -53,6 +61,7 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    console.error("[auth/callback] getUser returned null after successful exchange");
     return NextResponse.redirect(new URL("/admin/login?error=no_user", origin));
   }
 

@@ -73,6 +73,11 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
+  // Skip middleware auth for the auth callback — let the route handler manage the code exchange
+  if (pathname.startsWith("/auth/callback")) {
+    return NextResponse.next();
+  }
+
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // Refresh Supabase session on every request
