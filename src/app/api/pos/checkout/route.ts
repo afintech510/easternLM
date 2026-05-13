@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   const { data: order, error } = await supabase
     .from("orders")
     .insert(orderData)
-    .select("id")
+    .select("id, order_number")
     .single();
 
   if (error) {
@@ -233,7 +233,12 @@ export async function POST(request: Request) {
     } catch (err) { console.error("Customer delivery SMS failed:", err); }
   }
 
-  return NextResponse.json({ ok: true, orderId: order.id });
+  const orderNumber =
+    (order as { order_number?: string | number | null }).order_number != null
+      ? String((order as { order_number: string | number }).order_number)
+      : `#${(order.id as string).slice(0, 8).toUpperCase()}`;
+
+  return NextResponse.json({ ok: true, orderId: order.id, orderNumber });
 }
 
 /**

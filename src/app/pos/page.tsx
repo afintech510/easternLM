@@ -824,8 +824,13 @@ export default function PosRegisterPage() {
 
   function buildPrintableOrder(method: string, orderPayload: Record<string, unknown>): PrintableOrder {
     const paymentMethod = method === "card" ? "card_terminal" : method === "account" ? "account" : method === "cod" ? "cod" : "cash";
+    const orderId = orderPayload.order_id as string | undefined;
+    const orderNumber =
+      (orderPayload.order_number as string | undefined) ||
+      (orderId ? `#${orderId.slice(0, 8).toUpperCase()}` : undefined);
     return {
-      id: orderPayload.order_id as string | undefined,
+      id: orderId,
+      orderNumber,
       created_at: new Date().toISOString(),
       source: "pos",
       customer_name: (orderPayload.customer_name as string) || null,
@@ -1207,8 +1212,9 @@ export default function PosRegisterPage() {
         return;
       }
 
-      const { orderId } = await orderRes.json();
+      const { orderId, orderNumber } = await orderRes.json();
       orderPayload.order_id = orderId; // attach for print system (QR codes, receipt reference)
+      orderPayload.order_number = orderNumber;
 
       if (method === "card") {
         // Card payment was already collected by CheckoutOverlay via onProcessCard.
