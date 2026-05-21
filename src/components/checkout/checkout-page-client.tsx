@@ -82,7 +82,10 @@ export function CheckoutPageClient() {
   const setDeliveryAddress = useCartStore((s) => s.setDeliveryAddress);
   const loadDeliveryConfig = useCartStore((s) => s.loadDeliveryConfig);
   const onlineOrderFeeCents = useCartStore((s) => s.onlineOrderFeeCents);
+  const pricingConfig = useCartStore((s) => s.deliveryPricingConfig);
   const effectiveOnlineFee = deliveryMethod === "delivery" ? onlineOrderFeeCents : 0;
+  const taxRatePct = (pricingConfig.taxRate * 100).toFixed(2).replace(/\.?0+$/, "");
+  const ccRatePct = (pricingConfig.ccSurchargeRate * 100).toFixed(2).replace(/\.?0+$/, "");
 
   // Read directly from store — no local useState so Zustand hydration timing never causes stale values
   const fullName = customerInfo?.fullName ?? "";
@@ -536,7 +539,13 @@ export function CheckoutPageClient() {
               {deliveryMethod === "delivery" && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Delivery ({calculation.totalLoads} load{calculation.totalLoads > 1 ? "s" : ""})</span><span>{formatUsd(calculation.deliveryFeeCents + effectiveOnlineFee)}</span></div>
               )}
-              <div className="flex justify-between"><span className="text-muted-foreground">Tax (8.75%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tax ({taxRatePct}%)</span><span>{formatUsd(calculation.taxCents)}</span></div>
+              {paymentMethod !== "cod" && calculation.ccSurchargeCents > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Service Fee ({ccRatePct}%)</span>
+                  <span>{formatUsd(calculation.ccSurchargeCents)}</span>
+                </div>
+              )}
               {paymentMethod === "cod" && codPreview && codPreview.codDiscountCents > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">COD discount (3%)</span>

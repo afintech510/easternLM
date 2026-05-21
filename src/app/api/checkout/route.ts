@@ -477,13 +477,16 @@ export async function POST(request: Request) {
     }
 
     if (calculation.ccSurchargeCents > 0) {
+      const ccRatePct = (runtimeConfig.pricingConfig.ccSurchargeRate * 100)
+        .toFixed(2)
+        .replace(/\.?0+$/, "");
       lineItems.push({
         quantity: 1,
         price_data: {
           currency: "usd",
           unit_amount: calculation.ccSurchargeCents,
           product_data: {
-            name: "Credit Card Processing Fee (3.5%)",
+            name: `Service Fee (${ccRatePct}%)`,
           },
         },
       });
