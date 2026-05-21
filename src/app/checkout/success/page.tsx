@@ -87,6 +87,7 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
   }
 
   const codDiscountCents = Number((order?.metadata as any)?.codDiscountCents) || 0;
+  const requiresReview = (order?.metadata as any)?.requires_review === true;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-16">
@@ -100,12 +101,16 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
       )}
       {/* Header */}
       <div className="text-center space-y-3">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle2 className="size-8 text-green-600" />
+        <div className={`mx-auto flex size-16 items-center justify-center rounded-full ${requiresReview ? "bg-amber-100" : "bg-green-100"}`}>
+          <CheckCircle2 className={`size-8 ${requiresReview ? "text-amber-600" : "text-green-600"}`} />
         </div>
-        <h1 className="[font-family:var(--font-display)] text-4xl text-primary">Order Confirmed</h1>
+        <h1 className="[font-family:var(--font-display)] text-4xl text-primary">
+          {requiresReview ? "Order Received" : "Order Confirmed"}
+        </h1>
         <p className="text-muted-foreground">
-          {isCod || order?.payment_method === "cod"
+          {requiresReview
+            ? "Your card has been authorized but not yet charged. We'll review delivery details for your address and confirm within 24 hours — we'll only capture payment once we've confirmed we can fulfill."
+            : isCod || order?.payment_method === "cod"
             ? "Your order is confirmed. Payment will be collected on delivery."
             : "Payment received. We'll email confirmation and delivery details shortly."}
         </p>
@@ -123,11 +128,19 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
                 order.payment_method === "cod"
                   ? "bg-amber-100 text-amber-700"
+                  : requiresReview
+                  ? "bg-amber-100 text-amber-700"
                   : order.status === "paid"
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-700"
               }`}>
-                {order.payment_method === "cod" ? "COD — Due on Delivery" : order.status === "paid" ? "Paid" : order.status}
+                {order.payment_method === "cod"
+                  ? "COD — Due on Delivery"
+                  : requiresReview
+                  ? "Pending Review — Card Authorized"
+                  : order.status === "paid"
+                  ? "Paid"
+                  : order.status}
               </span>
             </div>
 
@@ -229,11 +242,22 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
           <div className="rounded-xl border border-accent/20 bg-accent/5 p-5 space-y-2">
             <h2 className="text-sm font-semibold">What Happens Next</h2>
             <ul className="space-y-1.5 text-sm text-muted-foreground">
-              <li>1. You&apos;ll receive an email confirmation shortly</li>
-              <li>2. Our team will schedule your {order.delivery_method === "delivery" ? "delivery" : "pickup"}</li>
-              <li>3. We&apos;ll text you when your order is on the way</li>
-              {order.payment_method === "cod" && (
-                <li>4. <strong>Have {formatUsd(order.grand_total_cents)} in cash or check ready for the driver</strong></li>
+              {requiresReview ? (
+                <>
+                  <li>1. Our team reviews your delivery address (typically within 24 hours)</li>
+                  <li>2. Once confirmed, we capture payment and schedule your delivery</li>
+                  <li>3. If we can&apos;t fulfill, we release the card hold &mdash; <strong>you&apos;re not charged</strong></li>
+                  <li>4. We&apos;ll email and text you with status updates</li>
+                </>
+              ) : (
+                <>
+                  <li>1. You&apos;ll receive an email confirmation shortly</li>
+                  <li>2. Our team will schedule your {order.delivery_method === "delivery" ? "delivery" : "pickup"}</li>
+                  <li>3. We&apos;ll text you when your order is on the way</li>
+                  {order.payment_method === "cod" && (
+                    <li>4. <strong>Have {formatUsd(order.grand_total_cents)} in cash or check ready for the driver</strong></li>
+                  )}
+                </>
               )}
             </ul>
             <p className="pt-1 text-sm">

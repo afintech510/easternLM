@@ -16,9 +16,14 @@ export async function POST(request: Request) {
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-  // Verify the PaymentIntent actually succeeded in Stripe
+  // Verify the PaymentIntent reached a terminal-auth state.
+  // - succeeded: normal flow (auto-capture). Continue and mark paid.
+  // - requires_capture: manual-capture flow (>20mi delivery). Auth succeeded
+  //   but funds aren't captured yet — admin must accept the order. Stamp the
+  //   order with authorizationStatus and return early without running the
+  //   normal fulfillment side effects.
   const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-  if (pi.status !== "succeeded") {
+  if (pi.status !== "succeeded" && pi.status !== "requires_capture") {
     return NextResponse.json({ error: `Payment not completed (status: ${pi.status})` }, { status: 400 });
   }
 
@@ -34,6 +39,19 @@ export async function POST(request: Request) {
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+
+  // Manual-capture auth path — stamp metadata and stop. The admin will capture
+  // or release later via the /admin/orders/[id]/capture endpoints.
+  if (pi.status === "requires_capture") {
+    await supabase
+      .from("orders")
+      .update({
+        payment_method: "card_online",
+        metadata: { ...(order.metadata || {}), authorizationStatus: "authorized" },
+      })
+      .eq("id", order.id);
+    return NextResponse.json({ ok: true, orderId: order.id, requiresReview: true });
   }
 
   if (order.status === "paid") {

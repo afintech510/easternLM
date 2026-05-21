@@ -526,7 +526,16 @@ export async function POST(request: Request) {
     const fallbackDistanceMeters =
       payload.deliveryMethod === "delivery" ? Math.round(calculation.oneWayMiles * 1609.344) : null;
 
-    const orderMetadata = {
+    // Deliveries beyond 20 miles: authorize the card only, capture after admin review.
+    // Stripe doesn't refund processing fees on refunds, so if we can't fulfill we
+    // want to cancel the auth (no fee) instead of charging then refunding (~3% loss).
+    const MANUAL_CAPTURE_DISTANCE_MILES = 20;
+    const requiresManualCapture =
+      !isCod &&
+      payload.deliveryMethod === "delivery" &&
+      calculation.oneWayMiles > MANUAL_CAPTURE_DISTANCE_MILES;
+
+    const orderMetadata: Record<string, string> = {
       customerName: payload.customer.fullName,
       customerPhone: payload.customer.phone,
       deliveryMethod: payload.deliveryMethod,
@@ -570,6 +579,11 @@ export async function POST(request: Request) {
     // COD mode: skip Stripe entirely — order created directly as pending
     const useEmbedded = payload.mode === "embedded";
 
+    if (requiresManualCapture) {
+      orderMetadata.requiresReview = "true";
+      orderMetadata.captureMethod = "manual";
+    }
+
     let session: Stripe.Checkout.Session | null = null;
     let paymentIntent: Stripe.PaymentIntent | null = null;
 
@@ -581,6 +595,7 @@ export async function POST(request: Request) {
           automatic_payment_methods: { enabled: true },
           receipt_email: payload.customer.email,
           metadata: orderMetadata,
+          ...(requiresManualCapture ? { capture_method: "manual" } : {}),
         });
       } else {
         session = await stripe.checkout.sessions.create({
@@ -590,6 +605,9 @@ export async function POST(request: Request) {
           cancel_url: `${origin}/checkout?canceled=1`,
           customer_email: payload.customer.email,
           metadata: orderMetadata,
+          ...(requiresManualCapture
+            ? { payment_intent_data: { capture_method: "manual" } }
+            : {}),
         });
       }
     }
@@ -606,18 +624,25 @@ export async function POST(request: Request) {
 
       // Clean up stale pending orders for the same customer to prevent duplicates.
       // If the customer retries checkout, we cancel old pending orders and their PIs.
+      // Skip review-held orders (auth-only >20mi orders awaiting admin decision).
       const customerPhone = payload.customer.phone?.replace(/\D/g, "").slice(-10);
       if (customerPhone) {
         const { data: stalePending } = await supabaseAdmin
           .from("orders")
-          .select("id, stripe_checkout_session_id")
+          .select("id, stripe_checkout_session_id, metadata")
           .eq("status", "pending")
           .ilike("customer_phone", `%${customerPhone}%`)
           .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
-        if (stalePending && stalePending.length > 0) {
+        // Filter out review-held orders — admin needs to manually accept/release these
+        type StalePending = { id: string; stripe_checkout_session_id: string | null; metadata: Record<string, unknown> | null };
+        const stalePendingFiltered: StalePending[] = ((stalePending as StalePending[]) || []).filter(
+          (o) => (o.metadata as Record<string, unknown> | null)?.requires_review !== true,
+        );
+
+        if (stalePendingFiltered.length > 0) {
           // Cancel old PaymentIntents in Stripe (ignore errors — they may already be expired)
-          for (const stale of stalePending) {
+          for (const stale of stalePendingFiltered) {
             if (stale.stripe_checkout_session_id?.startsWith("pi_")) {
               try {
                 await stripe.paymentIntents.cancel(stale.stripe_checkout_session_id);
@@ -627,7 +652,7 @@ export async function POST(request: Request) {
             }
           }
           // Delete stale orders and their items
-          const staleIds = stalePending.map((s: { id: string }) => s.id);
+          const staleIds = stalePendingFiltered.map((s: { id: string }) => s.id);
           await supabaseAdmin.from("order_items").delete().in("order_id", staleIds);
           await supabaseAdmin.from("orders").delete().in("id", staleIds);
         }
@@ -665,6 +690,7 @@ export async function POST(request: Request) {
           sms_opt_in: payload.customer.optInSms ?? true,
           source: "web",
           gclid: gclidValue,
+          ...(requiresManualCapture ? { capture_method: "manual" } : {}),
           metadata: {
             promoCode: payload.promoCode ?? "",
             createAccount: Boolean(payload.createAccount),
@@ -673,6 +699,9 @@ export async function POST(request: Request) {
             source: "api_checkout",
             paymentMethod: payload.paymentMethod,
             codDiscountCents: calculation.codDiscountCents || 0,
+            ...(requiresManualCapture
+              ? { requires_review: true, capture_method: "manual" }
+              : {}),
           },
         })
         .select("id")

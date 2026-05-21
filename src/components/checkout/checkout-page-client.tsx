@@ -601,11 +601,19 @@ function EmbeddedPaymentForm({ totalCents, paymentIntentId, onSuccess, onError }
       const piId = paymentIntent?.id || paymentIntentId;
       if (piId) {
         try {
-          await fetch("/api/checkout/confirm", {
+          const res = await fetch("/api/checkout/confirm", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentIntentId: piId }),
           });
+          const body = await res.json().catch(() => ({}));
+          // For >20mi delivery orders the card is authorized but not captured.
+          // Send the customer to the success page (which shows the right copy)
+          // instead of the inline "Payment Successful!" view.
+          if (body?.requiresReview && piId) {
+            window.location.href = `/checkout/success?session_id=${encodeURIComponent(piId)}`;
+            return;
+          }
         } catch {}
       }
       onSuccess();

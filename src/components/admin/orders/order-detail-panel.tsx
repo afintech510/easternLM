@@ -470,6 +470,13 @@ export function OrderDetailPanel({
           )}
         </Section>
 
+        {/* Review-held order actions (>20mi delivery, card auth-only) */}
+        {order.source === "web" &&
+          order.status === "pending" &&
+          (order.metadata as Record<string, unknown> | null)?.requires_review === true && (
+            <ReviewHoldActions order={order} onStatusChange={onStatusChange} />
+          )}
+
         {/* Actions */}
         <Section title="Actions">
           <div className="grid grid-cols-2 gap-2">
@@ -833,6 +840,114 @@ function BookNowActions({
             {authStatus === "released" && "Authorization released — no charge."}
             {authStatus === "partial_captured" && `Platform fee captured. Metadata: ${JSON.stringify((order.metadata as any)?.platform_fee_cents)}`}
           </p>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+// ─── Review-Hold Actions (web orders >20mi, auth-only) ───────
+
+function ReviewHoldActions({
+  order,
+  onStatusChange,
+}: {
+  order: OrderFull;
+  onStatusChange: (orderId: string, status: string) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const meta = order.metadata as Record<string, any> | null;
+  const captureStatus: string | undefined = meta?.authorizationStatus;
+
+  const accept = async () => {
+    if (!confirm(`Charge ${formatUsd(order.grand_total_cents)} to the customer's card?`)) return;
+    setBusy("capture");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/capture`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setResult(`Captured ${formatUsd(data.capturedCents)}`);
+        onStatusChange(order.id, "paid");
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setResult("Network error");
+    }
+    setBusy(null);
+  };
+
+  const release = async () => {
+    if (!confirm("Release the card hold? Customer will not be charged and the order will be cancelled.")) return;
+    setBusy("release");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/release-hold`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setResult("Card hold released — no charge");
+        onStatusChange(order.id, "cancelled");
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setResult("Network error");
+    }
+    setBusy(null);
+  };
+
+  return (
+    <Section title="Pending Review (Card Authorized)">
+      <div className="space-y-3">
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-xs">
+          <p className="font-semibold text-amber-900">
+            Card authorized {formatUsd(order.grand_total_cents)} — not yet charged
+          </p>
+          <p className="mt-1 text-amber-800">
+            Delivery is &gt;20 miles. Review the address, then accept to capture payment or
+            release to cancel with no fee. Stripe holds expire after 7 days.
+          </p>
+        </div>
+
+        {result && (
+          <div className={`text-xs px-2 py-1.5 rounded ${result.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+            {result}
+          </div>
+        )}
+
+        {captureStatus !== "captured" && captureStatus !== "released" && (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              className="text-xs bg-green-600 hover:bg-green-700"
+              onClick={accept}
+              disabled={!!busy}
+            >
+              {busy === "capture" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
+              Accept &amp; Charge
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs text-red-600 border-red-300"
+              onClick={release}
+              disabled={!!busy}
+            >
+              {busy === "release" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <XOctagon className="h-3 w-3 mr-1" />}
+              Reject &amp; Release Hold
+            </Button>
+          </div>
+        )}
+
+        {captureStatus === "captured" && (
+          <p className="text-xs text-green-700">✓ Payment captured</p>
+        )}
+        {captureStatus === "released" && (
+          <p className="text-xs text-muted-foreground">Hold released — no charge</p>
         )}
       </div>
     </Section>
