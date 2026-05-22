@@ -56,6 +56,11 @@ interface Quote {
   delivery_date: string | null;
   delivery_time_window: string | null;
   delivery_notes: string | null;
+  // Final-invoice flow (deposit paid, items added post-job, customer pays balance)
+  finalized_at: string | null;
+  balance_paid_cents: number;
+  balance_paid_at: string | null;
+  invoice_sent_at: string | null;
 }
 
 const TAX_RATE = 0.0875;
@@ -262,6 +267,34 @@ export default function QuoteDetailPage() {
     setPhotoUrls((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  async function handleFinalizeInvoice() {
+    if (!confirm("Finalize this quote as an invoice? This locks the current line items as billable and lets the customer pay the balance.")) return;
+    setSaving(true);
+    await handleSave();
+    const r = await fetch(`/api/admin/quotes/${id}/finalize`, { method: "POST" });
+    const d = await r.json();
+    setSaving(false);
+    if (!r.ok) {
+      alert(d.error ?? "Finalize failed");
+      return;
+    }
+    await loadQuote();
+  }
+
+  async function handleSendInvoice(via: string[]) {
+    if (!via.length) return;
+    setSending(true);
+    const r = await fetch(`/api/admin/quotes/${id}/send-invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ via }),
+    });
+    const d = await r.json();
+    setSending(false);
+    if (d.errors?.length) alert("Partial send: " + d.errors.join(", "));
+    await loadQuote();
+  }
+
   async function handleConvertToOrder() {
     if (!confirm("Convert this quote to an order? This will create a new order from the quote line items.")) return;
     setConverting(true);
@@ -294,7 +327,12 @@ export default function QuoteDetailPage() {
 
   const { subtotal, tax, total } = recalcTotals(lineItems);
   const statusCfg = STATUS_CONFIG[quote.status] ?? STATUS_CONFIG.draft;
-  const isReadOnly = ["accepted", "declined", "converted"].includes(quote.status);
+  // Accepted quotes with deposit paid remain editable so admin can add post-job items
+  // before finalizing into a balance-due invoice. Declined / fully-converted stay locked.
+  const isReadOnly = ["declined", "converted"].includes(quote.status);
+  const isAcceptedWithDeposit = quote.status === "accepted" && !!quote.deposit_paid_at;
+  const balanceOwedCents = Math.max(0, total - (quote.deposit_paid_cents || 0) - (quote.balance_paid_cents || 0));
+  const fullyPaid = balanceOwedCents === 0 && !!quote.deposit_paid_at;
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
   const quoteUrl = `${siteUrl}/quote/${quote.public_token}`;
 
@@ -320,6 +358,16 @@ export default function QuoteDetailPage() {
               <CheckCircle className="mr-1 size-3" />Deposit Paid
             </Badge>
           )}
+          {quote.finalized_at && !fullyPaid && (
+            <Badge variant="outline" className="text-amber-700 border-amber-300">
+              <DollarSign className="mr-1 size-3" />Invoice Finalized
+            </Badge>
+          )}
+          {fullyPaid && (
+            <Badge variant="outline" className="text-green-700 border-green-300">
+              <CheckCircle className="mr-1 size-3" />Paid in Full
+            </Badge>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={copyLink}>
@@ -342,8 +390,8 @@ export default function QuoteDetailPage() {
         </div>
       </div>
 
-      {/* Send bar (only for draft/sent/viewed) */}
-      {!isReadOnly && (
+      {/* Send Quote bar — only for pre-acceptance states. After deposit, use the Final Invoice flow instead. */}
+      {["draft", "sent", "viewed", "expired"].includes(quote.status) && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
           <p className="flex-1 text-sm text-muted-foreground">
             {quote.status === "draft" ? "Ready to send?" : `Last sent: ${quote.sent_at ? new Date(quote.sent_at).toLocaleDateString() : "—"}`}
@@ -724,6 +772,94 @@ export default function QuoteDetailPage() {
             {quote.deposit_paid_at && (
               <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
                 <strong>Deposit paid:</strong> {formatUsd(quote.deposit_paid_cents)} on {new Date(quote.deposit_paid_at).toLocaleDateString()}
+              </div>
+            )}
+
+            {quote.balance_paid_at && (
+              <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+                <strong>Balance paid:</strong> {formatUsd(quote.balance_paid_cents)} on {new Date(quote.balance_paid_at).toLocaleDateString()}
+              </div>
+            )}
+
+            {/* Balance / final invoice section */}
+            {quote.deposit_paid_at && (
+              <div className="rounded-lg border bg-card p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Deposit paid</span>
+                  <span className="text-green-600">-{formatUsd(quote.deposit_paid_cents)}</span>
+                </div>
+                {(quote.balance_paid_cents ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Balance paid</span>
+                    <span className="text-green-600">-{formatUsd(quote.balance_paid_cents)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-2 font-semibold">
+                  <span>Balance Owed</span>
+                  <span className={balanceOwedCents > 0 ? "text-amber-700" : "text-green-700"}>
+                    {formatUsd(balanceOwedCents)}
+                  </span>
+                </div>
+                {fullyPaid && (
+                  <p className="text-xs text-green-700 font-medium">✓ Fully paid</p>
+                )}
+              </div>
+            )}
+
+            {/* Finalize / Send Invoice actions */}
+            {isAcceptedWithDeposit && balanceOwedCents > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-900">Final Invoice</p>
+                {!quote.finalized_at ? (
+                  <>
+                    <p className="text-xs text-amber-800">
+                      Add any post-job items, then finalize to lock the invoice and send the customer a balance pay link.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="w-full bg-amber-600 hover:bg-amber-700"
+                      onClick={handleFinalizeInvoice}
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                      Finalize Invoice
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-amber-800">
+                      Finalized {new Date(quote.finalized_at).toLocaleDateString()}.
+                      {quote.invoice_sent_at && ` Last sent ${new Date(quote.invoice_sent_at).toLocaleDateString()}.`}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSendInvoice(["sms"])}
+                        disabled={sending || !customerPhone}
+                      >
+                        <Send className="mr-1 size-3" />Text
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSendInvoice(["email"])}
+                        disabled={sending || !customerEmail}
+                      >
+                        <Send className="mr-1 size-3" />Email
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="col-span-2 bg-amber-600 hover:bg-amber-700"
+                        onClick={() => handleSendInvoice(["sms", "email"])}
+                        disabled={sending || (!customerPhone && !customerEmail)}
+                      >
+                        {sending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-1.5 size-4" />}
+                        Send Invoice (Email + SMS)
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
