@@ -760,6 +760,32 @@ export async function POST(request: Request) {
     } else if (event.type === "payment_intent.succeeded") {
       // Embedded checkout — PaymentIntent completed on our domain
       const pi = event.data.object as Stripe.PaymentIntent;
+
+      // Quote balance payment (finalized invoice, customer paid balance)
+      if (pi.metadata?.type === "quote_balance" && pi.metadata?.quote_id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sb = getSupabaseAdminClient() as any;
+        const quoteId = pi.metadata.quote_id;
+        const { data: quote } = await sb
+          .from("quotes")
+          .select("id, public_token, total_cents, deposit_paid_cents, balance_paid_cents, balance_stripe_payment_id")
+          .eq("id", quoteId)
+          .maybeSingle();
+        if (quote && quote.balance_stripe_payment_id !== pi.id) {
+          const baseAmount = parseInt((pi.metadata.base_amount as string) || "0", 10);
+          await sb
+            .from("quotes")
+            .update({
+              balance_paid_cents: (quote.balance_paid_cents ?? 0) + baseAmount,
+              balance_paid_at: new Date().toISOString(),
+              balance_stripe_payment_id: pi.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", quoteId);
+        }
+        return NextResponse.json({ received: true });
+      }
+
       if (pi.metadata?.serverGrandTotalCents) {
         const supabaseAdmin = getSupabaseAdminClient();
         // Find the pre-created order (we stored PI id as stripe_checkout_session_id)

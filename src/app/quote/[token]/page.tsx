@@ -82,6 +82,10 @@ interface Quote {
   status: string;
   accepted_at: string | null;
   deposit_paid_at: string | null;
+  // Final-invoice flow
+  finalized_at?: string | null;
+  balance_paid_cents?: number;
+  balance_paid_at?: string | null;
   // Extended fields
   type?: string;
   cc_surcharge_cents?: number;
@@ -278,6 +282,234 @@ function DeclinedView({ quote }: { quote: Quote }) {
         <div className="mt-8">
           <TrustFooter />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Invoice View (finalized quote, balance owed) ─────────────────────────
+
+function InvoiceView({ quote, token, balanceOwedCents, onPaid }: {
+  quote: Quote; token: string; balanceOwedCents: number; onPaid: () => void;
+}) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [chargeAmount, setChargeAmount] = useState(0);
+  const [error, setError] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  const cardFee = Math.round(balanceOwedCents * 0.035);
+  const cardTotal = balanceOwedCents + cardFee;
+
+  async function startBalancePayment() {
+    setProcessing(true); setError("");
+    try {
+      const res = await fetch(`/api/quote/${token}/payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payBalance: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to start payment");
+      setClientSecret(data.clientSecret);
+      setChargeAmount(data.chargeAmountCents);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally { setProcessing(false); }
+  }
+
+  const materialItems = quote.line_items ?? [];
+
+  return (
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
+      <HeroHeader name={quote.customer_name.split(" ")[0]} quoteNumber={quote.quote_number} />
+      <div className="mx-auto max-w-md md:max-w-2xl px-4 pt-5 pb-2">
+        {/* Invoice banner */}
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-4 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1">Final Invoice</p>
+          <p className="text-sm text-amber-900">
+            Your project is complete. Below is the final invoice including all items delivered.
+          </p>
+        </div>
+
+        {/* Line items */}
+        <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+          <h2 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-4">
+            <Package className="size-3.5" /> Items
+          </h2>
+          <div className="space-y-3">
+            {materialItems.map((item, i) => {
+              const { bg, text } = getItemColors(item.description, item.unit);
+              return (
+                <div key={i} className="flex gap-3 items-start">
+                  <div className={`size-12 flex-shrink-0 rounded-xl ${bg} ${text} flex items-center justify-center`}>
+                    {getItemIcon(item.description, item.unit)}
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="font-semibold text-zinc-900 text-sm leading-snug">{item.description}</p>
+                    <p className={`text-xs mt-0.5 ${text}`}>
+                      {item.quantity} {item.unit}
+                      {item.unit_price_cents > 0 && ` · ${fmt(item.unit_price_cents)} / ${item.unit}`}
+                    </p>
+                  </div>
+                  <p className="font-bold text-zinc-900 text-sm whitespace-nowrap pt-0.5">
+                    {fmt(item.total_cents)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Totals */}
+        <section className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-3">Invoice Total</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Subtotal</span>
+              <span className="text-zinc-800">{fmt(quote.subtotal_cents)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Tax (8.75%)</span>
+              <span className="text-zinc-800">{fmt(quote.tax_cents)}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2 font-semibold">
+              <span className="text-zinc-900">Project Total</span>
+              <span className="text-zinc-900">{fmt(quote.total_cents)}</span>
+            </div>
+            <div className="flex justify-between text-green-600 pt-1">
+              <span>Deposit Paid</span>
+              <span>-{fmt(quote.deposit_paid_cents)}</span>
+            </div>
+            {(quote.balance_paid_cents ?? 0) > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Previously Paid</span>
+                <span>-{fmt(quote.balance_paid_cents ?? 0)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t pt-3 text-lg font-bold">
+              <span className="text-zinc-900">Balance Owed</span>
+              <span className="text-amber-700">{fmt(balanceOwedCents)}</span>
+            </div>
+            <p className="text-[11px] text-zinc-400 text-right">
+              Card total: {fmt(cardTotal)} (incl. 3.5% card fee)
+            </p>
+          </div>
+        </section>
+
+        {/* Pay Balance */}
+        <section className="bg-white rounded-2xl shadow-sm mb-4 overflow-hidden print:hidden">
+          {error && (
+            <div className="mx-5 mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+              {error}
+            </div>
+          )}
+          {!clientSecret ? (
+            <div className="p-5 space-y-3">
+              <button
+                onClick={startBalancePayment}
+                disabled={processing}
+                className="w-full flex items-center gap-4 rounded-xl border-2 border-accent/30 bg-accent/5 p-4 text-left hover:border-accent/60 active:border-accent transition-colors disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0">
+                  {processing
+                    ? <Loader2 className="size-5 text-white animate-spin" />
+                    : <Lock className="size-5 text-white" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-zinc-900">Pay Balance — {fmt(cardTotal)}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {fmt(balanceOwedCents)} + 3.5% card fee ({fmt(cardFee)})
+                  </p>
+                  <p className="text-xs text-accent mt-0.5">
+                    Card · Apple Pay · Klarna · Affirm · Afterpay
+                  </p>
+                </div>
+              </button>
+            </div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                Pay {fmt(chargeAmount)} Balance
+              </h2>
+              {!stripePromise ? (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  Payment unavailable — please call (631) 874-6244 to pay your balance.
+                </p>
+              ) : (
+                <Elements
+                  stripe={stripePromise}
+                  options={{ clientSecret, appearance: stripeAppearance }}
+                >
+                  <StripePaymentForm
+                    amountCents={chargeAmount}
+                    onSuccess={() => {
+                      fetch(`/api/quote/${token}/confirm-balance`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ paymentIntentId: clientSecret.split("_secret_")[0] }),
+                      }).catch(() => {});
+                      onPaid();
+                    }}
+                    onError={setError}
+                  />
+                </Elements>
+              )}
+              <button
+                onClick={() => { setClientSecret(null); }}
+                className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600"
+              >
+                ← Back
+              </button>
+            </div>
+          )}
+        </section>
+
+        <TrustFooter />
+      </div>
+    </div>
+  );
+}
+
+// ─── Paid in Full View ───────────────────────────────────────────────────────
+
+function PaidInFullView({ quote }: { quote: Quote }) {
+  return (
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
+      <HeroHeader name={quote.customer_name} quoteNumber={quote.quote_number} />
+      <div className="mx-auto max-w-md md:max-w-2xl px-4 py-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm text-center mb-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="size-9 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold text-zinc-900 mb-1">Paid in Full</h2>
+          <p className="text-zinc-500 text-sm">
+            Thanks, {quote.customer_name.split(" ")[0]}. Your invoice is paid in full —
+            we appreciate your business.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm mb-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Project Total</span>
+            <span className="text-zinc-800">{fmt(quote.total_cents)}</span>
+          </div>
+          <div className="flex justify-between text-green-600">
+            <span>Deposit Paid</span>
+            <span>-{fmt(quote.deposit_paid_cents)}</span>
+          </div>
+          {(quote.balance_paid_cents ?? 0) > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Balance Paid</span>
+              <span>-{fmt(quote.balance_paid_cents ?? 0)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t pt-2 font-semibold">
+            <span>Balance</span>
+            <span className="text-green-700">$0.00</span>
+          </div>
+        </div>
+
+        <TrustFooter />
       </div>
     </div>
   );
@@ -1208,6 +1440,32 @@ function PublicQuoteInner() {
   const isAccepted = quote.status === "accepted" || quote.status === "converted" ||
     outcome === "accepted" || depositSuccess;
   const isDeclined = quote.status === "declined" || outcome === "declined";
+
+  // Finalized-invoice mode: deposit was paid, admin added post-job items and finalized.
+  // Customer sees an Invoice view with deposit credit + balance owed + Pay Balance button.
+  // Takes precedence over the "Order Confirmed" view that an accepted quote normally shows.
+  const balanceOwedCents = Math.max(
+    0,
+    (quote.total_cents ?? 0) - (quote.deposit_paid_cents ?? 0) - (quote.balance_paid_cents ?? 0),
+  );
+  const isFinalizedInvoiceUnpaid =
+    !!quote.finalized_at && quote.status !== "declined" && balanceOwedCents > 0;
+  const isFinalizedInvoicePaid =
+    !!quote.finalized_at && quote.status !== "declined" && balanceOwedCents === 0 && (quote.deposit_paid_cents ?? 0) > 0;
+
+  if (isFinalizedInvoiceUnpaid) {
+    return (
+      <InvoiceView
+        quote={quote}
+        token={token}
+        balanceOwedCents={balanceOwedCents}
+        onPaid={() => { setOutcome("accepted"); setByCard(true); }}
+      />
+    );
+  }
+  if (isFinalizedInvoicePaid) {
+    return <PaidInFullView quote={quote} />;
+  }
 
   if (isAccepted) return <ConfirmedView quote={quote} byCard={byCard || depositSuccess} />;
   if (isDeclined) return <DeclinedView quote={quote} />;
