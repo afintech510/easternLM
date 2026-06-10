@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatUsd } from "@/lib/format";
+import { ChargeQuoteModal } from "@/components/admin/charge-quote-modal";
 
 interface LineItem {
   description: string;
@@ -89,6 +90,7 @@ export default function QuoteDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [showChargeModal, setShowChargeModal] = useState(false);
 
   // Form state
   const [customerName, setCustomerName] = useState("");
@@ -885,6 +887,18 @@ export default function QuoteDetailPage() {
             {quote.deposit_paid_at && <div className="flex items-center gap-2"><DollarSign className="size-3 text-green-500" /><span>Deposit paid {new Date(quote.deposit_paid_at).toLocaleDateString()}</span></div>}
           </div>
 
+          {/* Charge Card — manually key in the customer's card to take payment now */}
+          {!quote.converted_order_id && !quote.deposit_paid_at && ["accepted", "sent", "viewed"].includes(quote.status) && (
+            <Button
+              className="w-full bg-amber-600 hover:bg-amber-500 text-white"
+              size="sm"
+              onClick={() => setShowChargeModal(true)}
+            >
+              <DollarSign className="mr-1.5 size-4" />
+              Charge Card (Full Amount)
+            </Button>
+          )}
+
           {/* Convert to Order (for accepted quotes) */}
           {quote.status === "accepted" && !quote.converted_order_id && (
             <Button
@@ -910,6 +924,20 @@ export default function QuoteDetailPage() {
           </Button>
         </div>
       </div>
+
+      {showChargeModal && (
+        <ChargeQuoteModal
+          quoteId={quote.id}
+          quoteNumber={quote.quote_number}
+          customerName={quote.customer_name}
+          onClose={() => setShowChargeModal(false)}
+          onSuccess={async (orderId) => {
+            setShowChargeModal(false);
+            await loadQuote();
+            alert(`Payment captured — paid order created! ID: ${orderId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
