@@ -14,10 +14,14 @@ interface ConvertOptions {
   supabase: any;
   createdBy: string | null;
   payment?: {
+    // payment_method must be one of the orders_payment_method_check values
+    // (card_online, card_terminal, cash, check, account, cod, split, paylink,
+    //  pending, store_credit, ...). Keyed-in card charges use "card_online".
     status?: string;
     paymentMethod?: string;
     ccSurchargeCents?: number;
     depositPaidCentsOverride?: number;
+    stripePaymentIntentId?: string;
   };
 }
 
@@ -31,6 +35,10 @@ export async function convertQuoteToOrder({ quote, supabase, createdBy, payment 
   const orderStatus = payment?.status ?? (quote.deposit_paid_at ? "paid" : "pending");
   const orderPaymentMethod = payment?.paymentMethod ?? (quote.deposit_paid_at ? "card_online" : "pending");
   const depositPaidCents = payment?.depositPaidCentsOverride ?? quote.deposit_paid_cents ?? 0;
+  const surchargeCents = payment?.ccSurchargeCents ?? 0;
+  // When a payment was captured here, grand total includes the surcharge and we
+  // record the full breakdown (mirrors the customer-facing confirm-card order).
+  const grandTotalCents = quote.total_cents + (payment ? surchargeCents : 0);
 
   // Create order from quote
   const { data: order, error: oErr } = await supabase
@@ -39,16 +47,21 @@ export async function convertQuoteToOrder({ quote, supabase, createdBy, payment 
       source: "quote",
       status: orderStatus,
       payment_method: orderPaymentMethod,
+      stripe_checkout_session_id: payment?.stripePaymentIntentId ?? null,
+      quote_id: quote.id,
       customer_name: quote.customer_name,
       customer_email: quote.customer_email ?? null,
       customer_phone: quote.customer_phone ?? null,
       delivery_method: hasDelivery ? "delivery" : "pickup",
-      delivery_address: quote.customer_address ?? null,
+      delivery_address: quote.delivery_address ?? quote.customer_address ?? null,
+      delivery_date: quote.delivery_date ?? null,
+      delivery_time_window: quote.delivery_time_window ?? null,
+      delivery_notes: quote.delivery_notes ?? null,
       materials_subtotal_cents: quote.subtotal_cents,
       tax_cents: quote.tax_cents,
-      grand_total_cents: quote.total_cents,
-      delivery_total_cents: 0,
-      cc_surcharge_cents: payment?.ccSurchargeCents ?? 0,
+      grand_total_cents: grandTotalCents,
+      delivery_total_cents: payment ? (quote.delivery_fee_cents ?? 0) : 0,
+      cc_surcharge_cents: surchargeCents,
       metadata: {
         source_quote_id: quote.id,
         source_quote_number: quote.quote_number,

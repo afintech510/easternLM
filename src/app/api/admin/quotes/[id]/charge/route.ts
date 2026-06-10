@@ -116,9 +116,12 @@ export async function POST(request: Request, context: RouteContext) {
       createdBy: auth.userId,
       payment: {
         status: "paid",
-        paymentMethod: "card_manual",
+        // card_online is the allowed enum value for a Stripe card charge
+        // (the keyed-in / MOTO nature is captured by the PI metadata).
+        paymentMethod: "card_online",
         ccSurchargeCents: paidSurchargeCents,
         depositPaidCentsOverride: baseCents,
+        stripePaymentIntentId: paymentIntentId,
       },
     });
     return NextResponse.json({ ok: true, orderId, amountCents: pi.amount });
