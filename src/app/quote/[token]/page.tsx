@@ -13,7 +13,7 @@ import {
 import {
   Loader2, Phone, Mail, MessageSquare, Lock, Shield, User,
   CheckCircle, XCircle, MapPin, Calendar, Clock,
-  Truck, AlertTriangle, FileText, Package, ShieldCheck,
+  Truck, AlertTriangle, FileText, Package,
   TreePine, Mountain, Droplets, Wrench, Box,
 } from "lucide-react";
 
@@ -617,13 +617,8 @@ function PaymentSection({
   const [processing, setProcessing] = useState(false);
   const [payFullAmount, setPayFullAmount] = useState(false); // Pay full vs deposit
 
-  // Accept verification state
-  const [typedName, setTypedName] = useState("");
+  // Acceptance state
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [smsCode, setSmsCode] = useState("");
-  const [smsSent, setSmsSent] = useState(false);
-  const [smsVerified, setSmsVerified] = useState(false);
-  const [sendingSms, setSendingSms] = useState(false);
 
   // Effective charge amount: full or deposit
   const effectiveCharge = isService && !payFullAmount ? baseAmount : quote.total_cents;
@@ -652,39 +647,7 @@ function PaymentSection({
     else { const d = await res.json(); setError(d.error ?? "Failed to confirm order"); setProcessing(false); }
   }
 
-  async function sendSmsCode() {
-    setSendingSms(true); setError("");
-    try {
-      const r = await fetch(`/api/quote/${token}/verify-sms`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send" }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed to send code");
-      setSmsSent(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send verification code");
-    } finally { setSendingSms(false); }
-  }
-
-  async function verifySmsCode() {
-    setProcessing(true); setError("");
-    try {
-      const r = await fetch(`/api/quote/${token}/verify-sms`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", code: smsCode }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Invalid code");
-      setSmsVerified(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
-    } finally { setProcessing(false); }
-  }
-
   async function submitAcceptAndPay() {
-    if (!typedName.trim()) { setError("Please type your full name."); return; }
-    if (!smsVerified) { setError("Please verify your phone number first."); return; }
     setProcessing(true); setError("");
     try {
       // Get IP/location for audit trail
@@ -698,7 +661,7 @@ function PaymentSection({
 
       const r = await fetch(`/api/quote/${token}/accept`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ typedName: typedName.trim(), ip, location, smsVerified: true }),
+        body: JSON.stringify({ typedName: quote.customer_name ?? "Accepted online", ip, location, smsVerified: false }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed to accept quote");
@@ -862,7 +825,7 @@ function PaymentSection({
         </div>
       )}
 
-      {/* ── Accept & Verify (service quotes) ── */}
+      {/* ── Accept & Pay (service quotes) ── */}
       {mode === "accept-verify" && (
         <div className="p-5 space-y-5">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
@@ -875,73 +838,6 @@ function PaymentSection({
             <p className="text-xl font-bold text-zinc-900 mt-0.5">{fmt(effectiveCharge)}</p>
             {!payFullAmount && hasDeposit && (
               <p className="text-[11px] text-zinc-400 mt-1">Balance of {fmt(quote.total_cents - depositAmount)} due on completion</p>
-            )}
-          </div>
-
-          {/* Step 1: Type full name as signature */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-              Type your full legal name to accept
-            </label>
-            <input
-              type="text"
-              value={typedName}
-              onChange={(e) => setTypedName(e.target.value)}
-              placeholder={quote.customer_name || "Full Name"}
-              className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm focus:border-accent focus:ring-1 focus:ring-accent outline-none"
-            />
-            {typedName.trim() && (
-              <p className="mt-1.5 font-serif text-lg italic text-zinc-600 px-1">{typedName}</p>
-            )}
-          </div>
-
-          {/* Step 2: SMS verification */}
-          <div className="rounded-xl border border-zinc-200 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-700">
-              <ShieldCheck className="size-4 text-zinc-400" />
-              Phone Verification
-            </div>
-            {!smsSent ? (
-              <button
-                onClick={sendSmsCode}
-                disabled={sendingSms}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50 transition-colors"
-              >
-                {sendingSms
-                  ? <><Loader2 className="size-4 animate-spin" /> Sending…</>
-                  : <><MessageSquare className="size-4" /> Send code to {quote.customer_phone}</>}
-              </button>
-            ) : !smsVerified ? (
-              <div className="space-y-2">
-                <p className="text-xs text-zinc-500">
-                  Enter the 6-digit code sent to {quote.customer_phone}
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={smsCode}
-                    onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ""))}
-                    placeholder="000000"
-                    className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-center text-lg font-mono tracking-[0.3em] focus:border-accent focus:ring-1 focus:ring-accent outline-none"
-                  />
-                  <button
-                    onClick={verifySmsCode}
-                    disabled={smsCode.length !== 6 || processing}
-                    className="rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
-                  >
-                    {processing ? <Loader2 className="size-4 animate-spin" /> : "Verify"}
-                  </button>
-                </div>
-                <button onClick={sendSmsCode} disabled={sendingSms} className="text-xs text-zinc-400 hover:text-zinc-600">
-                  {sendingSms ? "Sending…" : "Resend code"}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
-                <CheckCircle className="size-4" /> Phone verified
-              </div>
             )}
           </div>
 
@@ -971,7 +867,7 @@ function PaymentSection({
 
           <button
             onClick={submitAcceptAndPay}
-            disabled={processing || !typedName.trim() || !smsVerified || !acceptTerms}
+            disabled={processing || !acceptTerms}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-4 text-base font-bold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
           >
             {processing ? <><Loader2 className="size-4 animate-spin" /> Processing…</> : <>Continue to Payment — {fmt(effectiveCharge)} →</>}
