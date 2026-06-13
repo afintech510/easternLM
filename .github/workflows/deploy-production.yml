@@ -1,13 +1,11 @@
 name: Deploy to Production (easternlm.com)
 
-# MANUAL TRIGGER ONLY — never auto-deploys
+# Auto-deploys on push to main (per fleet policy). Safety: refuses to deploy unless
+# .env.local holds LIVE Stripe keys (sk_live/pk_live) — see the guard below.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "deploy-production" to confirm'
-        required: true
-        type: string
 
 env:
   DOCKER_IMAGE: easternlm-web-prod
@@ -20,7 +18,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event.inputs.confirm == 'deploy-production'
 
     steps:
       - name: Setup SSH
