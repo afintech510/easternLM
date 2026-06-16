@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { FloatingCart } from "./floating-cart";
+import { BuiltByBenchworks } from "./built-by-benchworks";
 import { PromoPopup } from "../marketing/promo-popup";
 
 export function LayoutShell({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
@@ -18,6 +19,7 @@ export function LayoutShell({ children, footer }: { children: React.ReactNode; f
       <Header />
       <main className="flex-1">{children}</main>
       {footer}
+      <BuiltByBenchworks />
       <FloatingCart />
       <PromoPopup />
     </div>
