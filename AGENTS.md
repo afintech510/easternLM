@@ -176,7 +176,83 @@ npm test && npm run test:e2e
   POS desktop, `ws://localhost:9111` → printer TCP `:9100`); not deployed to the VPS.
 - `README.md` — minimal local-dev quickstart.
 
-## 12. Gotchas / operational rules
+## 12. Charge accounts & monthly statements
+
+Wholesale/contractor customers can have `customers.is_charge_account = true`. They get Net-30
+terms instead of paying at the register; charges roll up into a monthly statement and the customer
+mails a check. As of 2026-06-22 there are 20 active charge accounts; the largest by far is
+**GP Landscape Design** (`customer_id = 0850986e-65aa-45cc-97b2-d538390eff0a`), ~70+ orders/month.
+
+### The four sanctioned balance-mutation paths
+
+`customers.current_balance_cents` is a denormalized counter. It is correct **only if** mutated
+through one of these:
+
+1. `/api/pos/checkout` — `+grand_total` on order create (`payment_method = account`)
+2. `/api/pos/refund` — `-refund_amount` on refund
+3. `/api/admin/accounts/mark-paid` — `-grand_total` for each order marked paid
+4. `/api/admin/statements/[id]` (or the Stripe webhook for statement payment) — `-amount_cents`
+
+Anything else (direct PATCH/INSERT into `orders`, legacy WC backfill, manual data fixes) bypasses
+the increment and creates drift. **The truth is always**:
+
+```
+expected_balance = sum(grand_total for unpaid orders)
+                 - sum(refund.amount_cents on those unpaid orders)
+```
+
+### Reconciler
+
+`scripts/reconcile-charge-balances.py` audits every charge account and prints stored vs expected
+vs drift. With `--fix` it writes the correct value back; with `--customer <uuid>` it scopes to one.
+A VPS cron runs `--fix` nightly at 3:15 AM (log: `/var/log/charge-balance-reconcile.log`), so any
+drift introduced during the day is healed by morning.
+
+```bash
+# Manual audit
+SUPABASE_SERVICE_ROLE_KEY=... python scripts/reconcile-charge-balances.py
+# Fix all drifted accounts
+SUPABASE_SERVICE_ROLE_KEY=... python scripts/reconcile-charge-balances.py --fix
+# Fix one
+SUPABASE_SERVICE_ROLE_KEY=... python scripts/reconcile-charge-balances.py --fix --customer <uuid>
+```
+
+When you mark a check paid via the admin Accounts page (`/admin/accounts`), the endpoint already
+decrements balance correctly. The reconciler is the safety net for everything else.
+
+### Statement generation
+
+`scripts/gen-gp-may-statement.py` generates the printable HTML statement for GP Landscape. It
+pulls every currently-unpaid non-refunded order, nets out partial-refund amounts, and writes
+`GP_Landscape_Statement_<YYYYMMDD>.html` to the project root. Open in a browser, print to PDF,
+mail to Roseann.
+
+Per Roseann's preference: **hide refunded orders entirely** (the `status = 'refunded'` filter in
+the script — do not show them as line-item credits). Partial refunds are shown inline with the
+order they belong to.
+
+To bill another charge account, copy the script and change `CUSTOMER_ID`. The HTML template
+(bill-to block, headers, totals) is intentionally inlined so it's easy to fork per customer until
+the admin Statements UI is fleshed out.
+
+### Reconciling a paper check stub against orders
+
+GP and other contractors send a printed remittance stub listing the order references they intend
+to pay. References are the first 8 chars of the order UUID in uppercase, often with OCR/typo
+errors (`O` ↔ `0`, `I` ↔ `1`, missing/extra letters). Match by `(prefix, exact amount)` — a one-
+character ref typo is fine if the amount matches. The recipe each time:
+
+1. Transcribe the stub to `(prefix, cents)` pairs and verify the sum matches the check amount.
+2. `SELECT id, grand_total_cents FROM orders WHERE customer_id = ... AND payment_method = 'account'
+   AND created_at IN <stub date range> AND account_paid_at IS NULL` — fetch full UUIDs.
+3. PATCH `orders` with `account_paid_at=<check date>`, `account_payment_method='check'`,
+   `account_payment_note='Check <num> - <amount> - covers N orders <range>'`. Use simple ASCII in
+   the note — `$` and em-dashes break bash JSON quoting.
+4. Run the reconciler (`--customer <uuid>`) to sync the balance. Do **not** also manually PATCH
+   the balance — it's redundant and a source of past drift.
+5. Regenerate the statement HTML if the customer needs an updated invoice.
+
+## 13. Gotchas / operational rules
 
 - **Staging runs LIVE Stripe keys.** POS on staging processes real charges — do not "test" payments
   there carelessly.
@@ -192,4 +268,11 @@ npm test && npm run test:e2e
   the `deploy-production` confirm input or the `sk_test`/`pk_test` guard.
 - **Shared infra:** the network `hosthampton_hampton_net` and `hampton_nginx` proxy are shared
   across fleet projects (owned by host-hampton-ops). Don't rename/remove them or other sites break.
-- **Production DNS may not be pointed yet** — verify before assuming `easternlm.com` serves traffic.
+- **Production DNS is live.** `easternlm.com` → VPS, port 3100. POS is in active daily use at the
+  yard; the store takes real payments through this app. Treat every production action accordingly.
+- **Staging container is stopped** (per the 2026-05 VPS upgrade); only `easternlm-prod` is up. The
+  staging deploy workflow still fires on push to main but creates no live URL — production is the
+  only live environment. (`prod auto-deploys on push to main` — every merge ships.)
+- **Charge-account balance:** never PATCH `customers.current_balance_cents` manually — run the
+  reconciler (`scripts/reconcile-charge-balances.py --fix --customer <uuid>`) instead. Direct
+  edits are what caused the drift incident on 2026-05-29.

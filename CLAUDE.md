@@ -170,6 +170,34 @@ All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 - RingCentral subscription renewal: daily 2 AM
 - Supabase keepalive: every 6 hours
 - Follow-up sequences: every 30 minutes
+- SMS sync: every 5 minutes
+- Charge-account balance reconciliation: daily 3:15 AM (auto-fixes drift)
+
+## Charge-Account Balance Integrity
+
+`customers.current_balance_cents` is a denormalized counter mutated by four code paths:
+[pos/checkout/route.ts:173](src/app/api/pos/checkout/route.ts) (+grand_total),
+[pos/refund/route.ts:63](src/app/api/pos/refund/route.ts) (-refund),
+[admin/accounts/mark-paid/route.ts:78](src/app/api/admin/accounts/mark-paid/route.ts) (-paid),
+[admin/statements/[id]/route.ts:78](src/app/api/admin/statements/[id]/route.ts) (-statement).
+
+Any direct PATCH/INSERT into `orders` (legacy WC backfill, manual data fixes, etc.)
+**bypasses the increment** and creates drift. The truth is always: `sum(unpaid grand_total) - sum(refund credits on those unpaid orders)`.
+
+To audit / fix:
+
+```bash
+# Audit only
+SUPABASE_SERVICE_ROLE_KEY=... python scripts/reconcile-charge-balances.py
+
+# Audit + auto-fix all drifted accounts
+SUPABASE_SERVICE_ROLE_KEY=... python scripts/reconcile-charge-balances.py --fix
+
+# Single customer
+... python scripts/reconcile-charge-balances.py --fix --customer <uuid>
+```
+
+The nightly cron runs `--fix` automatically. Log: `/var/log/charge-balance-reconcile.log` on VPS.
 
 ## Go-Live Blockers
 

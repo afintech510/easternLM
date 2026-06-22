@@ -40,10 +40,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# data files
+# data files / generated reports
 *.csv
 *-report.md
 migration-report.md
+GP_Landscape_*Statement*.html
+Sales_Tax_Report_*.html
+generated-plan.json
+push-payload.json
 
 # agent artifacts
 .agent/
