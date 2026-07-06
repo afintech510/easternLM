@@ -3,6 +3,8 @@ import { getAllBlogPosts } from "@/lib/data/blog";
 import { getTownPages } from "@/lib/data/town-pages";
 import { getShopCatalog } from "@/lib/data/catalog";
 import { getProductTownPages, getServiceTownPages } from "@/lib/data/product-town-pages";
+import { getSiteServices } from "@/lib/data/site-services";
+import { getAllVerifiedServiceTowns } from "@/lib/data/site-service-towns";
 
 function resolveBaseUrl() {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -23,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/shop", priority: 0.9, freq: "daily" },
     { path: "/materials", priority: 0.8, freq: "weekly" },
     { path: "/services", priority: 0.8, freq: "weekly" },
+    { path: "/driveway-seal-coating-crack-repair", priority: 0.9, freq: "weekly" },
     { path: "/delivery", priority: 0.7, freq: "weekly" },
     { path: "/calculator", priority: 0.7, freq: "weekly" },
     { path: "/contact", priority: 0.6, freq: "monthly" },
@@ -94,6 +97,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
+  // ── Data-driven service hubs ────────────────────────
+  const pavingServiceRoutes: MetadataRoute.Sitemap = getSiteServices().map((s) => ({
+    url: `${baseUrl}/${s.slug}`,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+    lastModified: new Date(),
+  }));
+
+  // ── Service × town pages — verified only (data-driven) ─
+  const pavingTownRoutes: MetadataRoute.Sitemap = getAllVerifiedServiceTowns().map((e) => ({
+    url: `${baseUrl}/${e.serviceSlug}/${e.townSlug}`,
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+    lastModified: new Date(),
+  }));
+
   // ── Blog posts ────────────────────────────────────────
   const blogRoutes: MetadataRoute.Sitemap = blogPosts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
@@ -109,6 +128,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...townRoutes,
     ...materialRoutes,
     ...serviceTownRoutes,
+    ...pavingServiceRoutes,
+    ...pavingTownRoutes,
     ...blogRoutes,
   ];
 }

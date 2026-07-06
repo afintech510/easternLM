@@ -34,18 +34,34 @@ const MASONRY_SERVICES: ServiceOption[] = [
   { value: "masonry-veneer-steps", label: "Stone veneer / steps", icon: "🪨" },
 ];
 
+const PAVING_SERVICES: ServiceOption[] = [
+  { value: "driveway-sealcoating", label: "Driveway sealcoating", icon: "🛢️" },
+  { value: "crack-repair", label: "Crack repair / hot-patch", icon: "🩹" },
+  { value: "gravel-driveway-repair", label: "Gravel driveway repair", icon: "🪨" },
+  { value: "private-road-maintenance", label: "Private road maintenance", icon: "🛣️" },
+  { value: "gravel-parking-lot", label: "Gravel parking lot", icon: "🅿️" },
+];
+
+const TREE_SERVICES: ServiceOption[] = [
+  { value: "tree-removal", label: "Tree removal", icon: "🪓" },
+  { value: "tree-trimming", label: "Tree trimming / pruning", icon: "✂️" },
+  { value: "stump-grinding", label: "Stump grinding", icon: "🪵" },
+];
+
 const OTHER_SERVICES: ServiceOption[] = [
   { value: "property-maintenance", label: "Property maintenance", icon: "🏡" },
   { value: "other", label: "Something else", icon: "💬" },
 ];
 
-const ALL_SERVICES = [...DRIVEWAY_SERVICES, ...LANDSCAPING_SERVICES, ...MASONRY_SERVICES, ...OTHER_SERVICES];
+const ALL_SERVICES = [...DRIVEWAY_SERVICES, ...PAVING_SERVICES, ...LANDSCAPING_SERVICES, ...MASONRY_SERVICES, ...TREE_SERVICES, ...OTHER_SERVICES];
 
 function getServicesForCategory(category?: string): ServiceOption[] {
   switch (category) {
     case "driveways": return [...DRIVEWAY_SERVICES, ...OTHER_SERVICES];
+    case "paving": return [...PAVING_SERVICES, ...OTHER_SERVICES];
     case "landscaping": return [...LANDSCAPING_SERVICES, ...OTHER_SERVICES];
     case "masonry": return [...MASONRY_SERVICES, ...OTHER_SERVICES];
+    case "tree-care": return [...TREE_SERVICES, ...OTHER_SERVICES];
     case "maintenance": return OTHER_SERVICES;
     default: return ALL_SERVICES;
   }
@@ -62,7 +78,7 @@ const TIMELINE_OPTIONS = [
 
 type ServiceQuoteFormProps = {
   defaultServiceType?: string;
-  serviceCategory?: "driveways" | "landscaping" | "masonry" | "maintenance";
+  serviceCategory?: "driveways" | "paving" | "landscaping" | "masonry" | "tree-care" | "maintenance";
 };
 
 export function ServiceQuoteForm({ defaultServiceType, serviceCategory }: ServiceQuoteFormProps) {
