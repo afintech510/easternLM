@@ -583,30 +583,8 @@ const TOWN_CONTENT: Record<string, TownContent> = {
 };
 
 // ── Per-town verified slugs ─────────────────────────────────────────────────
-// Only towns with web-sourced, verified localReferences get flipped to true.
-const VERIFIED_TOWN_SLUGS = new Set([
-  // Web-verified West corridor
-  "center-moriches",
-  "mastic",
-  "mastic-beach",
-  "brookhaven",
-  "bellport",
-  "patchogue",
-  "medford",
-  // Web-verified North Shore
-  "mount-sinai",
-  "sound-beach",
-  "rocky-point",
-  "shoreham",
-  "wading-river",
-  "port-jefferson",
-  "miller-place",
-  // Web-verified North Fork
-  "aquebogue",
-  "jamesport",
-  "laurel",
-  "mattituck",
-]);
+// All towns with TOWN_CONTENT entries are verified and live.
+const VERIFIED_TOWN_SLUGS = new Set(Object.keys(TOWN_CONTENT));
 
 // ── commonProjects per (service, town) ──────────────────────────────────────
 
