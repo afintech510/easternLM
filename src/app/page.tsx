@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { coreServices } from "@/config/content";
 import { siteConfig } from "@/config/site";
 import { getGoogleReviews } from "@/lib/data/reviews";
+import { localBusinessSchema } from "@/lib/seo/business";
 
 const materialCategories = [
   { name: "Mulch", slug: "mulch", price: "from $20/yd", desc: "Black, brown, red, natural" },
@@ -37,53 +38,11 @@ export default async function Home() {
   return (
     <div>
       <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "LocalBusiness",
-          "@id": "https://www.easternlm.com/#business",
-          name: siteConfig.name,
-          description: "Suffolk County landscape and masonry supply yard with bulk material delivery and full-service installation. Mulch, gravel, stone, sand, topsoil, and masonry products.",
-          telephone: "+16318746244",
-          email: siteConfig.email,
-          url: "https://www.easternlm.com",
-          image: "https://www.easternlm.com/images/og-home.jpg",
-          priceRange: "$$",
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: siteConfig.addressLine1,
-            addressLocality: "Center Moriches",
-            addressRegion: "NY",
-            postalCode: "11934",
-            addressCountry: "US",
-          },
-          geo: { "@type": "GeoCoordinates", latitude: 40.7894, longitude: -72.7929 },
-          openingHoursSpecification: [
-            { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "07:00", closes: "17:00" },
-            { "@type": "OpeningHoursSpecification", dayOfWeek: "Saturday", opens: "07:00", closes: "15:00" },
-          ],
-          areaServed: { "@type": "State", name: "Suffolk County, New York", containedInPlace: { "@type": "State", name: "New York" } },
-          hasOfferCatalog: {
-            "@type": "OfferCatalog",
-            name: "Landscape & Masonry Materials",
-            itemListElement: [
-              { "@type": "OfferCatalog", name: "Mulch" },
-              { "@type": "OfferCatalog", name: "Gravel & Stone" },
-              { "@type": "OfferCatalog", name: "Sand" },
-              { "@type": "OfferCatalog", name: "Topsoil & Fill" },
-              { "@type": "OfferCatalog", name: "Natural Stone" },
-              { "@type": "OfferCatalog", name: "Masonry & Concrete" },
-            ],
-          },
-          review: googleReviews.slice(0, 3).map((r) => ({
-            "@type": "Review",
-            reviewRating: { "@type": "Rating", ratingValue: String(r.rating), bestRating: "5" },
-            author: { "@type": "Person", name: r.author_name },
-            reviewBody: r.text,
-            ...(r.time ? { datePublished: new Date(r.time * 1000).toISOString().split("T")[0] } : {}),
-            publisher: { "@type": "Organization", name: "Google" },
-          })),
-          aggregateRating: { "@type": "AggregateRating", ratingValue: String(rating), reviewCount: String(totalReviews) },
-        }}
+        data={localBusinessSchema({
+          reviews: googleReviews,
+          rating,
+          totalReviews,
+        })}
       />
 
       {/* ── 1. HERO ─────────────────────────────────────────────── */}

@@ -35,7 +35,11 @@ function resolveMetadataBase() {
 }
 
 export const metadata: Metadata = {
-  title: "Eastern Landscape & Mason Supply",
+  // NOTE: no `title.template` on purpose — page titles across this site already
+  // hand-roll their own "| Eastern LM" branding, so a global template would
+  // double-brand every page. Only the home/default title is set here.
+  title:
+    "Eastern Landscape & Mason Supply | Bulk Materials & Delivery — Suffolk County NY",
   description:
     "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
   metadataBase: resolveMetadataBase(),
@@ -53,6 +57,7 @@ export const metadata: Metadata = {
     description:
       "Landscape and masonry supplies, local delivery, and professional services across Suffolk County.",
     type: "website",
+    locale: "en_US",
     siteName: "Eastern Landscape & Mason Supply",
   },
   twitter: {

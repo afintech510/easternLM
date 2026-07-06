@@ -93,6 +93,15 @@ export async function POST(request: Request) {
   const ccSurchargeCents = Math.round(servicesCents * CC_SURCHARGE_RATE);
   const grandTotalCents = servicesCents + ccSurchargeCents;
 
+  // Sealcoating uses a FIXED non-refundable booking fee (vs the default 20%
+  // platform rate). Stamped here so confirm/route.ts captures exactly this.
+  const SEALCOAT_BOOKING_FEE_CENTS = 19900;
+  const fixedBookingFeeCents = payload.quote.items.some(
+    (i) => i.serviceSlug === "driveway-sealcoating",
+  )
+    ? SEALCOAT_BOOKING_FEE_CENTS
+    : null;
+
   // ── Create Stripe PaymentIntent with MANUAL capture ──────
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   let paymentIntent: Stripe.PaymentIntent;
@@ -163,6 +172,7 @@ export async function POST(request: Request) {
         items: payload.quote.items,
         customerNotes: payload.notes || "",
         termsAcceptedAt: new Date().toISOString(),
+        ...(fixedBookingFeeCents ? { booking_fee_cents: fixedBookingFeeCents } : {}),
       },
     })
     .select("id")

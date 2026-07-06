@@ -52,8 +52,15 @@ export async function POST(request: Request) {
     .limit(1)
     .single();
 
+  // Sealcoating bookings carry a FIXED non-refundable fee (stamped at booking).
+  // Everything else uses the configurable platform-fee rate (default 20%).
+  const fixedBookingFeeCents =
+    typeof order.metadata?.booking_fee_cents === "number"
+      ? order.metadata.booking_fee_cents
+      : null;
   const feeRate = settings?.book_now_platform_fee_rate ?? 0.20;
-  const platformFeeCents = Math.round(order.grand_total_cents * feeRate);
+  const platformFeeCents =
+    fixedBookingFeeCents ?? Math.round(order.grand_total_cents * feeRate);
 
   // Capture platform fee via Stripe (partial capture)
   const piId = order.stripe_checkout_session_id;

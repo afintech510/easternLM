@@ -56,6 +56,37 @@ export type ServiceSchema = {
 };
 
 export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
+  // ── Premium Driveway Sealcoat (tiered by size) ────────────────
+  "driveway-sealcoating": {
+    slug: "driveway-sealcoating",
+    mode: "tiered",
+    inputs: [
+      {
+        key: "size",
+        type: "tier",
+        label: "Driveway size",
+        default: "standard",
+        options: [
+          { value: "small", label: "Small", sublabel: "1-car · up to ~500 sq ft" },
+          { value: "standard", label: "Standard", sublabel: "2-car · ~500–900 sq ft" },
+          { value: "large", label: "Large", sublabel: "3-car / long · ~900–1,600 sq ft" },
+        ],
+      },
+    ],
+  },
+
+  // ── Crack Fill add-ons (flat) ─────────────────────────────────
+  "driveway-crackfill-minor": {
+    slug: "driveway-crackfill-minor",
+    mode: "flat",
+    inputs: [],
+  },
+  "driveway-crackfill-major": {
+    slug: "driveway-crackfill-major",
+    mode: "flat",
+    inputs: [],
+  },
+
   // ── Mulch Install ─────────────────────────────────────────────
   "mulch-install": {
     slug: "mulch-install",
