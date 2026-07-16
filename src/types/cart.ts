@@ -41,6 +41,7 @@ export type CartStoreState = {
   truckTypes: TruckType[];
   distanceResult: DistanceMatrixResult | null;
   accessConstraints: DeliveryAccessInfo;
+  deliveryDate: string;
   deliveryTimeWindow: string;
   onlineOrderFeeCents: number;
   isCalculating: boolean;

@@ -17,6 +17,7 @@ type CartStoreActions = {
   toggleCombineLoads: () => Promise<void>;
   applyPromoCode: (code: string) => Promise<void>;
   setAccessConstraints: (constraints: Partial<DeliveryAccessInfo>) => void;
+  setDeliveryDate: (date: string) => void;
   setDeliveryTimeWindow: (tw: string) => void;
   setCustomerInfo: (info: Partial<CustomerInfo>) => void;
   swapItems: (indexA: number, indexB: number) => void;
@@ -94,6 +95,7 @@ export const useCartStore = create<CartStore>()(
       truckTypes: defaultTruckTypes,
       distanceResult: null,
       accessConstraints: defaultAccessConstraints,
+      deliveryDate: "",
       deliveryTimeWindow: "flexible",
       onlineOrderFeeCents: 0,
       isCalculating: false,
@@ -246,6 +248,10 @@ export const useCartStore = create<CartStore>()(
         }));
       },
 
+      setDeliveryDate: (date) => {
+        set({ deliveryDate: date });
+      },
+
       setDeliveryTimeWindow: (tw) => {
         set({ deliveryTimeWindow: tw });
       },
@@ -350,6 +356,8 @@ export const useCartStore = create<CartStore>()(
         combineLoads: state.combineLoads,
         customerType: state.customerType,
         accessConstraints: state.accessConstraints,
+        deliveryDate: state.deliveryDate,
+        deliveryTimeWindow: state.deliveryTimeWindow,
         customerInfo: state.customerInfo,
       }),
     },

@@ -69,6 +69,8 @@ export function CartPageClient() {
   const storedCustomer = useCartStore((s) => s.customerInfo);
   const timeWindow = useCartStore((s) => s.deliveryTimeWindow);
   const setTimeWindow = useCartStore((s) => s.setDeliveryTimeWindow);
+  const deliveryDate = useCartStore((s) => s.deliveryDate);
+  const setDeliveryDate = useCartStore((s) => s.setDeliveryDate);
 
   const [addressInput, setAddressInput] = useState(deliveryAddress?.fullAddress ?? "");
   const searchParams = useSearchParams();
@@ -108,7 +110,15 @@ export function CartPageClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryAddress?.fullAddress]);
   const [promoInput, setPromoInput] = useState(promoCode);
-  const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate());
+
+  // Seed / normalize the shared delivery date. Runs after Zustand rehydrates so a
+  // stale persisted date (yesterday, a Sunday, or empty) resets to the next valid day.
+  useEffect(() => {
+    const min = minDeliveryDate();
+    if (!deliveryDate || deliveryDate < min || isSunday(deliveryDate)) {
+      setDeliveryDate(getDefaultDeliveryDate());
+    }
+  }, [deliveryDate, setDeliveryDate]);
 
   // Lead capture — read directly from store (no local useState so hydration timing never matters)
   const custName = storedCustomer?.fullName ?? "";

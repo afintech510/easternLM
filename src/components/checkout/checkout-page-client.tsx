@@ -76,6 +76,8 @@ export function CheckoutPageClient() {
   const promoCode = useCartStore((s) => s.promoCode);
   const accessConstraints = useCartStore((s) => s.accessConstraints);
   const deliveryTimeWindow = useCartStore((s) => s.deliveryTimeWindow);
+  const deliveryDate = useCartStore((s) => s.deliveryDate);
+  const setDeliveryDate = useCartStore((s) => s.setDeliveryDate);
   const customerInfo = useCartStore((s) => s.customerInfo);
   const setCustomerInfo = useCartStore((s) => s.setCustomerInfo);
   const isCalculating = useCartStore((s) => s.isCalculating);
@@ -93,7 +95,6 @@ export function CheckoutPageClient() {
   const phone = customerInfo?.phone ?? "";
   const optInSms = customerInfo?.smsOptIn ?? false;
 
-  const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -124,6 +125,15 @@ export function CheckoutPageClient() {
       : (calculation?.grandTotalCents ?? 0) + effectiveOnlineFee;
 
   useEffect(() => { loadDeliveryConfig(); }, [loadDeliveryConfig]);
+
+  // Seed / normalize the shared delivery date carried over from the cart. If it's
+  // empty, in the past, or a Sunday, reset to the next valid delivery day.
+  useEffect(() => {
+    const min = minDeliveryDate();
+    if (!deliveryDate || deliveryDate < min || isSunday(deliveryDate)) {
+      setDeliveryDate(defaultDeliveryDate());
+    }
+  }, [deliveryDate, setDeliveryDate]);
 
   useEffect(() => {
     if (deliveryMethod === "delivery" && deliveryAddress && !calculation && !isCalculating) {

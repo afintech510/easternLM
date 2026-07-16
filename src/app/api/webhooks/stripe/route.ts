@@ -27,6 +27,14 @@ function normalizeDeliveryMethod(value?: string | null) {
   return value === "pickup" ? "pickup" : "delivery";
 }
 
+/** Format a YYYY-MM-DD delivery date as e.g. "Tue, Jul 21" for customer messaging. */
+function formatDeliveryDate(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 function toInteger(value?: string | null) {
   if (!value) {
     return null;
@@ -376,6 +384,7 @@ async function ensureOrderFromSession(input: {
       delivery_schedule: deliverySchedule as Json,
       delivery_date: metadata.deliveryDate || null,
       delivery_time_window: metadata.deliveryTimeWindow || null,
+      sms_opt_in: metadata.optInSms === "true",
       source: "web",
       metadata: {
         stripePaymentIntent: normalizeStripeReference(input.session.payment_intent),
@@ -635,6 +644,26 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe:
       }
       smsLines.push(`📞 ${order.customer_phone ?? "No phone"}`);
       await sendSms("+16318746244", smsLines.join("\n")).catch(() => {});
+
+      // Customer confirmation SMS (only if they opted in and gave a phone)
+      if (order.sms_opt_in && order.customer_phone) {
+        const custLines = [
+          `Eastern LM — Order confirmed! Thank you, ${order.customer_name}.`,
+          itemsList,
+          `Total: ${orderTotal}`,
+        ];
+        if (isDelivery) {
+          const prettyDate = formatDeliveryDate((order as any).delivery_date);
+          custLines.push(
+            `Delivery${prettyDate ? ` ${prettyDate}` : ""} (${timeWindow}) to ${order.delivery_address}`,
+          );
+        } else {
+          custLines.push("Pickup at 110 Frowein Rd, Center Moriches");
+        }
+        custLines.push("Questions? (631) 874-6244");
+        custLines.push("Reply STOP to opt out.");
+        await sendSms(order.customer_phone, custLines.join("\n")).catch(() => {});
+      }
 
       // Email to Adam & Ronnie — full details
       try {

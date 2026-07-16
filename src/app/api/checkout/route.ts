@@ -30,9 +30,16 @@ async function sendCodNotifications(params: {
   deliveryAddress: string | null;
   deliveryDate?: string;
   deliveryTimeWindow?: string;
+  smsOptIn?: boolean;
   cartItems: Array<{ name: string; quantity: number; unitPriceCents: number }>;
 }) {
   const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const formatDeliveryDate = (value?: string) => {
+    if (!value) return "";
+    const d = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
   const { Resend } = await import("resend");
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -111,6 +118,31 @@ async function sendCodNotifications(params: {
     const msg = `🟡 COD Order: ${params.customerName} — ${fmt(params.grandTotalCents)} due on delivery. ${params.deliveryMethod === "delivery" ? `To ${params.deliveryAddress}` : "Pickup"}`;
     await sendSms("+16318746244", msg).catch(() => {});
   } catch {}
+
+  // Customer confirmation SMS (only if they opted in and gave a phone)
+  if (params.smsOptIn && params.customerPhone) {
+    try {
+      const itemsList =
+        params.cartItems.map((i) => `${i.quantity} × ${i.name}`).join(", ") || "your order";
+      const custLines = [
+        `Eastern LM — Order confirmed! Thank you, ${params.customerName}.`,
+        itemsList,
+        `Total due on delivery: ${fmt(params.grandTotalCents)}`,
+      ];
+      if (params.deliveryMethod === "delivery") {
+        const prettyDate = formatDeliveryDate(params.deliveryDate);
+        custLines.push(
+          `Delivery${prettyDate ? ` ${prettyDate}` : ""} (${params.deliveryTimeWindow ?? "flexible"}) to ${params.deliveryAddress}`,
+        );
+        custLines.push("Please have cash or check ready for the driver.");
+      } else {
+        custLines.push("Pickup at 110 Frowein Rd, Center Moriches");
+      }
+      custLines.push("Questions? (631) 874-6244");
+      custLines.push("Reply STOP to opt out.");
+      await sendSms(params.customerPhone, custLines.join("\n")).catch(() => {});
+    } catch {}
+  }
 }
 
 const checkoutItemSchema = z.object({
@@ -772,6 +804,7 @@ export async function POST(request: Request) {
           deliveryAddress: resolvedDeliveryAddress?.fullAddress ?? null,
           deliveryDate: payload.deliveryDate,
           deliveryTimeWindow: payload.deliveryTimeWindow,
+          smsOptIn: payload.customer.optInSms ?? true,
           cartItems: payload.cartItems,
         });
       } catch (err) {
