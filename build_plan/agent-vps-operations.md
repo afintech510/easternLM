@@ -253,6 +253,18 @@ cd /c/Users/alark/projects/elm-marketing && git push origin main
 | `*/30 * * * *` | `curl easternlm.com/api/cron/follow-ups` | ELM follow-up sequence processing |
 | `*/5 * * * *` | `curl localhost:3100/api/cron/sync-sms` | ELM SMS sync (RingCentral → DB) |
 
+### Reminder digest (cron-job.org, not VPS crontab)
+The twice-daily reminder digest to Adam & Ronnie runs on cron-job.org (same account as the other
+ELM external crons), targeting the prod domain:
+
+| Job ID | Schedule (America/New_York) | URL |
+|--------|------------------------------|-----|
+| 8113921 | Weekdays 08:30 | `https://easternlm.com/api/cron/reminders?key=<CRON_SECRET_KEY>` |
+| 8113922 | Weekdays 16:00 | `https://easternlm.com/api/cron/reminders?key=<CRON_SECRET_KEY>` |
+
+Timezone is set per-job in cron-job.org (America/New_York), so times are ET regardless of the VPS
+clock. `CRON_SECRET_KEY` lives in `/opt/easternlm-web/.env.local` (`elm-cron-c00fe2d2038137bb` in prod).
+
 ELM Marketing Engine crons are handled internally by `node-cron` inside `elm_orchestrator` (not VPS crontab).
 
 ---

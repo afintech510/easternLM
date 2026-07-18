@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServiceLead } from "@/lib/leads/engine";
+import { resolveReminderUser } from "@/lib/reminders/config";
+import { parseReminderCommand, handleReminderCommand } from "@/lib/reminders/commands";
+
+/** Escape text for inclusion in a TwiML <Message> body. */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 /**
  * Twilio incoming SMS webhook.
@@ -19,6 +29,21 @@ export async function POST(request: Request) {
   const text = body.trim().toUpperCase();
 
   const supabase = getSupabaseAdminClient();
+
+  // Reminder queue: known senders (Adam/Ronnie) using a reminder command are
+  // intercepted here and never become a service lead. Replies over TwiML.
+  const reminderUser = resolveReminderUser(from);
+  if (reminderUser) {
+    const cmd = parseReminderCommand(body);
+    if (cmd) {
+      const reply = await handleReminderCommand(supabase, reminderUser, cmd);
+      console.log(`[twilio] Reminder command from ${reminderUser.name}: ${cmd.kind}`);
+      return new NextResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(reply)}</Message></Response>`,
+        { headers: { "Content-Type": "text/xml" } },
+      );
+    }
+  }
 
   // Handle STOP/opt-out (Twilio Advanced Opt-Out handles carrier-level,
   // but we also update our database)

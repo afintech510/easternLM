@@ -3,6 +3,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { phoneDigits } from "@/lib/ringcentral/auth";
 import { EXTENSION_NAMES, mapRCStatus } from "@/lib/ringcentral/helpers";
 import { sendSms } from "@/lib/sms";
+import { resolveReminderUser } from "@/lib/reminders/config";
+import { parseReminderCommand, handleReminderCommand } from "@/lib/reminders/commands";
 
 export async function POST(request: Request) {
   // ── RingCentral validation handshake ─────────────────────────
@@ -300,6 +302,20 @@ async function handleIncomingSms(supabase: any, msgBody: any) {
     )
     .then(() => {})
     .catch(() => {});
+
+  // Reminder queue: known senders (Adam/Ronnie) using a reminder command are
+  // intercepted here and never become a service lead. Everything else falls
+  // through to today's behavior.
+  const reminderUser = resolveReminderUser(from);
+  if (reminderUser) {
+    const cmd = parseReminderCommand(text);
+    if (cmd) {
+      const reply = await handleReminderCommand(supabase, reminderUser, cmd);
+      if (reply) await sendSms(from, reply, to);
+      console.log(`[RC] Reminder command from ${reminderUser.name}: ${cmd.kind}`);
+      return;
+    }
+  }
 
   // Check if it's a keyword command
   const upper = text.trim().toUpperCase();

@@ -172,6 +172,7 @@ All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 - Follow-up sequences: every 30 minutes
 - SMS sync: every 5 minutes
 - Charge-account balance reconciliation: daily 3:15 AM (auto-fixes drift)
+- Reminder digest to Adam & Ronnie: weekdays 8:30 AM + 4:00 PM ET (`/api/cron/reminders?key=$CRON_SECRET_KEY`) — runs on cron-job.org (jobs 8113921/8113922, tz America/New_York), not the VPS crontab
 
 ## Charge-Account Balance Integrity
 
