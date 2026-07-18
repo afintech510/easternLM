@@ -28,6 +28,8 @@ const SERVICE_TYPES = [
   "tree-removal",
   "tree-trimming",
   "stump-grinding",
+  "land-clearing",
+  "storm-cleanup",
   "property-maintenance",
   "other",
 ];
@@ -168,6 +170,11 @@ const SERVICE_LABELS: Record<string, string> = {
   "masonry-retaining-wall": "Masonry — Retaining Wall",
   "masonry-fireplace": "Masonry — Fireplace / Outdoor Kitchen",
   "masonry-veneer-steps": "Masonry — Stone Veneer / Steps",
+  "tree-removal": "Tree Removal",
+  "tree-trimming": "Tree Trimming / Pruning",
+  "stump-grinding": "Stump Grinding",
+  "land-clearing": "Land / Lot Clearing",
+  "storm-cleanup": "Storm Damage Cleanup",
   "property-maintenance": "Property Maintenance",
   "other": "Other",
 };

@@ -90,6 +90,7 @@ export async function Footer() {
               <li><Link href="/services/landscaping" className="text-primary-foreground/70 hover:text-accent">Landscaping</Link></li>
               <li><Link href="/services/masonry" className="text-primary-foreground/70 hover:text-accent">Masonry &amp; Patios</Link></li>
               <li><Link href="/services/property-maintenance" className="text-primary-foreground/70 hover:text-accent">Property Maintenance</Link></li>
+              <li><Link href="/tree-services" className="text-primary-foreground/70 hover:text-accent">Tree Services</Link></li>
             </ul>
             <div className="pt-2">
               <Button asChild size="sm" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">

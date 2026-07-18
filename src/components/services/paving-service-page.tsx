@@ -115,7 +115,7 @@ export function PavingServicePage({ service }: { service: SiteService }) {
           </div>
 
           <div id={service.ctaAnchor} className="space-y-6">
-            <ServiceQuoteForm serviceCategory={service.serviceCategory} defaultServiceType={service.leadServiceType} />
+            <ServiceQuoteForm serviceCategory={service.serviceCategory} defaultServiceType={service.leadServiceType || undefined} />
             <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground">
               {service.crossLink.prefix}{" "}
               <Link href={service.crossLink.href} className="text-primary underline">{service.crossLink.label}</Link>.
@@ -153,7 +153,7 @@ export function PavingServicePage({ service }: { service: SiteService }) {
             ))}
           </Accordion>
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            Serving {PAVING_TOWNS_LINE}.{" "}
+            Serving {service.townsLine ?? PAVING_TOWNS_LINE}.{" "}
             <Link href={service.footerLink.href} className="text-primary underline">
               {service.footerLink.label} <ArrowRight className="inline size-3" />
             </Link>

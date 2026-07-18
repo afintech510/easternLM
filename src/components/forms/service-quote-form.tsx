@@ -46,6 +46,8 @@ const TREE_SERVICES: ServiceOption[] = [
   { value: "tree-removal", label: "Tree removal", icon: "🪓" },
   { value: "tree-trimming", label: "Tree trimming / pruning", icon: "✂️" },
   { value: "stump-grinding", label: "Stump grinding", icon: "🪵" },
+  { value: "land-clearing", label: "Land / lot clearing", icon: "🌲" },
+  { value: "storm-cleanup", label: "Storm damage cleanup", icon: "🌧️" },
 ];
 
 const OTHER_SERVICES: ServiceOption[] = [

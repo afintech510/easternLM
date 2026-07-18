@@ -30,6 +30,7 @@ const serviceLinks = [
   { href: "/services/landscaping", label: "Landscaping" },
   { href: "/services/masonry", label: "Masonry" },
   { href: "/services/property-maintenance", label: "Maintenance" },
+  { href: "/tree-services", label: "Tree Services" },
 ];
 
 export function MobileMenu() {

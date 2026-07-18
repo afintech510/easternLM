@@ -15,6 +15,7 @@ const serviceIcons: Record<string, React.ReactNode> = {
   masonry: <span className="text-2xl">🧱</span>,
   driveways: <span className="text-2xl">🛤️</span>,
   "property-maintenance": <span className="text-2xl">🏡</span>,
+  "tree-services": <span className="text-2xl">🌲</span>,
 };
 
 const processSteps = [
@@ -84,7 +85,7 @@ export default function ServicesPage() {
             {coreServices.map((service) => (
               <Link
                 key={service.slug}
-                href={`/services/${service.slug}`}
+                href={service.href ?? `/services/${service.slug}`}
                 className="group rounded-2xl border bg-card p-8 transition-all hover:border-accent/30 hover:shadow-lg"
               >
                 <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-accent/10">

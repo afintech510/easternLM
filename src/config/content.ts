@@ -8,6 +8,7 @@ export type Service = {
   name: string;
   slug: string;
   description: string;
+  href?: string;
 };
 
 export const featuredCategories: Category[] = [
@@ -98,5 +99,11 @@ export const coreServices: Service[] = [
     name: "Property Maintenance",
     slug: "property-maintenance",
     description: "Seasonal upkeep, cleanup, and ongoing site maintenance.",
+  },
+  {
+    name: "Tree Services",
+    slug: "tree-services",
+    href: "/tree-services",
+    description: "Tree removal, trimming, stump grinding, land clearing, and storm cleanup.",
   },
 ];

@@ -13,9 +13,12 @@ export type SiteServiceLink = { label: string; href: string; note?: string };
 
 export type SiteService = {
   slug: string;
-  /** ServiceQuoteForm defaultServiceType — must exist in SERVICE_TYPES in /api/leads. */
-  leadServiceType: string;
+  /** ServiceQuoteForm defaultServiceType — must exist in SERVICE_TYPES in /api/leads. Omit for hub pages that show the full service picker. */
+  leadServiceType?: string;
   serviceCategory: "paving" | "tree-care" | "landscaping" | "driveways";
+
+  /** Override the default PAVING_TOWNS_LINE in the page footer. */
+  townsLine?: string;
 
   metaTitle: string;
   metaDescription: string;
@@ -352,6 +355,59 @@ const siteServices: SiteService[] = [
     schemaDescription:
       "Stump grinding and removal across Suffolk County, Long Island — below-grade grinding, root cleanup, backfill with screened topsoil, and grade restoration.",
     schemaServiceType: "Stump Grinding",
+  },
+
+  {
+    slug: "tree-services",
+    serviceCategory: "tree-care",
+    townsLine: "Center Moriches, Mastic, Shirley, Patchogue, Bellport, Brookhaven, Manorville, Eastport, Westhampton, Riverhead, and surrounding Suffolk County",
+    metaTitle: "Tree Services — Suffolk County, Long Island | Eastern LM",
+    metaDescription:
+      "Tree removal, trimming, stump grinding, land clearing, and storm damage cleanup across Suffolk County, Long Island. Free estimates, fully insured, same-week response.",
+    ogTitle: "Tree Services — Suffolk County, Long Island",
+    ogDescription:
+      "Tree removal, trimming, stump grinding, land clearing, and storm cleanup. Free estimates across Suffolk County.",
+    heroTitle: "Tree Services — Suffolk County, Long Island",
+    heroSubtitle:
+      "Tree removal, trimming, stump grinding, land clearing, and storm damage cleanup — fully insured crews with same-week response across Suffolk County.",
+    ctaLabel: "Get a Free Estimate",
+    ctaAnchor: "estimate",
+    scopeHeading: "What we handle",
+    scope: [
+      "Hazardous & dead tree removal",
+      "Crown reduction & canopy thinning",
+      "Pruning & shaping for health and clearance",
+      "Below-grade stump grinding",
+      "Lot & land clearing",
+      "Storm damage cleanup & emergency response",
+      "Limb removal over structures & power lines",
+      "Wood chipping, log bucking & haul-away",
+    ],
+    scopeColumns: 2,
+    badges: ["Free estimates", "Fully insured", "Same-week response"],
+    process: [
+      { step: "On-site assessment", detail: "We evaluate the trees, access, drop zone, and any utility or structure conflicts." },
+      { step: "Scope & price", detail: "A firm written quote before any work starts — no surprises." },
+      { step: "Crew handles it", detail: "Trees taken down in sections, stumps ground, brush chipped, and site raked clean." },
+    ],
+    faqs: [
+      { question: "How much does tree removal cost on Long Island?", answer: "It depends on height, trunk diameter, access, and proximity to structures. Small ornamentals start around $300–$500; large hardwoods near a house or wires can run $1,500–$4,000+. We give a firm price after a quick on-site look." },
+      { question: "Do I need a permit to remove a tree in Suffolk County?", answer: "Most Towns of Brookhaven, Southampton, and Riverhead don't require a permit for removing a single residential tree on your own property unless it's in a designated protected zone (wetlands buffer, historic district). We'll let you know if your situation needs a town check." },
+      { question: "Can you remove a tree close to my house or power line?", answer: "Yes. We section-fell trees next to structures and use rigging or a crane when the drop zone is tight. For trees in contact with utility lines, we coordinate with PSEG Long Island." },
+      { question: "How deep do you grind stumps?", answer: "Standard is 6–12 inches below grade — deep enough for lawn, garden beds, or new planting. We backfill with topsoil and grade the area flat." },
+      { question: "Do you handle storm damage emergencies?", answer: "Yes. We prioritize storm calls and can usually have a crew out within 24–48 hours. Hazardous situations blocking driveways or threatening structures get same-day attention when possible." },
+      { question: "Can you clear an overgrown lot?", answer: "Yes. We clear brush, saplings, and mature trees for building sites, garden expansions, and sight-line improvements. Debris is chipped and hauled." },
+    ],
+    crossLink: {
+      prefix: "Need landscaping after tree work?",
+      href: "/plantings",
+      label: "See plantings & garden beds",
+    },
+    footerLink: { label: "All services", href: "/services" },
+    schemaName: "Tree Services",
+    schemaDescription:
+      "Professional tree services across Suffolk County, Long Island — tree removal, trimming, stump grinding, land clearing, and storm damage cleanup.",
+    schemaServiceType: "Tree Service",
   },
 
   // ── Landscaping ────────────────────────────────────────────────────────────
