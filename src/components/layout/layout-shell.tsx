@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { FloatingCart } from "./floating-cart";
 import { BuiltByBenchworks } from "./built-by-benchworks";
-import { PromoPopup } from "../marketing/promo-popup";
 
 export function LayoutShell({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,7 +20,6 @@ export function LayoutShell({ children, footer }: { children: React.ReactNode; f
       {footer}
       <BuiltByBenchworks />
       <FloatingCart />
-      <PromoPopup />
     </div>
   );
 }
