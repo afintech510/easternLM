@@ -279,7 +279,9 @@ export default function QuoteDetailPage() {
   async function handleFinalizeInvoice() {
     if (!confirm("Finalize this quote as an invoice? This locks the current line items as billable and lets the customer pay the balance.")) return;
     setSaving(true);
-    await handleSave();
+    // Converted quotes are read-only; skip the form save (finalize recomputes
+    // totals from the stored line items). Editable quotes save post-job edits first.
+    if (!["declined", "converted"].includes(quote?.status ?? "")) await handleSave();
     const r = await fetch(`/api/admin/quotes/${id}/finalize`, { method: "POST" });
     const d = await r.json();
     setSaving(false);
@@ -368,8 +370,15 @@ export default function QuoteDetailPage() {
   // Accepted quotes with deposit paid remain editable so admin can add post-job items
   // before finalizing into a balance-due invoice. Declined / fully-converted stay locked.
   const isReadOnly = ["declined", "converted"].includes(quote.status);
-  const isAcceptedWithDeposit = quote.status === "accepted" && !!quote.deposit_paid_at;
   const balanceOwedCents = Math.max(0, total - (quote.deposit_paid_cents || 0) - (quote.balance_paid_cents || 0));
+  // A deposit has been paid and a balance is still owed — the final-invoice /
+  // balance-paylink flow applies. Works for 'accepted' quotes and 'converted'
+  // ones (paying a deposit on the quote page books a full order + converts it,
+  // but the balance is still collectible).
+  const canInvoiceBalance =
+    !!quote.deposit_paid_at &&
+    balanceOwedCents > 0 &&
+    !["declined", "disabled", "scammer"].includes(quote.status);
   const fullyPaid = balanceOwedCents === 0 && !!quote.deposit_paid_at;
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
   const quoteUrl = `${siteUrl}/quote/${quote.public_token}`;
@@ -845,7 +854,7 @@ export default function QuoteDetailPage() {
             )}
 
             {/* Finalize / Send Invoice actions */}
-            {isAcceptedWithDeposit && balanceOwedCents > 0 && (
+            {canInvoiceBalance && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
                 <p className="text-xs font-semibold text-amber-900">Final Invoice</p>
                 {!quote.finalized_at ? (

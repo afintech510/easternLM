@@ -18,7 +18,10 @@ type LineItem = {
  * After finalization the customer-facing page switches into invoice mode and
  * exposes a "Pay Balance" button.
  *
- * Allowed states: status='accepted' with a deposit paid (deposit_paid_at set).
+ * Allowed states: a deposit has been paid (deposit_paid_at set). This covers
+ * both 'accepted' quotes and 'converted' ones — a deposit paid on the quote
+ * page books a full order and flips the quote to 'converted', but the balance
+ * is still collectible via the final-invoice flow.
  */
 export async function POST(
   _request: Request,
@@ -41,9 +44,9 @@ export async function POST(
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   }
 
-  if (quote.status !== "accepted") {
+  if (["declined", "disabled", "scammer"].includes(quote.status)) {
     return NextResponse.json(
-      { error: `Cannot finalize from status '${quote.status}'. Quote must be accepted first.` },
+      { error: `Cannot finalize a '${quote.status}' quote.` },
       { status: 400 },
     );
   }
