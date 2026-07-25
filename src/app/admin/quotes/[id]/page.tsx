@@ -92,6 +92,13 @@ export default function QuoteDetailPage() {
   const [converting, setConverting] = useState(false);
   const [showChargeModal, setShowChargeModal] = useState(false);
 
+  // Manually record a deposit paid outside the site (Stripe link, phone, keyed-in)
+  const [showRecordDeposit, setShowRecordDeposit] = useState(false);
+  const [recordDepositAmount, setRecordDepositAmount] = useState("");
+  const [recordDepositPi, setRecordDepositPi] = useState("");
+  const [recordDepositDate, setRecordDepositDate] = useState("");
+  const [recordingDeposit, setRecordingDeposit] = useState(false);
+
   // Form state
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -294,6 +301,35 @@ export default function QuoteDetailPage() {
     const d = await r.json();
     setSending(false);
     if (d.errors?.length) alert("Partial send: " + d.errors.join(", "));
+    await loadQuote();
+  }
+
+  async function handleRecordDeposit() {
+    const cents = strToCents(recordDepositAmount);
+    if (!cents || cents <= 0) {
+      alert("Enter the deposit amount (excluding the card fee).");
+      return;
+    }
+    setRecordingDeposit(true);
+    const r = await fetch(`/api/admin/quotes/${id}/record-deposit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        depositCents: cents,
+        stripePaymentIntentId: recordDepositPi.trim() || undefined,
+        paidAt: recordDepositDate || undefined,
+      }),
+    });
+    const d = await r.json();
+    setRecordingDeposit(false);
+    if (!r.ok) {
+      alert(d.error ?? "Failed to record deposit");
+      return;
+    }
+    if (d.note) alert(d.note);
+    setShowRecordDeposit(false);
+    setRecordDepositPi("");
+    setRecordDepositDate("");
     await loadQuote();
   }
 
@@ -886,6 +922,88 @@ export default function QuoteDetailPage() {
             {quote.declined_at && <div className="flex items-center gap-2"><XCircle className="size-3 text-red-500" /><span>Declined {new Date(quote.declined_at).toLocaleDateString()}</span></div>}
             {quote.deposit_paid_at && <div className="flex items-center gap-2"><DollarSign className="size-3 text-green-500" /><span>Deposit paid {new Date(quote.deposit_paid_at).toLocaleDateString()}</span></div>}
           </div>
+
+          {/* Record Deposit — deposit was paid outside the site (Stripe link, phone, keyed-in).
+              Recording it unlocks the Final Invoice → balance pay-link flow. */}
+          {!quote.deposit_paid_at && !quote.converted_order_id &&
+            !["declined", "disabled", "scammer"].includes(quote.status) && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+              {!showRecordDeposit ? (
+                <>
+                  <p className="text-xs font-semibold text-blue-900">Deposit paid outside the site?</p>
+                  <p className="text-xs text-blue-800">
+                    Record a deposit collected via a Stripe link, phone, or keyed-in card to
+                    certify the job complete and send a balance pay link.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-blue-300 text-blue-800 hover:bg-blue-100"
+                    onClick={() => {
+                      setRecordDepositAmount(
+                        quote.deposit_required_cents > 0 ? centsToStr(quote.deposit_required_cents) : "",
+                      );
+                      setShowRecordDeposit(true);
+                    }}
+                  >
+                    <DollarSign className="mr-1.5 size-4" />Record Deposit
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-blue-900">Record Deposit</p>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-blue-800">Deposit amount (excl. card fee)</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                      <Input
+                        className="pl-7"
+                        value={recordDepositAmount}
+                        onChange={(e) => setRecordDepositAmount(e.target.value)}
+                        placeholder="2650.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-blue-800">Stripe payment ID (optional)</label>
+                    <Input
+                      value={recordDepositPi}
+                      onChange={(e) => setRecordDepositPi(e.target.value)}
+                      placeholder="pi_..."
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-blue-800">Paid on (optional)</label>
+                    <Input
+                      type="date"
+                      value={recordDepositDate}
+                      onChange={(e) => setRecordDepositDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowRecordDeposit(false)}
+                      disabled={recordingDeposit}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleRecordDeposit}
+                      disabled={recordingDeposit}
+                    >
+                      {recordingDeposit ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                      Save
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Charge Card — manually key in the customer's card to take payment now */}
           {!quote.converted_order_id && !quote.deposit_paid_at && ["accepted", "sent", "viewed"].includes(quote.status) && (
