@@ -30,7 +30,20 @@ export async function POST(
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   }
 
-  if (["converted", "expired", "declined"].includes(quote.status)) {
+  // A finalized quote with a balance owed is still payable even after it has
+  // been 'converted' — paying a deposit on the quote page books a full order and
+  // flips the quote to converted, but the balance is collected via this same
+  // route (payBalance). Only block converted for non-balance payments.
+  const balanceOwedForGuard = Math.max(
+    0,
+    (quote.total_cents ?? 0) - (quote.deposit_paid_cents ?? 0) - (quote.balance_paid_cents ?? 0),
+  );
+  const isBalancePayment = payBalance && !!quote.finalized_at && balanceOwedForGuard > 0;
+
+  if (
+    ["expired", "declined"].includes(quote.status) ||
+    (quote.status === "converted" && !isBalancePayment)
+  ) {
     return NextResponse.json({ error: `Quote is ${quote.status}` }, { status: 400 });
   }
 
