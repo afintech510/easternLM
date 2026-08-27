@@ -255,6 +255,7 @@ export default function PosRegisterPage() {
     source: string;
   }>>([]);
   const [txnLoading, setTxnLoading] = useState(false);
+  const [txnTotals, setTxnTotals] = useState<{ todayCents: number; weekCents: number } | null>(null);
   const [selectedTxn, setSelectedTxn] = useState<string | null>(null);
   const [txnDetail, setTxnDetail] = useState<{
     id: string;
@@ -680,6 +681,14 @@ export default function PosRegisterPage() {
     if (ticket === txnFetchRef.current) setTxnLoading(false);
   }
 
+  async function fetchTxnTotals() {
+    const res = await fetch("/api/pos/transactions/summary");
+    if (res.ok) {
+      const data = await res.json();
+      setTxnTotals({ todayCents: data.todayCents ?? 0, weekCents: data.weekCents ?? 0 });
+    }
+  }
+
   async function fetchTxnDetail(orderId: string) {
     const res = await fetch(`/api/admin/operations/${orderId}`);
     if (res.ok) {
@@ -694,6 +703,12 @@ export default function PosRegisterPage() {
     if (middleTab === "transactions") fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [middleTab, txnDateFilter]);
+
+  // Refresh today/this-week totals whenever the Orders tab is opened
+  useEffect(() => {
+    if (middleTab === "transactions" && txnType === "orders") fetchTxnTotals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [middleTab, txnType]);
 
   function selectCustomer(cust: typeof custResults[0]) {
     setSelectedCustomer(cust);
@@ -2442,6 +2457,18 @@ export default function PosRegisterPage() {
                   ))}
                 </div>
               )}
+
+              {/* Today / this-week running totals (independent of the date filter) */}
+              <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-xs">
+                <div className="flex flex-col">
+                  <span className="text-zinc-500">Today</span>
+                  <span className="font-semibold text-amber-400">{txnTotals ? formatUsd(txnTotals.todayCents) : "—"}</span>
+                </div>
+                <div className="flex flex-col text-right">
+                  <span className="text-zinc-500">This Week</span>
+                  <span className="font-semibold text-amber-400">{txnTotals ? formatUsd(txnTotals.weekCents) : "—"}</span>
+                </div>
+              </div>
               </>)}
 
               {/* Saved Carts & Quotes list */}
