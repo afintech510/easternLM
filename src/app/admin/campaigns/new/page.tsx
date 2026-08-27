@@ -56,6 +56,7 @@ const TEMPLATES = [
 
 type AudienceFilter = {
   tags_include?: string[];
+  tags_include_any?: string[];
   tags_exclude?: string[];
   min_orders?: number;
   last_order_after?: string;
@@ -78,6 +79,7 @@ export default function NewCampaignPage() {
   // Step 2: Audience
   const [filter, setFilter] = useState<AudienceFilter>({ has_phone: true });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagMatchMode, setTagMatchMode] = useState<"all" | "any">("all");
   const [preview, setPreview] = useState<{ count: number; smsFriendly: number; emailFriendly: number; sample: Array<{ first_name: string | null; phone: string | null }> } | null>(null);
   const [previewing, setPreviewing] = useState(false);
 
@@ -97,9 +99,18 @@ export default function NewCampaignPage() {
     );
   }
 
+  function buildAudienceFilter(): AudienceFilter {
+    const tags = selectedTags.length > 0 ? selectedTags : undefined;
+    return {
+      ...filter,
+      tags_include: tagMatchMode === "all" ? tags : undefined,
+      tags_include_any: tagMatchMode === "any" ? tags : undefined,
+    };
+  }
+
   async function previewAudience() {
     setPreviewing(true);
-    const audienceFilter = { ...filter, tags_include: selectedTags.length > 0 ? selectedTags : undefined };
+    const audienceFilter = buildAudienceFilter();
     const res = await fetch("/api/admin/campaigns/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -128,7 +139,7 @@ export default function NewCampaignPage() {
   async function saveCampaign(sendNow: boolean) {
     setSaving(true);
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "") + "-" + Date.now().toString(36);
-    const audienceFilter = { ...filter, tags_include: selectedTags.length > 0 ? selectedTags : undefined };
+    const audienceFilter = buildAudienceFilter();
 
     // Ensure SMS opt-out language
     let finalSmsBody = smsBody;
@@ -247,6 +258,20 @@ export default function NewCampaignPage() {
                 </Badge>
               ))}
             </div>
+            {selectedTags.length > 1 && (
+              <div className="mt-3 flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Match</span>
+                <Button size="sm" variant={tagMatchMode === "all" ? "default" : "outline"} onClick={() => setTagMatchMode("all")}>
+                  ALL tags
+                </Button>
+                <Button size="sm" variant={tagMatchMode === "any" ? "default" : "outline"} onClick={() => setTagMatchMode("any")}>
+                  ANY tag
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {tagMatchMode === "all" ? "must have every selected tag" : "has at least one selected tag"}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

@@ -5,7 +5,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AudienceFilter = {
-  tags_include?: string[];
+  tags_include?: string[]; // customer must have ALL of these tags
+  tags_include_any?: string[]; // customer must have AT LEAST ONE of these tags
   tags_exclude?: string[];
   min_orders?: number;
   max_orders?: number;
@@ -77,6 +78,11 @@ export async function resolveAudience(
   // Tags include (customer must have ALL of these tags)
   if (filter.tags_include?.length) {
     query = query.contains("tags", filter.tags_include);
+  }
+
+  // Tags include ANY (customer must have at least ONE of these tags)
+  if (filter.tags_include_any?.length) {
+    query = query.overlaps("tags", filter.tags_include_any);
   }
 
   const { data, error } = await query.order("last_order_at", { ascending: false }).limit(5000);

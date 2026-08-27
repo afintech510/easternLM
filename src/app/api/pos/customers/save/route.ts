@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { requirePOS } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { normalizePhone } from "@/lib/customers/lifecycle";
+import { normalizePhone, extractCity } from "@/lib/customers/lifecycle";
 
 export async function POST(request: Request) {
   const auth = await requirePOS();
   if (auth instanceof NextResponse) return auth;
 
-  const { phone, first_name, last_name, email, address, company_name, source } = await request.json();
+  const { phone, first_name, last_name, email, address, city, zip, company_name, source } = await request.json();
 
   const normalized = normalizePhone(phone);
   if (!normalized) return NextResponse.json({ error: "Phone number required" }, { status: 400 });
+
+  // Capture city for geo-targeting: use the explicit city field if provided,
+  // otherwise try to parse it out of the address string ("St, City, NY zip").
+  const resolvedCity = (city && String(city).trim()) || extractCity(address ?? null);
 
   const supabase = getSupabaseAdminClient() as any;
 
@@ -28,6 +32,8 @@ export async function POST(request: Request) {
     if (last_name) updates.last_name = last_name;
     if (email) updates.email = email.toLowerCase();
     if (address) updates.address = address;
+    if (resolvedCity) updates.city = resolvedCity;
+    if (zip) updates.zip = zip;
     if (company_name) updates.company_name = company_name;
 
     await supabase.from("customers").update(updates).eq("id", existing.id);
@@ -50,6 +56,8 @@ export async function POST(request: Request) {
       last_name: last_name || null,
       email: email?.toLowerCase() || null,
       address: address || null,
+      city: resolvedCity || null,
+      zip: zip || null,
       company_name: company_name || null,
       source: source || "pos",
       tags: [],

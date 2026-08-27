@@ -38,6 +38,36 @@ export function extractCity(address: string | null): string | null {
 }
 
 /**
+ * Tags that are set by import/payment-method/opt-in and are NOT derivable
+ * from purchase behavior — they must be preserved across tag recomputes,
+ * otherwise placing a new order would wipe them.
+ */
+const STICKY_TAGS = ["account-customer", "cod-customer", "newsletter-subscriber", "salt-buyer", "paver-buyer"];
+
+/**
+ * Decide whether a customer looks like a contractor from real signals.
+ * Shared by live per-order tagging and the backfill script so the rule
+ * stays in one place. A billing company name alone is a strong signal;
+ * so is a charge account, sustained order frequency at spend, or buying
+ * both masonry and gravel materials (a job-site pattern, not a homeowner).
+ */
+export function deriveContractorTag(input: {
+  tags: string[];
+  companyName?: string | null;
+  isChargeAccount?: boolean | null;
+  totalOrders: number;
+  totalSpentCents: number;
+}): boolean {
+  const has = (t: string) => input.tags.includes(t);
+  if (input.isChargeAccount) return true;
+  if (has("account-customer")) return true;
+  if (input.companyName && input.companyName.trim().length > 1) return true;
+  if (input.totalOrders >= 5 && input.totalSpentCents >= 100000) return true;
+  if (has("mason-buyer") && has("gravel-buyer")) return true;
+  return false;
+}
+
+/**
  * Find or create a customer from order data. Returns the customer ID.
  * Matches by phone (primary) then email. Creates if no match found.
  */
@@ -154,15 +184,19 @@ export async function updateCustomerStats(customerId: string): Promise<void> {
   const legacySpent = (legacyOrders ?? []).reduce((s: number, o: any) => s + (o.order_total_cents ?? 0), 0);
   const totalSpent = newSpent + legacySpent;
 
-  // Compute tags from order items
-  const tags = await computeCustomerTags(customerId, totalOrders, totalSpent);
-
-  // Compute customer_type
+  // Load customer context (needed for contractor derivation + sticky tags)
   const { data: customer } = await supabase
     .from("customers")
-    .select("is_charge_account, company_name, source")
+    .select("is_charge_account, company_name, source, tags")
     .eq("id", customerId)
     .single();
+
+  // Compute tags from order items + preserve sticky/import tags
+  const tags = await computeCustomerTags(customerId, totalOrders, totalSpent, {
+    existingTags: (customer?.tags as string[]) ?? [],
+    companyName: customer?.company_name ?? null,
+    isChargeAccount: customer?.is_charge_account ?? null,
+  });
 
   let customerType = "homeowner";
   if (customer?.is_charge_account && customer?.company_name) customerType = "business";
@@ -188,8 +222,18 @@ async function computeCustomerTags(
   customerId: string,
   totalOrders: number,
   totalSpent: number,
+  context: { existingTags: string[]; companyName: string | null; isChargeAccount: boolean | null } = {
+    existingTags: [],
+    companyName: null,
+    isChargeAccount: null,
+  },
 ): Promise<string[]> {
   const tags: string[] = [];
+
+  // Preserve import/payment/opt-in tags that behavior can't re-derive
+  for (const t of context.existingTags) {
+    if (STICKY_TAGS.includes(t)) tags.push(t);
+  }
 
   if (totalOrders >= 3) tags.push("repeat");
   if (totalSpent >= 100000) tags.push("high-value"); // $1000+
@@ -229,6 +273,19 @@ async function computeCustomerTags(
     if (/mulch/i.test(allItems) && !tags.includes("mulch-buyer")) tags.push("mulch-buyer");
     if (/gravel|stone|crushed/i.test(allItems) && !tags.includes("gravel-buyer")) tags.push("gravel-buyer");
     if (/mason|mortar|cement/i.test(allItems) && !tags.includes("mason-buyer")) tags.push("mason-buyer");
+  }
+
+  // Contractor derivation (depends on tags computed above + customer context)
+  if (
+    deriveContractorTag({
+      tags,
+      companyName: context.companyName,
+      isChargeAccount: context.isChargeAccount,
+      totalOrders,
+      totalSpentCents: totalSpent,
+    })
+  ) {
+    tags.push("contractor");
   }
 
   return [...new Set(tags)]; // deduplicate
