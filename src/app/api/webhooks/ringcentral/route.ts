@@ -319,7 +319,53 @@ async function handleIncomingSms(supabase: any, msgBody: any) {
 
   // Check if it's a keyword command
   const upper = text.trim().toUpperCase();
-  const isKeyword = ["STOP", "HELP", "START", "YES", "NO"].includes(upper);
+
+  // ─── SMS compliance keywords (TCPA / carrier requirement) ──────────
+  // Opt-out and opt-in keywords must flip opted_in_sms on EVERY customer
+  // row matching this phone number, and send a confirmation reply.
+  const OPT_OUT_KEYWORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"];
+  const OPT_IN_KEYWORDS = ["START", "UNSTOP", "YES"];
+  const HELP_KEYWORDS = ["HELP", "INFO"];
+
+  if (OPT_OUT_KEYWORDS.includes(upper)) {
+    await supabase
+      .from("customers")
+      .update({ opted_in_sms: false })
+      .ilike("phone", `%${digits}%`);
+    await sendSms(
+      from,
+      "You've been unsubscribed from Eastern Landscape & Mason Supply texts. Reply START to re-subscribe. No more messages will be sent.",
+      to
+    );
+    console.log(`[RC] SMS opt-OUT (${upper}) from ${from}`);
+    return;
+  }
+
+  if (OPT_IN_KEYWORDS.includes(upper)) {
+    await supabase
+      .from("customers")
+      .update({ opted_in_sms: true })
+      .ilike("phone", `%${digits}%`);
+    await sendSms(
+      from,
+      "You're re-subscribed to Eastern Landscape & Mason Supply. Reply STOP to opt out, HELP for help. Msg&data rates may apply.",
+      to
+    );
+    console.log(`[RC] SMS opt-IN (${upper}) from ${from}`);
+    return;
+  }
+
+  if (HELP_KEYWORDS.includes(upper)) {
+    await sendSms(
+      from,
+      "Eastern Landscape & Mason Supply: (631) 874-6244, 110 Frowein Rd, Center Moriches NY. Reply STOP to opt out. Msg&data rates may apply.",
+      to
+    );
+    console.log(`[RC] SMS HELP from ${from}`);
+    return;
+  }
+
+  const isKeyword = OPT_OUT_KEYWORDS.includes(upper) || OPT_IN_KEYWORDS.includes(upper) || HELP_KEYWORDS.includes(upper) || upper === "NO";
 
   if (!isKeyword) {
     // Auto-create service lead from SMS
