@@ -209,7 +209,7 @@ ssh hampton-vps 'docker exec hampton_redis redis-cli KEYS "hampton:*"'
 ### Run SQL against Supabase (EasternLM project)
 ```bash
 curl -s -X POST "https://api.supabase.com/v1/projects/qnwevkgrhdrjqvvabcit/database/query" \
-  -H "Authorization: Bearer REDACTED_SUPABASE_PAT" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query": "SELECT count(*) FROM orders"}'
 ```

@@ -374,7 +374,7 @@ export default function PosRegisterPage() {
       return;
     }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=REDACTED_GOOGLE_MAPS_KEY&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
     script.async = true;
     script.onload = () => setGoogleLoaded(true);
     document.head.appendChild(script);
@@ -1949,8 +1949,8 @@ export default function PosRegisterPage() {
                   referrerPolicy="no-referrer-when-downgrade"
                   src={
                     delAddress
-                      ? `https://www.google.com/maps/embed/v1/place?key=REDACTED_GOOGLE_MAPS_KEY&q=${encodeURIComponent(delAddress)}&maptype=satellite&zoom=17`
-                      : `https://www.google.com/maps/embed/v1/place?key=REDACTED_GOOGLE_MAPS_KEY&q=110+Frowein+Road+Center+Moriches+NY+11934&maptype=satellite&zoom=14`
+                      ? `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(delAddress)}&maptype=satellite&zoom=17`
+                      : `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=110+Frowein+Road+Center+Moriches+NY+11934&maptype=satellite&zoom=14`
                   }
                 />
               </div>

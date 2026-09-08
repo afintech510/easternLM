@@ -24,7 +24,7 @@ Run these checks in parallel:
 
 If Supabase is down (INACTIVE/paused), restore it:
 ```
-curl -s -X POST -H "Authorization: Bearer REDACTED_SUPABASE_PAT" \
+curl -s -X POST -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   "https://api.supabase.com/v1/projects/qnwevkgrhdrjqvvabcit/restore"
 ```

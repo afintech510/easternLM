@@ -62,3 +62,12 @@ easternlm.com.pem
 test-results/
 playwright-report/
 blob-report/
+
+# secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.claude/settings.local.json
+.claude/mcp.json

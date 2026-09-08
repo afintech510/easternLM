@@ -6,8 +6,12 @@
  * RingCentral will POST to our endpoint on every incoming call.
  */
 
-const RC_CLIENT_ID = "aCtUW9yyeLhdl5lTGj019d";
-const RC_CLIENT_SECRET = "REDACTED_RINGCENTRAL_SECRET";
+const RC_CLIENT_ID = process.env.RINGCENTRAL_CLIENT_ID!;
+const RC_CLIENT_SECRET = process.env.RINGCENTRAL_CLIENT_SECRET!;
+
+if (!RC_CLIENT_ID || !RC_CLIENT_SECRET) {
+  throw new Error("Set RINGCENTRAL_CLIENT_ID and RINGCENTRAL_CLIENT_SECRET in the environment.");
+}
 const RC_SERVER = "https://platform.ringcentral.com"; // production
 const WEBHOOK_URL = "https://easternlm.com/api/webhooks/ringcentral";
 
