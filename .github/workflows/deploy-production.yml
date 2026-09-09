@@ -71,6 +71,14 @@ jobs:
             fi
             echo "Stripe keys verified: sk_live + pk_live"
 
+            # ── SAFETY: NEXT_PUBLIC_ vars are baked in at build time. If this is
+            # empty the POS map/autocomplete silently ship as "key=undefined".
+            if [ -z "\${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}" ]; then
+              echo "FATAL: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY not set in .env.local — POS maps would build broken"
+              exit 1
+            fi
+            echo "Google Maps browser key present"
+
             echo "=== Building Docker image (production — live Stripe) ==="
             docker build \
               --build-arg NEXT_PUBLIC_SUPABASE_URL="\${NEXT_PUBLIC_SUPABASE_URL}" \
@@ -79,6 +87,7 @@ jobs:
               --build-arg STRIPE_SECRET_KEY="\${PROD_SK}" \
               --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="\${PROD_PK}" \
               --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID="\${NEXT_PUBLIC_GA_MEASUREMENT_ID}" \
+              --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="\${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}" \
               -t ${{ env.DOCKER_IMAGE }}:latest \
               .
 
