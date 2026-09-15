@@ -79,7 +79,7 @@ async function sendCodNotifications(params: {
             </div>
             ${fulfillmentLine}
             ${dateLine}
-            <p style="margin-top:16px;">Please have cash or check ready for the driver. Our crew will contact you to confirm delivery scheduling.</p>
+            <p style="margin-top:16px;">Please have cash ready for the driver — we do not accept checks. Our crew will contact you to confirm delivery scheduling.</p>
             <p style="margin-top:20px;color:#666;font-size:12px;">Questions? Call (631) 874-6244</p>
           </div>
           <div style="background:#f5f5f0;padding:16px;text-align:center;font-size:12px;color:#888;">Eastern Landscape &amp; Mason Supply · 110 Frowein Road, Center Moriches, NY 11934</div>
@@ -105,7 +105,7 @@ async function sendCodNotifications(params: {
         <p><strong>Method:</strong> ${params.deliveryMethod}</p>
         ${params.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${params.deliveryAddress}</p>` : ""}
         ${dateLine}
-        <p style="margin-top:16px;background:#fef3c7;padding:10px;border-radius:6px;"><strong>⚠️ COLLECT ${fmt(params.grandTotalCents)} CASH OR CHECK AT DELIVERY</strong></p>
+        <p style="margin-top:16px;background:#fef3c7;padding:10px;border-radius:6px;"><strong>⚠️ COLLECT ${fmt(params.grandTotalCents)} CASH AT DELIVERY (NO CHECKS)</strong></p>
         <p><a href="https://easternlm.com/admin/operations">View in Admin</a></p>
       </div>`,
     });
@@ -134,7 +134,7 @@ async function sendCodNotifications(params: {
         custLines.push(
           `Delivery${prettyDate ? ` ${prettyDate}` : ""} (${params.deliveryTimeWindow ?? "flexible"}) to ${params.deliveryAddress}`,
         );
-        custLines.push("Please have cash or check ready for the driver.");
+        custLines.push("Please have cash ready for the driver (no checks).");
       } else {
         custLines.push("Pickup at 110 Frowein Rd, Center Moriches");
       }

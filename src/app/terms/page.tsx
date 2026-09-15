@@ -45,7 +45,7 @@ export default function TermsPage() {
         <ul className="list-disc space-y-1 pl-6">
           <li>We accept Visa, Mastercard, American Express, and Discover via Stripe.</li>
           <li>Buy-now-pay-later is available through Klarna and Afterpay at checkout.</li>
-          <li>Cash or check on delivery (COD) is available. Payment must be made to the driver at the time of delivery.</li>
+          <li>Cash on delivery (COD) is available. We do not accept checks. Payment must be made in cash to the driver at the time of delivery.</li>
           <li>A credit card processing surcharge of up to 3.5% applies to card transactions, as permitted by New York State law and disclosed at checkout.</li>
           <li>Charge account (invoice) terms are available to approved commercial customers only.</li>
         </ul>

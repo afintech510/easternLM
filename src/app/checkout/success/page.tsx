@@ -255,7 +255,7 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
                   <li>2. Our team will schedule your {order.delivery_method === "delivery" ? "delivery" : "pickup"}</li>
                   <li>3. We&apos;ll text you when your order is on the way</li>
                   {order.payment_method === "cod" && (
-                    <li>4. <strong>Have {formatUsd(order.grand_total_cents)} in cash or check ready for the driver</strong></li>
+                    <li>4. <strong>Have {formatUsd(order.grand_total_cents)} in cash ready for the driver (no checks)</strong></li>
                   )}
                 </>
               )}

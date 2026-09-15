@@ -439,7 +439,7 @@ export function CheckoutPageClient() {
                       </span>
                     </div>
                     <p className="ml-6 text-xs text-muted-foreground">
-                      Pay driver on arrival (cash or check). Get 3% off and no processing fee.
+                      Pay driver on arrival (cash only — no checks). Get 3% off and no processing fee.
                     </p>
                   </label>
                 </div>
