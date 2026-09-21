@@ -45,6 +45,7 @@ import { NewLeadModal } from "@/components/pos/new-lead-modal";
 import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
 import { QuoteBuilder } from "@/components/pos/quote-builder";
 import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
+import { ManualCardModal } from "@/components/pos/manual-card-modal";
 import { PhoneTab } from "@/components/pos/phone-tab";
 import { MessagesTab } from "@/components/pos/messages-tab";
 import { POSProductGrid } from "@/components/pos/product-grid";
@@ -216,6 +217,13 @@ export default function PosRegisterPage() {
   const [showSaveQuote, setShowSaveQuote] = useState<"send" | "hold" | null>(null);
   const [showQuoteBuilder, setShowQuoteBuilder] = useState(false);
   const [showPhoneOrder, setShowPhoneOrder] = useState(false);
+  // Keyed-in card request raised by the checkout overlay (standalone or one leg of a split).
+  // The overlay awaits the promise; the modal below resolves it.
+  const [manualCardReq, setManualCardReq] = useState<{
+    amountCents: number;
+    label?: string;
+    resolve: (r: { success: boolean; paymentIntentId?: string; error?: string }) => void;
+  } | null>(null);
   const [postQuoteResult, setPostQuoteResult] = useState<{ mode: string; quoteNumber: string } | null>(null);
   const [showSaveCartDialog, setShowSaveCartDialog] = useState(false);
   const [saveCartLabel, setSaveCartLabel] = useState("");
@@ -838,7 +846,14 @@ export default function PosRegisterPage() {
   }
 
   function buildPrintableOrder(method: string, orderPayload: Record<string, unknown>): PrintableOrder {
-    const paymentMethod = method === "card" ? "card_terminal" : method === "account" ? "account" : method === "cod" ? "cod" : "cash";
+    // Split sales must print as "split" so the receipt lists each tender line,
+    // instead of silently falling through to "cash".
+    const paymentMethod = method === "card" ? "card_terminal"
+      : method === "account" ? "account"
+      : method === "cod" ? "cod"
+      : method === "store_credit" ? "store_credit"
+      : method.startsWith("split") ? "split"
+      : "cash";
     const orderId = orderPayload.order_id as string | undefined;
     const orderNumber =
       (orderPayload.order_number as string | undefined) ||
@@ -863,7 +878,7 @@ export default function PosRegisterPage() {
       materials_subtotal_cents: orderPayload.subtotal_cents as number,
       delivery_total_cents: (orderPayload.delivery_fee_cents as number) || 0,
       tax_cents: orderPayload.tax_cents as number,
-      cc_surcharge_cents: method === "card" ? ((orderPayload.cc_fee_cents as number) || 0) : 0,
+      cc_surcharge_cents: method === "card" || paymentMethod === "split" ? ((orderPayload.cc_fee_cents as number) || 0) : 0,
       grand_total_cents: orderPayload.grand_total_cents as number,
       discount_amount_cents: (orderPayload.discount_amount_cents as number) || 0,
       discount_reason: (orderPayload.discount_reason as string) || null,
@@ -882,6 +897,8 @@ export default function PosRegisterPage() {
         ? (orderPayload.cash_tendered_cents as number) - (orderPayload.grand_total_cents as number)
         : undefined,
       account_name: method === "account" && selectedCustomer ? (selectedCustomer as Record<string, unknown>).company_name as string || (selectedCustomer as Record<string, unknown>).full_name as string || null : null,
+      payments: (orderPayload.payments as PrintableOrder["payments"]) ?? null,
+      store_credit_applied_cents: (orderPayload.store_credit_applied_cents as number) || 0,
     };
   }
 
@@ -1147,7 +1164,14 @@ export default function PosRegisterPage() {
     fetchSavedCarts();
   }
 
-  async function completeSale(method: "card" | "cash" | "cod" | "account", cardPaymentIntentId?: string) {
+  // cardEntry distinguishes a terminal tap/insert from a keyed-in (card-not-present)
+  // charge. Keyed charges are stored as "card_online" — the orders_payment_method_check
+  // constraint has no separate keyed value, and refunds treat both identically.
+  async function completeSale(
+    method: "card" | "cash" | "cod" | "account",
+    cardPaymentIntentId?: string,
+    cardEntry: "terminal" | "manual" = "terminal",
+  ) {
     // Validate delivery orders have required fields
     if (deliveryMethod === "delivery") {
       const missing: string[] = [];
@@ -1185,7 +1209,9 @@ export default function PosRegisterPage() {
         cc_fee_cents: effectiveCcFee,
         delivery_fee_cents: deliveryFeeCents,
         grand_total_cents: effectiveTotal,
-        payment_method: isCard ? "card_terminal" : isAccount ? "account" : method === "cod" ? "cod" : "cash",
+        payment_method: isCard
+          ? (cardEntry === "manual" ? "card_online" : "card_terminal")
+          : isAccount ? "account" : method === "cod" ? "cod" : "cash",
         customer_id: selectedCustomer?.id ?? delCustomerId ?? undefined,
         delivery_method: deliveryMethod,
         delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
@@ -1241,7 +1267,11 @@ export default function PosRegisterPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               orderId,
-              payments: [{ method: "card_terminal", amountCents: cardTotalCents, stripe_payment_intent_id: cardPaymentIntentId }],
+              payments: [{
+                method: cardEntry === "manual" ? "card_manual" : "card_terminal",
+                amountCents: cardTotalCents,
+                stripe_payment_intent_id: cardPaymentIntentId,
+              }],
             }),
           }).catch(() => {});
           setCardPaymentStatus("Payment approved!");
@@ -1377,6 +1407,24 @@ export default function PosRegisterPage() {
   return (
     <div className={`flex h-full w-full overflow-hidden ${t.text}`}>
       {/* Caller ID popup — RingCentral incoming call notifications */}
+      {/* Manual (keyed-in) card entry — raised from the checkout overlay */}
+      {manualCardReq && (
+        <ManualCardModal
+          amountCents={manualCardReq.amountCents}
+          subtitle={manualCardReq.label}
+          customerName={delName || customerName}
+          customerPhone={delPhone || customerPhone}
+          onCancel={() => {
+            manualCardReq.resolve({ success: false, error: "Card entry cancelled" });
+            setManualCardReq(null);
+          }}
+          onSuccess={(paymentIntentId) => {
+            manualCardReq.resolve({ success: true, paymentIntentId });
+            setManualCardReq(null);
+          }}
+        />
+      )}
+
       {/* Phone Order Modal */}
       {showPhoneOrder && (
         <PhoneOrderModal
@@ -2958,8 +3006,12 @@ export default function PosRegisterPage() {
                 await completeSale("cash");
               } else if (first.method === "cod") {
                 await completeSale("cod");
-              } else if (first.method === "card_terminal") {
-                await completeSale("card", first.stripePaymentIntentId ?? undefined);
+              } else if (first.method === "card_terminal" || first.method === "card_manual") {
+                await completeSale(
+                  "card",
+                  first.stripePaymentIntentId ?? undefined,
+                  first.method === "card_manual" ? "manual" : "terminal",
+                );
               } else if (first.method === "account") {
                 setShowAccountConfirm(true);
               } else if (first.method === "store_credit") {
@@ -2995,13 +3047,16 @@ export default function PosRegisterPage() {
             } else {
               // Split payment — create order directly
               const effectiveTotal = payments.reduce((s, p) => s + p.amountCents, 0);
-              const paymentMethod = storeCreditCents > 0
-                ? `split_store_credit_${payments.find(p => p.method !== "store_credit")?.method || "cash"}`
+              // orders_payment_method_check only knows the terminal variant of the
+              // store-credit split, so keyed card remainders record as plain "split".
+              const creditRemainderMethod = payments.find(p => p.method !== "store_credit")?.method || "cash";
+              const paymentMethod = storeCreditCents > 0 && creditRemainderMethod !== "card_manual"
+                ? `split_store_credit_${creditRemainderMethod}`
                 : "split";
               const orderPayload: any = {
                 items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0 })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
-                cc_fee_cents: payments.filter(p => p.method === "card_terminal").reduce((s, p) => s + Math.round(p.amountCents * 0.035 / 1.035), 0),
+                cc_fee_cents: payments.filter(p => p.method === "card_terminal" || p.method === "card_manual").reduce((s, p) => s + Math.round(p.amountCents * 0.035 / 1.035), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
                 payment_method: paymentMethod, delivery_method: deliveryMethod,
                 delivery_address: deliveryMethod === "delivery" ? (delAddress || deliveryAddress) : null,
@@ -3020,6 +3075,19 @@ export default function PosRegisterPage() {
               if (res.ok) {
                 const { orderId } = await res.json();
                 orderPayload.order_id = orderId;
+                // Persist each leg (and its PaymentIntent) so refunds and receipts
+                // can see how a split sale was actually tendered.
+                orderPayload.payments = payments.map(p => ({
+                  method: p.method,
+                  amount_cents: p.amountCents,
+                  amountCents: p.amountCents,
+                  stripe_payment_intent_id: p.stripePaymentIntentId ?? null,
+                }));
+                await fetch("/api/pos/checkout", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orderId, payments: orderPayload.payments }),
+                }).catch(() => {});
                 if (storeCreditCents > 0) await redeemCredit(orderId, storeCreditCents);
                 await afterSale(paymentMethod, orderPayload);
                 resetRegister();
@@ -3055,6 +3123,9 @@ export default function PosRegisterPage() {
               return { success: false, error: err instanceof Error ? err.message : "Card failed" };
             }
           }}
+          onProcessManualCard={(amountCents, label) =>
+            new Promise((resolve) => setManualCardReq({ amountCents, label, resolve }))
+          }
           processing={processing}
         />
       )}

@@ -411,7 +411,8 @@ export class ReceiptPrinter {
     if (o.paymentMethod === "split" && o.payments?.length) {
       this.bold(c, true); this.txt(c, "Payment: Split"); this.bold(c, false);
       for (const p of o.payments) {
-        const label = p.method === "card_terminal" ? `Card${p.card_brand ? ` ${p.card_brand}` : ""}${p.card_last4 ? ` ****${p.card_last4}` : ""}` :
+        const label = p.method === "card_terminal" || p.method === "card_manual"
+          ? `Card${p.method === "card_manual" ? " (keyed)" : ""}${p.card_brand ? ` ${p.card_brand}` : ""}${p.card_last4 ? ` ****${p.card_last4}` : ""}` :
           p.method === "cash" ? "Cash" : p.method === "cod" ? "COD" : p.method === "account" ? "Account" : p.method;
         this.txt(c, line(`  ${label}:`, fmt(p.amount_cents)));
       }

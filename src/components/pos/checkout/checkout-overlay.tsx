@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, X, Loader2, Phone, Wallet } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, Truck, Building2, SplitSquareHorizontal, Loader2, Phone, Wallet, Keyboard } from "lucide-react";
 import { formatUsd } from "@/lib/format";
 
-type PaymentMethod = "cash" | "cod" | "card_terminal" | "account" | "store_credit";
+type PaymentMethod = "cash" | "cod" | "card_terminal" | "card_manual" | "account" | "store_credit";
+
+const isCardMethod = (m: PaymentMethod) => m === "card_terminal" || m === "card_manual";
 
 interface CartSummary {
   itemCount: number;
@@ -37,11 +39,13 @@ interface Props {
   onComplete: (payments: PaymentResult[]) => void;
   onCancel: () => void;
   onProcessCard: (amountCents: number) => Promise<{ success: boolean; paymentIntentId?: string; error?: string }>;
+  /** Keyed-in card entry (card not present). Opens the manual card modal and resolves when charged or cancelled. */
+  onProcessManualCard?: (amountCents: number, label?: string) => Promise<{ success: boolean; paymentIntentId?: string; error?: string }>;
   onPhoneOrder?: () => void;
   processing: boolean;
 }
 
-export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onPhoneOrder, processing }: Props) {
+export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onProcessManualCard, onPhoneOrder, processing }: Props) {
   const [step, setStep] = useState<"select" | "cash" | "cod" | "card" | "account" | "split" | "store_credit">("select");
   const [cashTendered, setCashTendered] = useState("");
   const [splitEnabled, setSplitEnabled] = useState(false);
@@ -57,9 +61,18 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
   // Split calculations
   const split1Cents = Math.round((parseFloat(splitAmount1) || 0) * 100);
   const split2Cents = cart.cashTotalCents - split1Cents;
-  const splitCardPortion = splitMethod1 === "card_terminal" ? split1Cents : splitMethod2 === "card_terminal" ? split2Cents : 0;
+  const splitCardPortion = (isCardMethod(splitMethod1) ? split1Cents : 0) + (isCardMethod(splitMethod2) ? split2Cents : 0);
   const splitCcFee = Math.round(splitCardPortion * 0.035);
   const splitTotal = cart.cashTotalCents + splitCcFee;
+
+  /** Route a card charge to the terminal or to keyed-in entry. */
+  async function chargeCard(method: PaymentMethod, amountCents: number, label?: string) {
+    if (method === "card_manual") {
+      if (!onProcessManualCard) return { success: false, error: "Manual card entry unavailable" };
+      return onProcessManualCard(amountCents, label);
+    }
+    return onProcessCard(amountCents);
+  }
 
   async function handleCashComplete() {
     if (tenderedCents < cart.cashTotalCents) return;
@@ -70,13 +83,13 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
     onComplete([{ method: "cod", amountCents: cart.cashTotalCents }]);
   }
 
-  async function handleCardComplete() {
+  async function handleCardComplete(method: PaymentMethod = "card_terminal") {
     setCardProcessing(true);
     setCardError("");
-    const result = await onProcessCard(cart.cardTotalCents);
+    const result = await chargeCard(method, cart.cardTotalCents, "Full order");
     setCardProcessing(false);
     if (result.success) {
-      onComplete([{ method: "card_terminal", amountCents: cart.cardTotalCents, stripePaymentIntentId: result.paymentIntentId }]);
+      onComplete([{ method, amountCents: cart.cardTotalCents, stripePaymentIntentId: result.paymentIntentId }]);
     } else {
       setCardError(result.error ?? "Card payment failed");
     }
@@ -89,7 +102,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
   const creditBalance = cart.storeCreditCents ?? 0;
   const creditCoversAll = creditBalance >= cart.cashTotalCents;
   const [creditApplyAmount, setCreditApplyAmount] = useState("");
-  const [creditRemainderMethod, setCreditRemainderMethod] = useState<"cash" | "card_terminal">("card_terminal");
+  const [creditRemainderMethod, setCreditRemainderMethod] = useState<"cash" | "card_terminal" | "card_manual">("card_terminal");
 
   async function handleStoreCreditComplete() {
     const applyCents = creditCoversAll ? cart.cashTotalCents : Math.round((parseFloat(creditApplyAmount) || 0) * 100);
@@ -101,15 +114,15 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
       onComplete([{ method: "store_credit", amountCents: applyCents }]);
     } else {
       // Split: credit + another method
-      if (creditRemainderMethod === "card_terminal") {
+      if (isCardMethod(creditRemainderMethod)) {
         const ccFee = Math.round(remainderCents * 0.035);
         setCardProcessing(true);
-        const result = await onProcessCard(remainderCents + ccFee);
+        const result = await chargeCard(creditRemainderMethod, remainderCents + ccFee, "Remainder after store credit");
         setCardProcessing(false);
         if (!result.success) { setCardError(result.error ?? "Card failed"); return; }
         onComplete([
           { method: "store_credit", amountCents: applyCents },
-          { method: "card_terminal", amountCents: remainderCents + ccFee, stripePaymentIntentId: result.paymentIntentId },
+          { method: creditRemainderMethod, amountCents: remainderCents + ccFee, stripePaymentIntentId: result.paymentIntentId },
         ]);
       } else {
         onComplete([
@@ -124,23 +137,24 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
     if (split1Cents <= 0 || split2Cents <= 0) return;
     const payments: PaymentResult[] = [];
 
-    // Process card first if present
+    // Process card legs first — a declined card must not leave cash already recorded
     const methods = [
-      { method: splitMethod1, amount: split1Cents },
-      { method: splitMethod2, amount: split2Cents },
-    ].sort((a, b) => (a.method === "card_terminal" ? -1 : b.method === "card_terminal" ? 1 : 0));
+      { method: splitMethod1, amount: split1Cents, label: "Payment 1 of 2" },
+      { method: splitMethod2, amount: split2Cents, label: "Payment 2 of 2" },
+    ].sort((a, b) => (isCardMethod(a.method) ? -1 : isCardMethod(b.method) ? 1 : 0));
 
     setCardProcessing(true);
-    for (const { method, amount } of methods) {
-      if (method === "card_terminal") {
+    setCardError("");
+    for (const { method, amount, label } of methods) {
+      if (isCardMethod(method)) {
         const ccFee = Math.round(amount * 0.035);
-        const result = await onProcessCard(amount + ccFee);
+        const result = await chargeCard(method, amount + ccFee, `${label} — split payment`);
         if (!result.success) {
           setCardError(result.error ?? "Card failed");
           setCardProcessing(false);
           return;
         }
-        payments.push({ method: "card_terminal", amountCents: amount + ccFee, stripePaymentIntentId: result.paymentIntentId });
+        payments.push({ method, amountCents: amount + ccFee, stripePaymentIntentId: result.paymentIntentId });
       } else {
         payments.push({ method, amountCents: amount });
       }
@@ -191,6 +205,7 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <CreditCard className="size-8 text-blue-400" />
                 <span className="text-sm font-semibold text-white">Card</span>
                 <span className="text-xs text-zinc-500">{formatUsd(cart.cardTotalCents)} (+3.5%)</span>
+                {onProcessManualCard && <span className="text-[10px] text-zinc-600">Terminal or key-in</span>}
               </button>
 
               <button onClick={() => setStep("account")} disabled={!cart.isChargeAccount}
@@ -284,10 +299,16 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
               <p className="text-3xl font-bold text-white">{formatUsd(cart.cardTotalCents)}</p>
             </div>
             {cardError && <p className="rounded-lg bg-red-900/30 border border-red-800 px-3 py-2 text-sm text-red-300">{cardError}</p>}
-            <button onClick={handleCardComplete} disabled={cardProcessing || processing}
+            <button onClick={() => handleCardComplete("card_terminal")} disabled={cardProcessing || processing}
               className="w-full rounded-xl bg-blue-600 py-3 text-lg font-bold text-white hover:bg-blue-500 disabled:opacity-30">
               {cardProcessing ? <><Loader2 className="inline size-5 animate-spin mr-2" />Waiting for card...</> : "Tap / Insert Card"}
             </button>
+            {onProcessManualCard && (
+              <button onClick={() => handleCardComplete("card_manual")} disabled={cardProcessing || processing}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/40 py-3 text-sm font-semibold text-amber-400 hover:bg-amber-500/10 disabled:opacity-30">
+                <Keyboard className="size-4" /> Enter Card Manually
+              </button>
+            )}
           </div>
         )}
 
@@ -342,7 +363,11 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                             <button onClick={() => setCreditRemainderMethod("cash")}
                               className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "cash" ? "bg-green-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Cash</button>
                             <button onClick={() => setCreditRemainderMethod("card_terminal")}
-                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_terminal" ? "bg-blue-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Card (+3.5%)</button>
+                              className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_terminal" ? "bg-blue-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Terminal (+3.5%)</button>
+                            {onProcessManualCard && (
+                              <button onClick={() => setCreditRemainderMethod("card_manual")}
+                                className={`flex-1 rounded-lg py-2 text-xs font-semibold ${creditRemainderMethod === "card_manual" ? "bg-amber-700 text-white" : "bg-zinc-700 text-zinc-400"}`}>Key-in (+3.5%)</button>
+                            )}
                           </div>
                         </div>
                       );
@@ -373,7 +398,8 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <select value={splitMethod1} onChange={(e) => setSplitMethod1(e.target.value as PaymentMethod)}
                   className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white">
                   <option value="cash">Cash</option>
-                  <option value="card_terminal">Card (+3.5%)</option>
+                  <option value="card_terminal">Card — Terminal (+3.5%)</option>
+                  {onProcessManualCard && <option value="card_manual">Card — Manual Entry (+3.5%)</option>}
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
                   {creditBalance > 0 && <option value="store_credit">Store Credit</option>}
@@ -386,7 +412,8 @@ export function CheckoutOverlay({ cart, onComplete, onCancel, onProcessCard, onP
                 <select value={splitMethod2} onChange={(e) => setSplitMethod2(e.target.value as PaymentMethod)}
                   className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white">
                   <option value="cash">Cash</option>
-                  <option value="card_terminal">Card (+3.5%)</option>
+                  <option value="card_terminal">Card — Terminal (+3.5%)</option>
+                  {onProcessManualCard && <option value="card_manual">Card — Manual Entry (+3.5%)</option>}
                   <option value="cod">COD</option>
                   {cart.isChargeAccount && <option value="account">Account</option>}
                   {creditBalance > 0 && <option value="store_credit">Store Credit</option>}

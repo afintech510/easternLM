@@ -18,7 +18,8 @@ export async function GET() {
   const paid = all.filter((o) => o.status === "paid" || o.status === "partially_refunded");
   const refunded = all.filter((o) => o.status === "refunded");
 
-  const cardOrders = paid.filter((o) => o.payment_method === "card_terminal");
+  // POS/phone sources only, so card_online here means a keyed-in (card-not-present) charge
+  const cardOrders = paid.filter((o) => o.payment_method === "card_terminal" || o.payment_method === "card_online");
   const cashOrders = paid.filter((o) => o.payment_method === "cash");
 
   return NextResponse.json({
