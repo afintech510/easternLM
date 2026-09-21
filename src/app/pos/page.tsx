@@ -46,6 +46,7 @@ import { SaveQuoteModal } from "@/components/pos/save-quote-modal";
 import { QuoteBuilder } from "@/components/pos/quote-builder";
 import { PhoneOrderModal } from "@/components/pos/phone-order-modal";
 import { ManualCardModal } from "@/components/pos/manual-card-modal";
+import { quoteDeliveryFee } from "@/lib/pos/delivery-quote";
 import { PhoneTab } from "@/components/pos/phone-tab";
 import { MessagesTab } from "@/components/pos/messages-tab";
 import { POSProductGrid } from "@/components/pos/product-grid";
@@ -178,6 +179,7 @@ export default function PosRegisterPage() {
   const [delCustomerId, setDelCustomerId] = useState<string | null>(null);
   const [delCustomerStatus, setDelCustomerStatus] = useState<"" | "found" | "new" | "saving">("");
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [deliveryOutOfRange, setDeliveryOutOfRange] = useState(false);
   const [delCustSearch, setDelCustSearch] = useState("");
   const [delCustResults, setDelCustResults] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; company_name: string | null; phone: string | null; email: string | null; address: string | null; city: string | null; zip: string | null; total_orders: number; total_spent_cents: number; is_charge_account?: boolean; charge_account_name?: string | null; current_balance_cents?: number; credit_limit_cents?: number | null; payment_terms?: string | null }>>([]);
   const [delCustSearching, setDelCustSearching] = useState(false);
@@ -626,30 +628,13 @@ export default function PosRegisterPage() {
   }
 
   async function calculateDeliveryFee(address: string) {
-    try {
-      const res = await fetch("/api/delivery/distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const oneWayMiles = data.distanceMeters / 1609.344;
-        const roundTripMiles = Math.round(oneWayMiles * 2 * 10) / 10;
-        const roundTripMinutes = Math.round((data.durationSeconds * 2 + 5 * 60) / 60);
-        setRouteInfo({ roundTripMiles, roundTripMinutes, oneWayDurationSeconds: data.durationSeconds, oneWayDistanceMeters: data.distanceMeters });
-
-        // Calculate fee using the delivery formula
-        const fuelCost = (roundTripMiles / 6) * 5;
-        const laborCost = (roundTripMinutes / 60) * 32;
-        const raw = fuelCost + laborCost;
-        const withProfit = raw * 2;
-        const fee = Math.max(Math.ceil(withProfit / 5) * 5, 25);
-        setDeliveryFeeCents(fee * 100);
-      }
-    } catch {
-      // silently fail — staff can manually set fee
-    }
+    // Fee comes from the server using the admin-editable site_settings values —
+    // never recompute it here, or Admin → Settings edits won't reach the register.
+    const quote = await quoteDeliveryFee(address);
+    if (!quote) return; // staff can still set the fee manually
+    setRouteInfo(quote.routeInfo);
+    setDeliveryFeeCents(quote.feeCents);
+    setDeliveryOutOfRange(quote.outsideServiceArea);
   }
 
   async function searchCustomers(q: string) {
@@ -955,6 +940,7 @@ export default function PosRegisterPage() {
     setCashTendered("");
     setCardPaymentStatus(null);
     setRouteInfo(null);
+    setDeliveryOutOfRange(false);
     setDelAddress("");
     setDelName("");
     setDelEmail("");
@@ -985,6 +971,7 @@ export default function PosRegisterPage() {
     resetRegister();
     setDeliveryFeeCents(0);
     setRouteInfo(null);
+    setDeliveryOutOfRange(false);
     setDelCustomerId(null);
     setDelCustomerStatus("");
     setAccessConstraints({});
@@ -2022,6 +2009,11 @@ export default function PosRegisterPage() {
                   <p className="text-sm font-medium text-amber-300">
                     {routeInfo.roundTripMiles} mi round trip &middot; ~{routeInfo.roundTripMinutes} min &middot; Fee: {formatUsd(deliveryFeeCents)}
                   </p>
+                  {deliveryOutOfRange && (
+                    <p className="mt-1 text-xs text-red-300">
+                      Outside the service radius set in Admin → Settings — confirm before booking.
+                    </p>
+                  )}
                 </div>
               )}
 

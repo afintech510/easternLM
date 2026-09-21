@@ -6,6 +6,7 @@ import {
   Loader2, Mail, MessageSquare, Save, Printer,
 } from "lucide-react";
 import { formatUsd } from "@/lib/format";
+import { quoteDeliveryFee } from "@/lib/pos/delivery-quote";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -197,25 +198,14 @@ export function QuoteBuilder({
   async function calcDeliveryFee(address: string) {
     if (!address.trim()) return;
     setCalcingFee(true);
-    try {
-      const res = await fetch("/api/delivery/distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
+    // Fee is computed server-side from the admin-editable site_settings values.
+    const quote = await quoteDeliveryFee(address);
+    if (quote) {
+      onDeliveryChange({
+        routeInfo: { roundTripMiles: quote.routeInfo.roundTripMiles, roundTripMinutes: quote.routeInfo.roundTripMinutes },
+        feeCents: quote.feeCents,
       });
-      if (res.ok) {
-        const data = await res.json();
-        const oneWayMiles = data.distanceMeters / 1609.344;
-        const roundTripMiles = Math.round(oneWayMiles * 2 * 10) / 10;
-        const roundTripMinutes = Math.round((data.durationSeconds * 2 + 5 * 60) / 60);
-        const routeInfo = { roundTripMiles, roundTripMinutes };
-        const fuelCost = (roundTripMiles / 6) * 5;
-        const laborCost = (roundTripMinutes / 60) * 32;
-        const withProfit = (fuelCost + laborCost) * 2;
-        const fee = Math.max(Math.ceil(withProfit / 5) * 5, 25);
-        onDeliveryChange({ routeInfo, feeCents: fee * 100 });
-      }
-    } catch { /* silently fail */ }
+    }
     setCalcingFee(false);
   }
 

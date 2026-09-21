@@ -43,5 +43,31 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Quoted fees are cached per address for 24h. Without this purge, a pricing
+  // change silently keeps serving the old fee to every address already quoted.
+  if (PRICING_FIELDS.some((field) => field in parsed.data)) {
+    try {
+      await supabase.from("delivery_fee_cache").delete().neq("address_hash", "");
+    } catch {
+      // Cache table unavailable — entries expire on their own within 24h
+    }
+  }
+
   return NextResponse.json(data);
 }
+
+/** site_settings columns that change a quoted delivery fee. */
+const PRICING_FIELDS = [
+  "miles_per_gallon",
+  "fuel_price_per_gallon",
+  "hourly_labor_rate",
+  "dump_time_buffer_minutes",
+  "profit_multiplier",
+  "round_to_nearest",
+  "minimum_delivery_fee_cents",
+  "additional_load_discount",
+  "local_radius_miles",
+  "max_service_radius_miles",
+  "origin_address",
+] as const;

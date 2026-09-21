@@ -234,7 +234,7 @@ function buildBulkLoadsForQuantity({
   return loads;
 }
 
-function calculateFirstLoadFeeCents({
+export function calculateFirstLoadFeeCents({
   oneWayMiles,
   durationSeconds,
   pricingConfig,
@@ -258,7 +258,7 @@ function calculateFirstLoadFeeCents({
   return dollarsToCents(clamped);
 }
 
-function calculateAdditionalLoadFeeCents({
+export function calculateAdditionalLoadFeeCents({
   firstLoadFeeCents,
   pricingConfig,
 }: {

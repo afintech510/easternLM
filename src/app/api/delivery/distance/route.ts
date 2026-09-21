@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hashAddress } from "@/lib/address-utils";
-import { calculateDeliveryFees } from "@/lib/delivery";
+import { calculateAdditionalLoadFeeCents, calculateFirstLoadFeeCents } from "@/lib/delivery";
 import { getDeliveryRuntimeConfig } from "@/lib/data/delivery-config";
 import { fetchGoogleDistanceMatrix } from "@/lib/google-maps";
 
@@ -44,6 +44,11 @@ export async function POST(request: Request) {
   const addressHash = hashAddress(address);
   const nowIso = new Date().toISOString();
 
+  // Admin-editable pricing (site_settings). Loaded before the cache lookup so every
+  // response — cached or live — reports the parameters the fee was built from.
+  const runtimeConfig = await getDeliveryRuntimeConfig();
+  const { pricingConfig } = runtimeConfig;
+
   // Try cache lookup — skip gracefully if Supabase is unavailable or table missing
   const supabaseAdmin = tryGetSupabaseAdmin();
   if (supabaseAdmin) {
@@ -58,14 +63,18 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (!cachedResult.error && cachedResult.data) {
+        const cachedOneWayMiles = Number(cachedResult.data.one_way_miles);
         return NextResponse.json({
           fromCache: true,
           addressHash,
           distanceMeters: cachedResult.data.distance_meters,
           durationSeconds: cachedResult.data.duration_seconds,
-          oneWayMiles: Number(cachedResult.data.one_way_miles),
+          oneWayMiles: cachedOneWayMiles,
           firstLoadFeeCents: cachedResult.data.first_load_fee_cents,
           additionalLoadFeeCents: cachedResult.data.additional_load_fee_cents,
+          dumpTimeBufferMinutes: pricingConfig.dumpTimeBufferMinutes,
+          outsideServiceArea: cachedOneWayMiles > pricingConfig.maxServiceRadiusMiles,
+          isLocal: cachedOneWayMiles <= pricingConfig.localRadiusMiles,
           expiresAt: cachedResult.data.expires_at,
         });
       }
@@ -85,7 +94,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const runtimeConfig = await getDeliveryRuntimeConfig();
   let distanceMeters = 0;
   let durationSeconds = 0;
   try {
@@ -110,23 +118,10 @@ export async function POST(request: Request) {
 
   const oneWayMiles = distanceMeters / 1609.344;
 
-  const feeProbe = calculateDeliveryFees({
-    cartItems: [
-      {
-        id: "fee-probe",
-        name: "Fee Probe",
-        quantity: 1,
-        unitPriceCents: 0,
-        deliveryType: "bulk",
-        materialClass: "default",
-      },
-    ],
-    distanceResult: { distanceMeters, durationSeconds },
-    pricingConfig: runtimeConfig.pricingConfig,
-    truckTypes: runtimeConfig.truckTypes,
-    combineLoads: false,
-    deliveryMethod: "delivery",
-  });
+  // Distance-based fee straight from the shared formula, so it stays defined even for
+  // out-of-range addresses (the caller decides what to do with outsideServiceArea).
+  const firstLoadFeeCents = calculateFirstLoadFeeCents({ oneWayMiles, durationSeconds, pricingConfig });
+  const additionalLoadFeeCents = calculateAdditionalLoadFeeCents({ firstLoadFeeCents, pricingConfig });
 
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -140,10 +135,10 @@ export async function POST(request: Request) {
           distance_meters: distanceMeters,
           duration_seconds: durationSeconds,
           one_way_miles: Number(oneWayMiles.toFixed(2)),
-          first_load_fee_cents: feeProbe.firstLoadFeeCents,
-          additional_load_fee_cents: feeProbe.additionalLoadFeeCents,
-          is_local: oneWayMiles <= runtimeConfig.pricingConfig.localRadiusMiles,
-          is_out_of_range: oneWayMiles > runtimeConfig.pricingConfig.maxServiceRadiusMiles,
+          first_load_fee_cents: firstLoadFeeCents,
+          additional_load_fee_cents: additionalLoadFeeCents,
+          is_local: oneWayMiles <= pricingConfig.localRadiusMiles,
+          is_out_of_range: oneWayMiles > pricingConfig.maxServiceRadiusMiles,
           expires_at: expiresAt,
         },
         { onConflict: "address_hash" },
@@ -159,8 +154,11 @@ export async function POST(request: Request) {
     distanceMeters,
     durationSeconds,
     oneWayMiles,
-    firstLoadFeeCents: feeProbe.firstLoadFeeCents,
-    additionalLoadFeeCents: feeProbe.additionalLoadFeeCents,
+    firstLoadFeeCents,
+    additionalLoadFeeCents,
+    dumpTimeBufferMinutes: pricingConfig.dumpTimeBufferMinutes,
+    outsideServiceArea: oneWayMiles > pricingConfig.maxServiceRadiusMiles,
+    isLocal: oneWayMiles <= pricingConfig.localRadiusMiles,
     expiresAt,
   });
 }
