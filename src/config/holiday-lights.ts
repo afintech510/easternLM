@@ -86,7 +86,34 @@ export const HOLIDAY_LIGHTS = {
   /** Video stories (public URLs). Section is hidden while empty. */
   videos: [] as { src: string; poster?: string; caption: string }[],
   /** Gallery before/after photos (public URLs). Section is hidden while empty. */
-  gallery: [] as { before: string; after: string; label: string; caption: string }[],
+  gallery: [
+    {
+      before: "/holiday-lights/gallery-colonial-before.webp",
+      after: "/holiday-lights/gallery-colonial-after.webp",
+      label: "Colonial with warm white roofline, wreath and candy canes",
+      caption: "Warm white roofline, wreath and candy canes",
+    },
+    {
+      before: "/holiday-lights/gallery-hamptons-before.webp",
+      after: "/holiday-lights/gallery-hamptons-after.webp",
+      label: "Hamptons shingle-style home with elegant white lights and wreaths",
+      caption: "Elegant white + wreaths, Hamptons shingle style",
+    },
+    {
+      before: "/holiday-lights/gallery-manorville-before.webp",
+      after: "/holiday-lights/gallery-manorville-after.webp",
+      label: "Manorville colonial with candy cane roofline",
+      caption: "Candy cane roofline, Pine Barrens colonial",
+    },
+    {
+      before: "/holiday-lights/gallery-classic-before.webp",
+      after: "/holiday-lights/gallery-classic-after.webp",
+      label: "Center-hall colonial with classic warm white roofline",
+      caption: "Classic warm white, center-hall colonial",
+    },
+  ] as { before: string; after: string; label: string; caption: string }[],
+  /** Gallery images are AI concept renders, not finished installs — keep the copy honest until real photos exist. */
+  galleryIsConcept: true,
 } as const;
 
 export type HomeStyle = keyof typeof HOLIDAY_LIGHTS.homes;

@@ -16,7 +16,7 @@ export function GET() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "0 80px",
-          background: "linear-gradient(135deg, #b3122b 0%, #7d0a1c 55%, #074a28 100%)",
+          background: "linear-gradient(135deg, #b3122b 0%, #6e0818 50%, #0f7a42 100%)",
           color: "#fff",
           fontFamily: "sans-serif",
         }}
@@ -36,7 +36,7 @@ export function GET() {
           ))}
         </div>
         <div style={{ fontSize: 84, fontWeight: 800, lineHeight: 1.05 }}>Tinsel Time Long Island</div>
-        <div style={{ fontSize: 44, marginTop: 20, color: "#ffd23f" }}>Christmas lights, installed and yours to keep.</div>
+        <div style={{ fontSize: 44, marginTop: 20, color: "#ffffff" }}>Christmas lights, installed and yours to keep.</div>
         <div style={{ fontSize: 32, marginTop: 24, color: "#fffaf0" }}>From $9/ft installed · See your own house lit up, free.</div>
       </div>
     ),

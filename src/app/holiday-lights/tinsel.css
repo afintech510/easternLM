@@ -1,11 +1,15 @@
-
 /*
- * Tinsel Time Long Island — "Tacky" look.
- * Ported nearly verbatim from nimbalyst-local/designs/tinsel-time-tacky.html.
+ * Tinsel Time Long Island — "Tacky" look, v2 (light = red & green, dark = black & red).
+ * Ported nearly verbatim from nimbalyst-local/designs/tinsel-time-v2.html.
  * Every selector is scoped under .tinsel so nothing leaks into the Eastern LM site;
- * the artifact's :root/body rules live on the .tinsel wrapper, html rules use :has().
+ * the artifact's :root/body rules live on the .tinsel wrapper (which also carries
+ * data-theme / data-eff from the light/dark toggle), html rules use :has().
  */
 html:has(.tinsel){background:#b3122b}
+html:has(.tinsel[data-eff="dark"]){background:#0d0d0f}
+/* globals.css sets overflow-x:hidden on html/body, which turns body into a scroll
+   container and breaks the sticky nav. clip still stops sideways scroll but keeps sticky working. */
+html:has(.tinsel),html:has(.tinsel) body{overflow-x:clip}
 .tinsel{
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -21,9 +25,36 @@ html:has(.tinsel){background:#b3122b}
   --navy:#b3122b;--navy-2:#0f7a42;--navy-deep:#074a28;--navy-rgb:179,18,43;--sky0:#b3122b;--sky1:#1d3d6b;
   --gold:#ffd23f;--gold-hi:#ffe27a;--gold-ink:#2a1400;--acc:#ffd23f;--acc-rgb:255,210,63;--red:#0b6b3a;
   --r:16px;--btnr:14px;--btnt:none;--btnls:0;--btnfs:1.05rem;
-  --disp:var(--font-tinsel-display),"Mountains of Christmas","Brush Script MT",Georgia,serif;--sans:var(--font-tinsel-body),"Fredoka","Trebuchet MS",system-ui,"Segoe UI",Arial,sans-serif;--dw:700;--ds:1.14;--dls:0;
+  --disp:var(--font-tinsel-display),"Mountains of Christmas","Brush Script MT",Georgia,serif;--sans:"Fredoka","Trebuchet MS",system-ui,"Segoe UI",Arial,sans-serif;--dw:700;--ds:1.14;--dls:0;
   --l-bg:#fffaf0;--l-surface:#e6f4e9;--l-ink:#1f2a22;--l-muted:#46564b;--l-line:#e6cf9f;--l-price:#b3122b;--l-link:#0b5d82;
   --d-bg:#0f2a1c;--d-surface:#16382a;--d-ink:#fff3dc;--d-muted:#cbd9cf;--d-line:#2f5a43;--d-price:#ffd23f;--d-link:#ffd23f}
+/* ===== LIGHT = Red & Green · DARK = Black & Red ===== */
+.tinsel[data-look="tacky"]{
+  --navy:#b3122b;--navy-2:#0f7a42;--navy-deep:#074a28;--navy-rgb:179,18,43;--sky0:#b3122b;--sky1:#0f7a42;--red:#0f7a42;
+  --gold:#12a150;--gold-hi:#1bc063;--gold-ink:#ffffff;--acc:#ffffff;--acc-rgb:255,255,255;
+  --edge:#064a27;--edge2:#6e0818;--stripe1:#b3122b;--stripe2:#ffffff;
+  --l-bg:#f6fbf7;--l-surface:#e2f2e7;--l-ink:#14241b;--l-muted:#3f5a49;--l-line:#c9e0d0;--l-price:#b3122b;--l-link:#0b6b3a;
+  --d-bg:#0e0e10;--d-surface:#1a1a1e;--d-ink:#f4f4f5;--d-muted:#b8b8c0;--d-line:#2c2c33;--d-price:#ff4a60;--d-link:#ff8a98;
+  /* headline = Tinsel Time (Mountains of Christmas), subheads = BELLS (Bodoni caps) */
+  --disp:var(--font-tinsel-display),"Mountains of Christmas","Brush Script MT",Georgia,serif;--dw:700;--ds:1.14;--dls:0;--dtt:none;
+  --body:var(--font-tinsel-body),"Playpen Sans","Comic Sans MS",cursive;--sans:var(--font-tinsel-sans),"Merriweather",Georgia,"Times New Roman",serif;--disp2:var(--font-tinsel-heading),"Bodoni Moda",Georgia,serif;--dw2:900;--ds2:.8;--dls2:.045em;--dtt2:uppercase}
+@media (prefers-color-scheme: dark){.tinsel:not([data-theme="light"])[data-look="tacky"]{
+  --navy:#0d0d0f;--navy-2:#2a0a10;--navy-deep:#000000;--navy-rgb:13,13,15;--sky0:#0d0d0f;--sky1:#2a0a10;--red:#2a0a10;
+  --gold:#e0142f;--gold-hi:#ff2f4a;--gold-ink:#ffffff;--acc:#ff5468;--acc-rgb:255,84,104;
+  --edge:#6e0816;--edge2:#5a0510;--stripe1:#e0142f;--stripe2:#0d0d0f}}
+.tinsel[data-theme="dark"][data-look="tacky"]{
+  --navy:#0d0d0f;--navy-2:#2a0a10;--navy-deep:#000000;--navy-rgb:13,13,15;--sky0:#0d0d0f;--sky1:#2a0a10;--red:#2a0a10;
+  --gold:#e0142f;--gold-hi:#ff2f4a;--gold-ink:#ffffff;--acc:#ff5468;--acc-rgb:255,84,104;
+  --edge:#6e0816;--edge2:#5a0510;--stripe1:#e0142f;--stripe2:#0d0d0f}
+
+.tinsel p,.tinsel li,.tinsel td,.tinsel summary,.tinsel .lead,.tinsel .sub,.tinsel .fine,.tinsel .cap,.tinsel .priceline,.tinsel .rev p,.tinsel .tagline{font-family:var(--body,var(--sans))}
+/* light / dark toggle */
+.tinsel .tbtn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.tinsel .tbtn:hover{background:rgba(127,127,127,.14)}
+.tinsel .tbtn svg{width:22px;height:22px}
+.tinsel .tbtn .sun{display:none}
+.tinsel[data-eff="dark"] .tbtn .sun{display:block}
+.tinsel[data-eff="dark"] .tbtn .moon{display:none}
 
 html:has(.tinsel){height:100%;scroll-padding-top:calc(72px + env(safe-area-inset-top,0px));scroll-behavior:smooth}
 .tinsel *,.tinsel *::before,.tinsel *::after{box-sizing:border-box}
@@ -332,19 +363,28 @@ html:has(.tinsel){height:100%;scroll-padding-top:calc(72px + env(safe-area-inset
 
 
 .tinsel[data-look="tacky"] .offer{position:relative;padding:16px 14px}
-.tinsel[data-look="tacky"] .offer::before,.tinsel[data-look="tacky"] .offer::after{content:"";position:absolute;left:0;right:0;height:5px;background:repeating-linear-gradient(135deg,#c8102e 0 10px,#fff 10px 20px)}
+.tinsel[data-look="tacky"] .offer::before,.tinsel[data-look="tacky"] .offer::after{content:"";position:absolute;left:0;right:0;height:5px;background:repeating-linear-gradient(135deg,var(--stripe1,#c8102e) 0 10px,var(--stripe2,#fff) 10px 20px)}
 .tinsel[data-look="tacky"] .offer::before{top:0}
 .tinsel[data-look="tacky"] .offer::after{bottom:0}
-.tinsel[data-look="tacky"] .btn-gold{border:3px solid #7d0a1c;box-shadow:0 4px 0 #7d0a1c}
-.tinsel[data-look="tacky"] .btn-gold:active{transform:translateY(3px);box-shadow:0 1px 0 #7d0a1c}
+.tinsel[data-look="tacky"] .btn-gold{border:3px solid var(--edge,#7d0a1c);box-shadow:0 4px 0 var(--edge,#7d0a1c)}
+.tinsel[data-look="tacky"] .btn-gold:active{transform:translateY(3px);box-shadow:0 1px 0 var(--edge,#7d0a1c)}
 .tinsel[data-look="tacky"] .card{border:2px dashed var(--price)}
 .tinsel[data-look="tacky"] #visualizer{background:var(--navy-deep)}
-.tinsel[data-look="tacky"] .hero h1{text-shadow:3px 3px 0 #6e0818}
-.tinsel[data-look="tacky"] .hero::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  background-image:radial-gradient(circle,#fff 1.6px,transparent 2.6px),radial-gradient(circle,rgba(255,255,255,.85) 1.2px,transparent 2.2px),radial-gradient(circle,rgba(255,255,255,.65) 2.2px,transparent 3.2px);
-  background-size:97px 97px,151px 151px,211px 211px;background-position:0 0,40px 60px,90px 20px;animation:tt-snow 16s linear infinite}
-@keyframes tt-snow{to{background-position:0 970px,40px 1570px,90px 2130px}}
-@media (prefers-reduced-motion: reduce){.tinsel[data-look="tacky"] .hero::after{animation:none}}
+.tinsel[data-look="tacky"] .hero h1{text-shadow:3px 3px 0 var(--edge2,#6e0818)}
+.tinsel #snow{display:none;position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.tinsel[data-look="tacky"] #snow{display:block}
+
+
+.tinsel .cmp .lay img{display:block;width:100%;height:100%;object-fit:cover}
+.tinsel .hero-bg img{display:block;width:100%;height:100%;object-fit:cover;object-position:62% 45%}
+@media (min-width:960px){.tinsel .hero-bg img{position:absolute;right:0;top:0;width:72%;height:100%;object-position:70% 50%}}
+/* ===== font lab ===== */
+.tinsel h1,.tinsel .brand b,.tinsel .bigp,.tinsel .est-range,.tinsel .stat b,.tinsel .proc .n,.tinsel .svc .from,.tinsel .cmpt thead th,.tinsel footer.site h4.fbrand{text-transform:var(--dtt,none)}
+.tinsel h2,.tinsel h3{font-family:var(--disp2,var(--disp));font-weight:var(--dw2,var(--dw,700));letter-spacing:var(--dls2,var(--dls,-.01em));text-transform:var(--dtt2,var(--dtt,none))}
+.tinsel h2{font-size:calc(clamp(1.8rem,6.2vw,2.8rem) * var(--ds2,var(--ds,1)))}
+.tinsel h3{font-size:calc(1.25rem * var(--ds2,var(--ds,1)))}
+.tinsel h1,.tinsel h2,.tinsel h3{transition:opacity .15s}
+@media (max-width:520px){.tinsel .nav-in{gap:8px}.tinsel .nav .btn{padding:0 10px;font-size:.74rem;white-space:nowrap;min-height:40px}.tinsel .tbtn,.tinsel .burger{width:40px;height:40px;min-height:40px;flex:none}.tinsel .brand small{display:none}.tinsel .brand b{white-space:nowrap;font-size:1.05rem}.tinsel .brand svg{width:26px;height:26px}}
 
 /* ===== additions for the live (Next.js) page ===== */
 /* indeterminate progress while the AI visualizer works */
@@ -361,4 +401,96 @@ html:has(.tinsel){height:100%;scroll-padding-top:calc(72px + env(safe-area-inset
 .tinsel .acts2 .btn{min-height:46px;padding:0 10px;font-size:.92rem}
 .tinsel .ok{color:#0b6b3a;font-weight:600;font-size:.9rem}
 .tinsel .page-narrow{max-width:760px}
+/* the real phone number is wider than the design's [PHONE] placeholder: keep nav labels on one line */
+.tinsel .links a,.tinsel .nav .btn,.tinsel .phone{white-space:nowrap}
+@media (min-width:768px){.tinsel .links{gap:18px}}
+@media (min-width:768px) and (max-width:1199px){.tinsel .phone{display:none}.tinsel .links{gap:12px}.tinsel .links a{font-size:.86rem}}
+/* tablets: the 6 links don't fit next to the brand + CTA, use the burger menu (as on phones) */
+@media (min-width:768px) and (max-width:1023px){.tinsel .links{display:none}.tinsel .burger{display:inline-flex}.tinsel .menu:not([hidden]){display:block!important}}
+/* an even number of gallery sliders reads better as a 2-up grid than 3 + orphan */
+@media (min-width:768px){.tinsel .gal.even{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion: reduce){.tinsel .bar-fill.indet{animation:none;width:100%}}
+
+/* ===== Build & Book ===== */
+.tinsel .build-card{padding:26px 20px}
+.tinsel .build-grid{display:grid;grid-template-columns:1fr;gap:30px;margin-top:22px}
+.tinsel .step{min-width:0}
+.tinsel .step-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.tinsel .step-num{display:flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font:700 .95rem var(--disp)}
+.tinsel[data-theme="dark"] .step-num{background:var(--gold);color:var(--gold-ink)}
+@media (prefers-color-scheme: dark){.tinsel:not([data-theme="light"]) .step-num{background:var(--gold);color:var(--gold-ink)}}
+.tinsel .step h3{margin:0}
+
+.tinsel .field-label{display:block;font-weight:600;font-size:.92rem;margin-bottom:6px}
+.tinsel .xgroup{border:0;padding:0;margin:0 0 20px}
+.tinsel .xgroup legend{font:700 .76rem var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding:0}
+.tinsel .xrow{margin-bottom:20px}
+.tinsel .hint-pct{color:var(--price);margin-left:6px;font-weight:700}
+
+.tinsel .dot-row{display:inline-flex;gap:4px;margin-right:4px;flex:none}
+/* flex children default to min-width:auto, which stops long labels (e.g. "Candy Cane") from
+   wrapping next to the dot row and clips them instead — let this one shrink and wrap. */
+.tinsel .opt-label{min-width:0;flex:1 1 auto}
+
+.tinsel .range{width:100%;height:8px;accent-color:var(--gold);margin:8px 0 4px;cursor:pointer}
+.tinsel .ftrow{display:flex;align-items:center;gap:10px}
+.tinsel .ftrow .input{max-width:130px}
+.tinsel .ftrow-suffix{font-weight:600;color:var(--muted)}
+
+.tinsel .howto{margin-top:6px}
+.tinsel .howto summary{min-height:48px;font-size:.88rem;padding:12px 44px 12px 16px}
+.tinsel .howto .a p{font-size:.86rem;margin:0 0 8px}
+.tinsel .howto .a p:last-child{margin-bottom:0}
+
+/* steppers */
+.tinsel .stepper-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tinsel .stepper-row:last-child{border-bottom:0}
+.tinsel .stepper-label{display:flex;flex-direction:column;gap:2px;font-weight:600;font-size:.92rem}
+.tinsel .stepper-price{font-weight:500;font-size:.8rem;color:var(--muted)}
+.tinsel .stepper{display:flex;align-items:center;gap:10px;flex:none}
+.tinsel .stepbtn{width:44px;height:44px;min-width:44px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font-size:1.3rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tinsel .stepbtn:disabled{opacity:.4;cursor:not-allowed}
+.tinsel .stepbtn:hover:not(:disabled){background:rgba(127,127,127,.14)}
+.tinsel .stepval{min-width:2.6em;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* price summary */
+.tinsel .build-price{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.tinsel .pricelines{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
+.tinsel .pricelines li{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:.9rem}
+.tinsel .pl-text{display:flex;flex-direction:column;gap:1px}
+.tinsel .pl-label{font-weight:600}
+.tinsel .pl-detail{font-size:.78rem;color:var(--muted)}
+.tinsel .pl-amt{font-weight:700;white-space:nowrap}
+.tinsel .pl-discount .pl-amt{color:var(--price)}
+
+/* week picker */
+.tinsel .weekgrid{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0 6px}
+@media (min-width:480px){.tinsel .weekgrid{grid-template-columns:1fr 1fr}}
+.tinsel .weekchip{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:56px;padding:10px 14px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--ink);font:600 .9rem var(--sans);cursor:pointer;text-align:left}
+.tinsel .weekchip[aria-checked="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.tinsel[data-theme="dark"] .weekchip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+@media (prefers-color-scheme: dark){.tinsel:not([data-theme="light"]) .weekchip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}}
+.tinsel .weekchip:disabled{opacity:.45;cursor:not-allowed}
+.tinsel .weekchip-label{line-height:1.3}
+.tinsel .weekchip-spots{font-size:.78rem;font-weight:500;color:var(--muted)}
+.tinsel .weekchip[aria-checked="true"] .weekchip-spots{color:inherit;opacity:.85}
+.tinsel .weekchip-spots.low{color:var(--price);font-weight:700}
+.tinsel .weekchip[aria-checked="true"] .weekchip-spots.low{color:inherit}
+
+@media (min-width:960px){
+  .tinsel .build-grid{grid-template-columns:1fr 360px;gap:36px;align-items:start}
+  .tinsel .build-grid>.step{grid-column:1}
+  .tinsel .build-grid>.step:nth-child(1){grid-row:1}
+  .tinsel .build-grid>.step:nth-child(2){grid-row:2}
+  .tinsel .build-grid>.step:nth-child(3){grid-row:3}
+  .tinsel .build-grid>.step:nth-child(5){grid-row:4}
+  .tinsel .build-grid>.step:nth-child(6){grid-row:5}
+  .tinsel .build-grid>.step:nth-child(4){grid-column:2;grid-row:1/span 5;position:sticky;top:90px;align-self:start}
+  .tinsel .weekgrid{grid-template-columns:repeat(3,1fr)}
+}
+/* style tiles: the generic .opt span tile style must not hit the nested dot/label spans */
+.tinsel #build .opt span span{display:inline-flex;align-items:center;gap:4px;min-height:0;padding:0;border:0;border-radius:0;box-shadow:none;background:none;font-size:inherit}
+.tinsel #build .opt>span{flex-wrap:wrap}
+@media (max-width:420px){.tinsel #build .opts{grid-template-columns:1fr}}
+/* the reserve dialog is narrow: 2-up week chips */
+.tinsel dialog .weekgrid{grid-template-columns:1fr 1fr}

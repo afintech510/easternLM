@@ -117,13 +117,14 @@ Settings in `site_settings` table (admin-editable). 24 tests in `delivery.test.t
 Two GitHub Actions workflows in `.github/workflows/`. Both SSH into the VPS, `git pull` in `/opt/easternlm-web`, build Docker image on the VPS, and restart the container. No SCP — code lives on VPS via git. Env vars read from `/opt/easternlm-web/.env.local` on the VPS.
 
 ### Staging (`deploy-staging.yml`)
-- **Trigger:** Auto-deploys on push to `main` (also manual via workflow_dispatch)
+- **Status:** workflow is DISABLED in GitHub Actions and no staging container runs (nginx has a staging.easternlm.com block → `easternlm-staging:3000`, inert until one does)
+- **Trigger:** push to `main` / workflow_dispatch (when enabled)
 - **URL:** https://staging.easternlm.com
 - **Container:** `easternlm-staging` on port **3101**→3000
 - **Network:** `hosthampton_hampton_net`
 
 ### Production (`deploy-production.yml`)
-- **Trigger:** Manual only (Actions → "Deploy to Production" → type `deploy-production` to confirm)
+- **Trigger:** **Auto-deploys on every push to `main`** ("fleet policy"; also workflow_dispatch). A push to main IS a production release.
 - **URL:** https://easternlm.com
 - **Container:** `easternlm-prod` on port **3100**→3000
 - **Network:** `hosthampton_hampton_net`
@@ -214,10 +215,11 @@ The nightly cron runs `--fix` automatically. Log: `/var/log/charge-balance-recon
 
 ## Holiday Lights — Tinsel Time Long Island
 
-- Seasonal brand at `/holiday-lights` (own chrome; LayoutShell bypasses Eastern header/footer). Look is ported verbatim from `nimbalyst-local/designs/tinsel-time-tacky.html` into `src/app/holiday-lights/tinsel.css`, scoped under `.tinsel`. The Eastern "no tacky" design rules do NOT apply here.
+- Seasonal brand at `/holiday-lights` (own chrome; LayoutShell bypasses Eastern header/footer). Look is ported verbatim from `nimbalyst-local/designs/tinsel-time-v2.html` (v1: `tinsel-time-tacky.html`) into `src/app/holiday-lights/tinsel.css`, scoped under `.tinsel`. Light = red & green, dark = black & red; the light/dark toggle sets `data-theme`/`data-eff` on the `.tinsel` wrapper (saved in localStorage `tt-theme`). Fonts: Mountains of Christmas (h1), Bodoni Moda caps (h2/h3), Playpen Sans (body), Merriweather (UI). The Eastern "no tacky" design rules do NOT apply here. Sample/hero images live in `public/holiday-lights/` (gallery = AI concept renders; `galleryIsConcept` keeps the copy honest).
 - Config + rate card + content flags: `src/config/holiday-lights.ts` (null values are hidden, never ship bracketed placeholders).
 - AI Visualizer: upload → (Claude Haiku photo guard) → Replicate → watermark/blur → phone gate → lead (`source=holiday_lights_visualizer`, `service_type=christmas-lights`) → SMS link. Libs in `src/lib/holiday-lights/`, routes in `src/app/api/holiday-lights/`. Tables `holiday_light_designs`, `holiday_visualizer_generations`; private bucket `holiday-designs` (served via `/api/holiday-lights/image/[token]/[kind]`).
 - Guardrails: 10 uploads/IP/day, 5 generations/IP/day, 3/photo, 3 unlocks/phone/day, global daily cap, kill switch, honeypot. Also set a spend limit in Replicate billing.
+- Build & Book (`#build` on the landing page, `src/components/holiday-lights/build-and-book.tsx`): house style/stories/feet → style → extras → live price (`src/lib/holiday-lights/pricing.ts`, shared client+server, tested) → install week → $199 Stripe Checkout (card saved for the balance). `POST /api/holiday-lights/book` (also Quick Reserve with `build: null` from the reserve dialog), `GET /api/holiday-lights/weeks`. Weeks + capacity in `holiday_install_weeks` (75 spots); unpaid checkouts hold a spot 35 min. Stripe webhook branch `metadata.type = holiday_lights_deposit` → `handleHolidayDepositCompleted` (`src/lib/holiday-lights/bookings.ts`) reserves the seat (idempotent), texts the customer, emails staff. Success page `/holiday-lights/booked?t=`.
 - Model bake-off: `scripts/holiday-visualizer-bakeoff.ts` → `tmp/bakeoff/index.html`.
 - QR codes: `/lights?s=<sign-id>` → `/holiday-lights` with lawn-sign UTMs.
 

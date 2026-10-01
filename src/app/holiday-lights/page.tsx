@@ -5,15 +5,17 @@ import { faqSchema, serviceSchema } from "@/lib/seo/business";
 import { getGoogleReviews, type ReviewsData } from "@/lib/data/reviews";
 import { HOLIDAY_LIGHTS, isEarlyBirdActive } from "@/config/holiday-lights";
 import { HouseSvg } from "@/components/holiday-lights/house-svg";
+import { BuildAndBook } from "@/components/holiday-lights/build-and-book";
 import { CompareSlider } from "@/components/holiday-lights/compare-slider";
-import { CostEstimator } from "@/components/holiday-lights/cost-estimator";
 import { CtaButton } from "@/components/holiday-lights/cta-button";
 import { NavMenu, type NavLinkItem } from "@/components/holiday-lights/nav-menu";
 import { ReserveDialog } from "@/components/holiday-lights/reserve-dialog";
+import { Snowfall } from "@/components/holiday-lights/snowfall";
+import { seasonSpotsLeft } from "@/lib/holiday-lights/bookings";
 import { VisualizerCard } from "@/components/holiday-lights/visualizer-card";
 import { WaitlistForm } from "@/components/holiday-lights/waitlist-form";
 
-export const revalidate = 3600;
+export const revalidate = 300;
 
 const TITLE = "Christmas Light Installation on Long Island | Tinsel Time Long Island";
 const DESCRIPTION =
@@ -40,13 +42,12 @@ const RATE = $(P.rooflinePerFtCents);
 const MIN = $(P.minimumCents);
 const REINSTALL = $(P.reinstallPerFtCents);
 const DEPOSIT = $(P.depositCents);
-const EXAMPLE_CENTS = 120 * P.rooflinePerFtCents + 2 * P.wreathCents.in24;
 const TOWN_LIST = "Brookhaven, Riverhead, Southold and Southampton";
 
 const FAQS = [
   {
     question: "How much does Christmas light installation cost?",
-    answer: `Roofline lighting starts at ${RATE} per foot, installed, with an ${MIN} minimum project. Use the cost simulator for a range, or the designer for an exact price. NY sales tax applies.`,
+    answer: `Roofline lighting starts at ${RATE} per foot, installed, with an ${MIN} minimum project. Use the build & book tool below for your exact price. NY sales tax applies.`,
   },
   {
     question: "When should I book?",
@@ -89,7 +90,7 @@ export default async function HolidayLightsPage() {
   const rating = hasRating ? reviewsData!.rating.toFixed(1) : null;
   const reviews = pickReviews(reviewsData);
   const earlyBird = isEarlyBirdActive();
-  const spots = HOLIDAY_LIGHTS.spotsLeft;
+  const spots = HOLIDAY_LIGHTS.spotsLeft ?? (await seasonSpotsLeft());
   const showGallery = HOLIDAY_LIGHTS.gallery.length > 0;
   const { license, social } = HOLIDAY_LIGHTS;
   const socialLinks = (
@@ -152,9 +153,16 @@ export default async function HolidayLightsPage() {
 
       {/* HERO */}
       <section className="hero nv" id="top">
-        <div className="hero-bg" id="hero-bg" role="img" aria-label="A home at dusk with warm white C9 lights glowing along the roofline.">
-          <HouseSvg night style="warm" par="xMidYMid slice" />
+        <div
+          className="hero-bg"
+          id="hero-bg"
+          role="img"
+          aria-label="A Long Island colonial home at dusk with warm white lights along the roofline, wreath on the door and candy cane lights lining the walkway."
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/holiday-lights/hero.webp" alt="" width={1600} height={893} fetchPriority="high" decoding="async" />
         </div>
+        <Snowfall />
         <div className="wrap hero-in">
           <div className="hero-copy">
             <p className="chip">Serving Brookhaven, Riverhead, Southold &amp; Southampton</p>
@@ -228,12 +236,7 @@ export default async function HolidayLightsPage() {
                 </ul>
               </article>
             </div>
-            <CostEstimator>
-              <CtaButton act="design" className="btn btn-gold btn-block">Get my exact price</CtaButton>
-              <p className="fine">
-                Example: Ranch home, 120 ft roofline + 2 wreaths ≈ {$(EXAMPLE_CENTS)} before tax. The designer price is exact.
-              </p>
-            </CostEstimator>
+            <BuildAndBook />
           </div>
         </section>
 
@@ -269,16 +272,14 @@ export default async function HolidayLightsPage() {
             <div className="viz">
               <div>
                 <div id="viz-slider">
-                  {/* Real output of our visualizer (Classic Warm White) on a sample house photo. */}
                   <CompareSlider
                     label="Day photo and lit-up concept preview"
                     tagRight="Concept preview"
-                    ratio="1200 / 670"
-                    tagsTop
+                    ratio="1200 / 675"
                     // eslint-disable-next-line @next/next/no-img-element
-                    before={<img src="/holiday-lights/demo-before.webp" alt="" width={1200} height={670} loading="lazy" />}
+                    before={<img src="/holiday-lights/demo-before.webp" alt="" width={1200} height={675} loading="lazy" />}
                     // eslint-disable-next-line @next/next/no-img-element
-                    after={<img src="/holiday-lights/demo-after.webp" alt="" width={1200} height={670} loading="lazy" />}
+                    after={<img src="/holiday-lights/demo-after.webp" alt="" width={1200} height={675} loading="lazy" />}
                   />
                 </div>
                 <p className="fine">Concept preview only. Your exact price comes from the designer, and our team verifies everything before install.</p>
@@ -425,15 +426,20 @@ export default async function HolidayLightsPage() {
         {showGallery && (
           <section className="sec alt" id="gallery" aria-labelledby="gal-h">
             <div className="wrap">
-              <span className="eyebrow">Recent work</span>
-              <h2 id="gal-h">A peek at our installs.</h2>
-              <p className="lead">Drag each slider to see the transformation.</p>
-              <div className="gal" id="gal">
+              <span className="eyebrow">{HOLIDAY_LIGHTS.galleryIsConcept ? "Style ideas" : "Recent work"}</span>
+              <h2 id="gal-h">{HOLIDAY_LIGHTS.galleryIsConcept ? "A peek at the looks." : "A peek at our installs."}</h2>
+              <p className="lead">
+                {HOLIDAY_LIGHTS.galleryIsConcept
+                  ? "Concept renders of Long Island homes. Drag each slider to see the transformation."
+                  : "Drag each slider to see the transformation."}
+              </p>
+              <div className={HOLIDAY_LIGHTS.gallery.length % 2 === 0 ? "gal even" : "gal"} id="gal">
                 {HOLIDAY_LIGHTS.gallery.map((g) => (
                   <div key={g.after}>
                     <CompareSlider
                       label={g.label}
                       caption={g.caption}
+                      ratio="1000 / 558"
                       // eslint-disable-next-line @next/next/no-img-element
                       before={<img src={g.before} alt="" loading="lazy" />}
                       // eslint-disable-next-line @next/next/no-img-element

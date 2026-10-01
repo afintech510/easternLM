@@ -9,6 +9,7 @@ import { createProjectFromQuote } from "@/lib/projects/auto-create";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 import { sendSms } from "@/lib/sms";
+import { handleHolidayDepositCompleted } from "@/lib/holiday-lights/bookings";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type DeliveryScheduleEntry = {
@@ -520,6 +521,12 @@ async function handleStatementPaymentCompleted(session: Stripe.Checkout.Session)
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, stripe: Stripe) {
+  // Tinsel Time holiday-lights $199 deposits — fully separate from orders/quotes.
+  if (session.metadata?.type === "holiday_lights_deposit") {
+    await handleHolidayDepositCompleted(session, stripe);
+    return;
+  }
+
   // Route quote deposit payments separately
   if (session.metadata?.type === "quote_deposit") {
     await handleQuoteDepositCompleted(session);

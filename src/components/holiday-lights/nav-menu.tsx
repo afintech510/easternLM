@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { HOLIDAY_LIGHTS } from "@/config/holiday-lights";
 import { CtaButton } from "./cta-button";
+import { ThemeToggle } from "./theme-toggle";
 
 export type NavLinkItem = { href: string; label: string; spark?: boolean };
 
@@ -49,6 +50,7 @@ export function NavMenu({ links, homeHref = "#top" }: { links: NavLinkItem[]; ho
         </nav>
         <CtaButton act="call" className="phone">{HOLIDAY_LIGHTS.phoneDisplay}</CtaButton>
         <CtaButton act="design" className="btn btn-gold">Get exact price</CtaButton>
+        <ThemeToggle />
         <button
           type="button"
           className="burger"
