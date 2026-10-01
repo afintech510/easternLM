@@ -50,6 +50,10 @@ const TREE_SERVICES: ServiceOption[] = [
   { value: "storm-cleanup", label: "Storm damage cleanup", icon: "🌧️" },
 ];
 
+const HOLIDAY_SERVICES: ServiceOption[] = [
+  { value: "christmas-lights", label: "Christmas light installation", icon: "🎄" },
+];
+
 const OTHER_SERVICES: ServiceOption[] = [
   { value: "property-maintenance", label: "Property maintenance", icon: "🏡" },
   { value: "other", label: "Something else", icon: "💬" },
@@ -65,6 +69,7 @@ function getServicesForCategory(category?: string): ServiceOption[] {
     case "masonry": return [...MASONRY_SERVICES, ...OTHER_SERVICES];
     case "tree-care": return [...TREE_SERVICES, ...OTHER_SERVICES];
     case "maintenance": return OTHER_SERVICES;
+    case "holiday": return [...HOLIDAY_SERVICES, ...OTHER_SERVICES];
     default: return ALL_SERVICES;
   }
 }
@@ -80,7 +85,7 @@ const TIMELINE_OPTIONS = [
 
 type ServiceQuoteFormProps = {
   defaultServiceType?: string;
-  serviceCategory?: "driveways" | "paving" | "landscaping" | "masonry" | "tree-care" | "maintenance";
+  serviceCategory?: "driveways" | "paving" | "landscaping" | "masonry" | "tree-care" | "maintenance" | "holiday";
 };
 
 export function ServiceQuoteForm({ defaultServiceType, serviceCategory }: ServiceQuoteFormProps) {
@@ -98,7 +103,8 @@ export function ServiceQuoteForm({ defaultServiceType, serviceCategory }: Servic
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const services = getServicesForCategory(serviceCategory);
-  const selectedLabel = ALL_SERVICES.find((s) => s.value === serviceType)?.label || serviceType;
+  // Holiday options are only offered on the Tinsel Time quote page, never in the main-site picker.
+  const selectedLabel = [...ALL_SERVICES, ...HOLIDAY_SERVICES].find((s) => s.value === serviceType)?.label || serviceType;
 
   async function handleSubmit() {
     const digits = phone.replace(/\D/g, "");

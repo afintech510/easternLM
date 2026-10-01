@@ -150,6 +150,10 @@ All in `/opt/easternlm-web/.env.local` on VPS (gitignored locally):
 - RINGCENTRAL_JWT (for RingCentral SMS — primary SMS provider)
 - ANTHROPIC_API_KEY (for AI quote generation)
 - NEXT_PUBLIC_SITE_URL
+- REPLICATE_API_KEY (holiday-lights AI visualizer + product photo enhance)
+- HOLIDAY_VISUALIZER_MODEL (default `google/nano-banana-pro`, $0.15/image at 1K/2K; alt `black-forest-labs/flux-kontext-pro`), HOLIDAY_VISUALIZER_RESOLUTION (`1K` default, `2K`, `4K`=$0.30), HOLIDAY_VISUALIZER_DAILY_CAP (default 300, rolling 24h, DB-counted), HOLIDAY_VISUALIZER_ENABLED (`0` = kill switch), HOLIDAY_VISUALIZER_MOCK (`1` = no Replicate, tests/dev)
+- HOLIDAY_PHOTO_GUARD (`0` disables the Claude Haiku "is this a house?" upload check; needs ANTHROPIC_API_KEY), HOLIDAY_PHOTO_GUARD_MODEL
+- HOLIDAY_DEPOSIT_URL (optional $199 Stripe Payment Link for "Reserve my week"), TINSEL_HOSTS (vanity domain list, later), HOLIDAY_SITE_URL (origin for holiday SMS/share links; overrides NEXT_PUBLIC_SITE_URL), RATE_LIMIT_SALT
 - `NEXT_PUBLIC_` prefix = exposed to browser (Next.js bakes these into the JS bundle at build time, so they must be passed as `--build-arg`)
 
 ## SMS
@@ -207,6 +211,15 @@ The nightly cron runs `--fix` automatically. Log: `/var/log/charge-balance-recon
 3. Add nginx server block routing easternlm.com → port 3100
 4. Verify Resend sending domain (easternlm.com)
 5. Replace placeholder product images with real photography
+
+## Holiday Lights — Tinsel Time Long Island
+
+- Seasonal brand at `/holiday-lights` (own chrome; LayoutShell bypasses Eastern header/footer). Look is ported verbatim from `nimbalyst-local/designs/tinsel-time-tacky.html` into `src/app/holiday-lights/tinsel.css`, scoped under `.tinsel`. The Eastern "no tacky" design rules do NOT apply here.
+- Config + rate card + content flags: `src/config/holiday-lights.ts` (null values are hidden, never ship bracketed placeholders).
+- AI Visualizer: upload → (Claude Haiku photo guard) → Replicate → watermark/blur → phone gate → lead (`source=holiday_lights_visualizer`, `service_type=christmas-lights`) → SMS link. Libs in `src/lib/holiday-lights/`, routes in `src/app/api/holiday-lights/`. Tables `holiday_light_designs`, `holiday_visualizer_generations`; private bucket `holiday-designs` (served via `/api/holiday-lights/image/[token]/[kind]`).
+- Guardrails: 10 uploads/IP/day, 5 generations/IP/day, 3/photo, 3 unlocks/phone/day, global daily cap, kill switch, honeypot. Also set a spend limit in Replicate billing.
+- Model bake-off: `scripts/holiday-visualizer-bakeoff.ts` → `tmp/bakeoff/index.html`.
+- QR codes: `/lights?s=<sign-id>` → `/holiday-lights` with lawn-sign UTMs.
 
 ## Google Ads / Merchant API — hard rules
 

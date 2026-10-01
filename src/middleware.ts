@@ -35,6 +35,24 @@ function getLegacyRedirect(pathname: string): string | null {
   return null;
 }
 
+// ─── Tinsel Time Long Island vanity domain ─────────────────────────
+// TINSEL_HOSTS="tinseltimeli.com,www.tinseltimeli.com" (set once the domain is bought).
+// Redirect (not rewrite) so the client-side LayoutShell sees /holiday-lights and
+// skips the Eastern LM chrome.
+const TINSEL_HOSTS = (process.env.TINSEL_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+function getTinselHostPath(host: string | null, pathname: string): string | null {
+  if (!host || TINSEL_HOSTS.length === 0) return null;
+  if (!TINSEL_HOSTS.includes(host.toLowerCase().split(":")[0])) return null;
+  if (pathname === "/") return "/holiday-lights";
+  const share = pathname.match(/^\/v\/([A-Za-z0-9_-]{16,64})\/?$/);
+  if (share) return `/holiday-lights/visualize/${share[1]}`;
+  return null;
+}
+
 // Routes that don't require auth even within protected prefixes
 const YARD_PUBLIC = ["/yard/login", "/yard/unauthorized"];
 const ADMIN_PUBLIC = ["/admin/login", "/admin/unauthorized", "/api/admin/login"];
@@ -71,6 +89,13 @@ export async function middleware(request: NextRequest) {
       path: "/",
     });
     return redirectResponse;
+  }
+
+  const tinselPath = getTinselHostPath(request.headers.get("host"), pathname);
+  if (tinselPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = tinselPath;
+    return NextResponse.redirect(url, 307);
   }
 
   // Skip middleware auth for the auth callback — let the route handler manage the code exchange

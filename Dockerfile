@@ -24,6 +24,9 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 
+# Fonts for sharp/librsvg text (holiday-lights "Concept preview" watermark).
+RUN apk add --no-cache fontconfig ttf-dejavu
+
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

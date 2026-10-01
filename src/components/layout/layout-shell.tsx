@@ -10,8 +10,11 @@ export function LayoutShell({ children, footer }: { children: React.ReactNode; f
   const isPOS = pathname.startsWith("/pos") || pathname.startsWith("/yard");
   const isQuote = pathname.startsWith("/quote/") || pathname.startsWith("/q/");
   const isBulkApp = pathname.startsWith("/app");
+  // Tinsel Time Long Island (seasonal brand) renders its own chrome.
+  const isHolidayLights =
+    pathname === "/holiday-lights" || pathname.startsWith("/holiday-lights/") || pathname === "/lights";
 
-  if (isPOS || isQuote || isBulkApp) return <>{children}</>;
+  if (isPOS || isQuote || isBulkApp || isHolidayLights) return <>{children}</>;
 
   return (
     <div className="flex min-h-screen flex-col">

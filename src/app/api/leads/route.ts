@@ -31,6 +31,7 @@ const SERVICE_TYPES = [
   "land-clearing",
   "storm-cleanup",
   "property-maintenance",
+  "christmas-lights",
   "other",
 ];
 
@@ -176,6 +177,7 @@ const SERVICE_LABELS: Record<string, string> = {
   "land-clearing": "Land / Lot Clearing",
   "storm-cleanup": "Storm Damage Cleanup",
   "property-maintenance": "Property Maintenance",
+  "christmas-lights": "Christmas Light Installation (Tinsel Time)",
   "other": "Other",
 };
 

@@ -45,6 +45,18 @@ export function trackPurchase(orderId: string, valueCents: number, items: Array<
   });
 }
 
+/** Custom GA4 event (e.g. the holiday-lights funnel: lights_visualizer_start, …). */
+export function trackEvent(name: string, params: Record<string, unknown> = {}) {
+  gtag("event", name, params);
+}
+
+/** Meta Pixel standard event — no-op until the pixel is loaded. */
+export function trackMetaEvent(name: string, params: Record<string, unknown> = {}) {
+  if (typeof window !== "undefined" && window.fbq) {
+    window.fbq("track", name, params);
+  }
+}
+
 export function trackGenerateLead(formName: string) {
   gtag("event", "generate_lead", {
     currency: "USD",

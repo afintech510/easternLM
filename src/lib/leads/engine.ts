@@ -35,6 +35,7 @@ export async function createServiceLead(input: {
   property_type?: string;
   estimated_value_cents?: number;
   photo_urls?: string[];
+  metadata?: Record<string, unknown>;
   created_by?: string;
 }): Promise<any> {
   const supabase = getSupabaseAdminClient() as any;
@@ -80,6 +81,7 @@ export async function createServiceLead(input: {
       property_type: input.property_type ?? null,
       estimated_value_cents: input.estimated_value_cents ?? null,
       photo_urls: input.photo_urls ?? [],
+      ...(input.metadata ? { metadata: input.metadata } : {}),
       status: "new",
     })
     .select("*")

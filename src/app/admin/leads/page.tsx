@@ -46,6 +46,11 @@ const STATUS_CFG: Record<string, { label: string; color: string }> = {
   lost: { label: "Lost", color: "bg-red-100 text-red-700" },
 };
 
+/** Tinsel Time leads: visualizer, waitlist, reserve requests and the quote form. */
+function isHolidayLead(l: Lead) {
+  return (l.source ?? "").startsWith("holiday_lights") || l.service_type === "christmas-lights";
+}
+
 const PRIORITY_DOT: Record<string, string> = {
   urgent: "bg-red-500", high: "bg-amber-500", normal: "bg-zinc-400", low: "bg-zinc-300",
 };
@@ -56,6 +61,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [holidayOnly, setHolidayOnly] = useState(false);
   const [view, setView] = useState<"board" | "list">("board");
   const [showCreate, setShowCreate] = useState(false);
 
@@ -99,9 +105,10 @@ export default function LeadsPage() {
     loadLeads();
   }
 
+  const bySource = holidayOnly ? leads.filter(isHolidayLead) : leads;
   const filtered = search
-    ? leads.filter((l) => l.name.toLowerCase().includes(search.toLowerCase()) || l.phone.includes(search) || (l.town ?? "").toLowerCase().includes(search.toLowerCase()))
-    : leads;
+    ? bySource.filter((l) => l.name.toLowerCase().includes(search.toLowerCase()) || l.phone.includes(search) || (l.town ?? "").toLowerCase().includes(search.toLowerCase()))
+    : bySource;
 
   return (
     <div className="space-y-6">
@@ -135,10 +142,20 @@ export default function LeadsPage() {
         })}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads…" className="pl-9" />
+      {/* Search + source filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search leads…" className="pl-9" />
+        </div>
+        <button
+          type="button"
+          onClick={() => setHolidayOnly((v) => !v)}
+          aria-pressed={holidayOnly}
+          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${holidayOnly ? "border-accent bg-accent/10 text-accent" : "text-muted-foreground hover:border-muted-foreground/30"}`}
+        >
+          🎄 Holiday lights ({leads.filter(isHolidayLead).length})
+        </button>
       </div>
 
       {/* Create lead form */}
@@ -153,6 +170,7 @@ export default function LeadsPage() {
               <option value="landscaping">Landscaping</option>
               <option value="masonry">Masonry</option>
               <option value="property-maintenance">Property Maintenance</option>
+              <option value="christmas-lights">Christmas Lights</option>
               <option value="other">Other</option>
             </select>
           </div>

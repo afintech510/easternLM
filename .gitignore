@@ -71,3 +71,6 @@ blob-report/
 *.pem
 .claude/settings.local.json
 .claude/mcp.json
+
+# scratch output (visual checks, visualizer bakeoff)
+/tmp/
