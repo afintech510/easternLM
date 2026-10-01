@@ -54,7 +54,7 @@ export function CostEstimatorChips({ value, onChange }: { value: HomeStyle; onCh
 }
 
 /** The cost simulator card body: chips on the left, live range on the right. */
-export function CostEstimator({ children }: { children?: React.ReactNode }) {
+export function CostEstimator({ children, bookHref }: { children?: React.ReactNode; bookHref?: string }) {
   const [cur, setCur] = useState<HomeStyle>("ranch");
   const r = estimateRange(cur);
 
@@ -78,6 +78,11 @@ export function CostEstimator({ children }: { children?: React.ReactNode }) {
         <span className="est-note" id="est-note">
           Roofline, installed. About {r.ftLo}–{r.ftHi} ft. The lights are yours.
         </span>
+        {bookHref && (
+          <a className="btn btn-gold btn-block" href={`${bookHref}?home=${cur}`}>
+            Get my exact price
+          </a>
+        )}
         {children}
       </div>
     </div>

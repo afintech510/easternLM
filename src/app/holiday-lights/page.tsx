@@ -5,7 +5,7 @@ import { faqSchema, serviceSchema } from "@/lib/seo/business";
 import { getGoogleReviews, type ReviewsData } from "@/lib/data/reviews";
 import { HOLIDAY_LIGHTS, isEarlyBirdActive } from "@/config/holiday-lights";
 import { HouseSvg } from "@/components/holiday-lights/house-svg";
-import { BuildAndBook } from "@/components/holiday-lights/build-and-book";
+import { CostEstimator } from "@/components/holiday-lights/cost-estimator";
 import { CompareSlider } from "@/components/holiday-lights/compare-slider";
 import { CtaButton } from "@/components/holiday-lights/cta-button";
 import { NavMenu, type NavLinkItem } from "@/components/holiday-lights/nav-menu";
@@ -37,11 +37,13 @@ export const metadata: Metadata = {
 };
 
 const P = HOLIDAY_LIGHTS.pricing;
-const $ = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+const $ = (cents: number) =>
+  `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const RATE = $(P.rooflinePerFtCents);
 const MIN = $(P.minimumCents);
 const REINSTALL = $(P.reinstallPerFtCents);
 const DEPOSIT = $(P.depositCents);
+const EXAMPLE_CENTS = 120 * P.rooflinePerFtCents + 2 * P.wreathCents.in24;
 const TOWN_LIST = "Brookhaven, Riverhead, Southold and Southampton";
 
 const FAQS = [
@@ -236,7 +238,11 @@ export default async function HolidayLightsPage() {
                 </ul>
               </article>
             </div>
-            <BuildAndBook />
+            <CostEstimator bookHref={`${HOLIDAY_LIGHTS.path}/book`}>
+              <p className="fine">
+                Example: Ranch home, 120 ft roofline + 2 wreaths ≈ {$(EXAMPLE_CENTS)} before tax. Build yours for an exact price.
+              </p>
+            </CostEstimator>
           </div>
         </section>
 

@@ -185,7 +185,7 @@ export async function POST(request: Request) {
       metadata: { type: "holiday_lights_deposit", design_id: id, week_id: week.id, lead_id: leadId ?? "" },
       client_reference_id: id,
       success_url: `${origin}${HOLIDAY_LIGHTS.path}/booked?t=${token}`,
-      cancel_url: `${origin}${HOLIDAY_LIGHTS.path}?canceled=1#build`,
+      cancel_url: `${origin}${HOLIDAY_LIGHTS.path}/book?canceled=1`,
       expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     });
     await supabase.from("holiday_light_designs").update({ stripe_checkout_session_id: session.id }).eq("id", id);

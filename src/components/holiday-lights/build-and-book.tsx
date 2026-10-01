@@ -7,6 +7,7 @@ import {
   DEFAULT_STORIES,
   LIMITS,
   defaultBuild,
+  normalizeBuild,
   presetFeet,
   priceBuild,
   UNIT_PRICES,
@@ -27,7 +28,7 @@ const FIELD_ORDER: ErrorKey[] = ["week", "name", "phone", "address", "zip", "con
 /** .input is hard-coded white (it's shared with the always-white .vcard); outside the vcard, override to the themed surface/ink so fields track light/dark mode. */
 const fieldStyle = { background: "var(--surface)", color: "var(--ink)" };
 
-/** Unit prices for the extras steppers, derived from priceBuild itself (never hard-coded) via a 1-unit probe. */
+/** Unit prices for the extras steppers (same numbers priceBuild uses). */
 const UNIT = UNIT_PRICES;
 
 function clamp(n: number, min: number, max: number): number {
@@ -106,9 +107,15 @@ function Stepper({
   );
 }
 
-/** One-card "Build & Book": live price build on the left/top, sticky price summary, install week, and booking form. */
-export function BuildAndBook() {
-  const [build, setBuild] = useState<BuildInput>(() => defaultBuild("ranch"));
+const STORE_KEY = "tt-build";
+
+/**
+ * One-card "Build & Book": live price build on the left/top, sticky price summary,
+ * install week, and booking form. The design is kept in sessionStorage so backing
+ * out of Stripe Checkout (or a refresh) doesn't lose it.
+ */
+export function BuildAndBook({ initialHome, restore = true }: { initialHome?: HomeStyle; restore?: boolean }) {
+  const [build, setBuild] = useState<BuildInput>(() => defaultBuild(initialHome ?? "ranch"));
   const [footageText, setFootageText] = useState(String(build.rooflineFt));
   const earlyBird = useMemo(() => isEarlyBirdActive(), []);
   const breakdown = useMemo(() => priceBuild(build, { earlyBird }), [build, earlyBird]);
@@ -127,6 +134,34 @@ export function BuildAndBook() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [outOfArea, setOutOfArea] = useState(false);
+
+  // Restore a saved design (client-only, after hydration), then keep it saved.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restore) {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) ?? "null");
+        if (saved?.build) {
+          const b = normalizeBuild(saved.build);
+          setBuild(b);
+          setFootageText(String(b.rooflineFt));
+          if (typeof saved.weekId === "string") setWeekId(saved.weekId);
+        }
+      } catch {
+        /* ignore bad storage */
+      }
+    }
+    restored.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ build, weekId }));
+    } catch {
+      /* private mode */
+    }
+  }, [build, weekId]);
 
   const interacted = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);

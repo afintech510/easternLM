@@ -80,7 +80,7 @@ export default async function BookedPage({ searchParams }: { searchParams: Promi
 
           {(!booking || (!reserved && !pending)) && (
             <p className="lead" style={{ marginTop: 16 }}>
-              <a href={`${HOLIDAY_LIGHTS.path}#build`} style={{ textDecoration: "underline" }}>Build &amp; book again</a> or call us at{" "}
+              <a href={`${HOLIDAY_LIGHTS.path}/book`} style={{ textDecoration: "underline" }}>Build &amp; book again</a> or call us at{" "}
               <a href={`tel:${HOLIDAY_LIGHTS.phoneTel}`}>{HOLIDAY_LIGHTS.phoneDisplay}</a>.
             </p>
           )}

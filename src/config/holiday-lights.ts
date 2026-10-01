@@ -74,8 +74,8 @@ export const HOLIDAY_LIGHTS = {
     split: { label: "Split-level", short: "Split", ft: [130, 190] },
   },
 
-  /** Online designer (Slice 3). Until it exists, "Get my exact price" goes to the quote form. */
-  designerUrl: null as string | null,
+  /** "Get my exact price" → the Build & Book page (photo designer comes later, Slice 3). */
+  designerUrl: "/holiday-lights/book" as string | null,
   quoteUrl: "/holiday-lights/quote",
 
   // Content flags — sections stay hidden until real content exists.

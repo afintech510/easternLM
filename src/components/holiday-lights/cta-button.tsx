@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HOLIDAY_LIGHTS } from "@/config/holiday-lights";
+import { HOLIDAY_LIGHTS, getDesignUrl } from "@/config/holiday-lights";
 import { trackEvent } from "@/lib/bulk-analytics";
 import { openReserve } from "./events";
 
@@ -29,7 +29,7 @@ export function runCta(act: CtaAction) {
       if (scrollToId("build")) {
         setTimeout(() => document.querySelector<HTMLElement>("#build .chipb")?.focus({ preventScroll: true }), 550);
       } else {
-        window.location.href = `${HOLIDAY_LIGHTS.path}#build`;
+        window.location.href = getDesignUrl();
       }
       break;
     case "reserve":
