@@ -18,6 +18,7 @@ import { trackBeginCheckout, trackEvent, trackGenerateLead } from "@/lib/bulk-an
 import { CostEstimatorChips } from "./cost-estimator";
 import { getUtm } from "./events";
 import { PhoneInput, phoneDigits } from "./phone-input";
+import { clamp, Stepper } from "./stepper";
 import { useInstallWeeks, WeekPicker } from "./week-picker";
 
 type ErrorKey = "week" | "name" | "phone" | "address" | "zip" | "consent";
@@ -31,11 +32,6 @@ const fieldStyle = { background: "var(--surface)", color: "var(--ink)" };
 /** Unit prices for the extras steppers (same numbers priceBuild uses). */
 const UNIT = UNIT_PRICES;
 
-function clamp(n: number, min: number, max: number): number {
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, Math.round(n)));
-}
-
 /** cents → "$1,234.56", dropping ".00" for whole dollars. */
 function fmtUsd(cents: number): string {
   const hasCents = Math.round(Math.abs(cents)) % 100 !== 0;
@@ -47,66 +43,6 @@ function fmtUsd(cents: number): string {
   });
 }
 
-function Stepper({
-  id,
-  label,
-  priceLabel,
-  unitSuffix,
-  value,
-  min,
-  max,
-  step = 1,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  priceLabel?: string;
-  unitSuffix?: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="stepper-row">
-      <span className="stepper-label" id={`${id}-label`}>
-        {label}
-        {priceLabel && (
-          <span className="stepper-price">
-            {priceLabel}
-            {unitSuffix ? `/${unitSuffix}` : ""}
-          </span>
-        )}
-      </span>
-      <div className="stepper">
-        <button
-          type="button"
-          className="stepbtn"
-          aria-label={`Decrease ${label}`}
-          onClick={() => onChange(clamp(value - step, min, max))}
-          disabled={value <= min}
-        >
-          −
-        </button>
-        <span className="stepval" aria-live="polite" aria-labelledby={`${id}-label`}>
-          {value}
-          {unitSuffix ? ` ${unitSuffix}` : ""}
-        </span>
-        <button
-          type="button"
-          className="stepbtn"
-          aria-label={`Increase ${label}`}
-          onClick={() => onChange(clamp(value + step, min, max))}
-          disabled={value >= max}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
-
 const STORE_KEY = "tt-build";
 
 /**
@@ -114,8 +50,17 @@ const STORE_KEY = "tt-build";
  * install week, and booking form. The design is kept in sessionStorage so backing
  * out of Stripe Checkout (or a refresh) doesn't lose it.
  */
-export function BuildAndBook({ initialHome, restore = true }: { initialHome?: HomeStyle; restore?: boolean }) {
-  const [build, setBuild] = useState<BuildInput>(() => defaultBuild(initialHome ?? "ranch"));
+export function BuildAndBook({
+  initialHome,
+  initialBuild,
+  restore = true,
+}: {
+  initialHome?: HomeStyle;
+  /** Start from this build (e.g. the style + extras from an AI preview). */
+  initialBuild?: BuildInput;
+  restore?: boolean;
+}) {
+  const [build, setBuild] = useState<BuildInput>(() => (initialBuild ? normalizeBuild(initialBuild) : defaultBuild(initialHome ?? "ranch")));
   const [footageText, setFootageText] = useState(String(build.rooflineFt));
   const earlyBird = useMemo(() => isEarlyBirdActive(), []);
   const breakdown = useMemo(() => priceBuild(build, { earlyBird }), [build, earlyBird]);
@@ -424,9 +369,7 @@ export function BuildAndBook({ initialHome, restore = true }: { initialHome?: Ho
 
           <label className="consent xrow">
             <input type="checkbox" checked={build.extras.takedown} onChange={(e) => updateExtra("takedown", e.target.checked)} />
-            <span>
-              Takedown + labeled storage <b className="stepper-price">{fmtUsd(UNIT.takedownFt)}/ft</b>
-            </span>
+            <span>Takedown + labeled storage</span>
           </label>
 
           <fieldset className="xgroup">
@@ -445,9 +388,9 @@ export function BuildAndBook({ initialHome, restore = true }: { initialHome?: Ho
 
           <fieldset className="xgroup">
             <legend>Trees, windows &amp; garland</legend>
-            <Stepper id="treeFt" label="Tree trunk wrap" unitSuffix="ft" priceLabel={fmtUsd(UNIT.treeFt)} value={build.extras.treeFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("treeFt", n)} />
-            <Stepper id="windowFt" label="Window &amp; door outlines" unitSuffix="ft" priceLabel={fmtUsd(UNIT.windowFt)} value={build.extras.windowFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("windowFt", n)} />
-            <Stepper id="garlandFt" label="Lit garland" unitSuffix="ft" priceLabel={fmtUsd(UNIT.garlandFt)} value={build.extras.garlandFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("garlandFt", n)} />
+            <Stepper id="treeFt" label="Tree trunk wrap" unitSuffix="ft" value={build.extras.treeFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("treeFt", n)} />
+            <Stepper id="windowFt" label="Window & door outlines" unitSuffix="ft" value={build.extras.windowFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("windowFt", n)} />
+            <Stepper id="garlandFt" label="Lit garland" unitSuffix="ft" value={build.extras.garlandFt} min={LIMITS.feet.min} max={LIMITS.feet.max} step={5} onChange={(n) => updateExtra("garlandFt", n)} />
           </fieldset>
 
           <fieldset className="xgroup">
@@ -499,7 +442,7 @@ export function BuildAndBook({ initialHome, restore = true }: { initialHome?: Ho
             <div className="est-range">{fmtUsd(breakdown.totalCents)}</div>
             <p className="fine">Due today: {fmtUsd(breakdown.depositCents)} deposit (credited to your job)</p>
             <p className="fine">Balance after install: {fmtUsd(breakdown.balanceCents)}</p>
-            <p className="fine">No credit card fees. Our team verifies footage before your price is locked.</p>
+            <p className="fine">Our team verifies footage before your price is locked.</p>
           </div>
         </div>
 

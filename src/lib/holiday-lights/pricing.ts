@@ -150,7 +150,9 @@ export function priceBuild(build: BuildInput, opts: { earlyBird: boolean }): Pri
   const lines: PriceLine[] = [];
   const add = (key: string, label: string, qty: number, unitCents: number, unitLabel: string) => {
     if (qty <= 0) return;
-    lines.push({ key, label, detail: `${qty} ${unitLabel} × ${usd(unitCents)}`, cents: qty * unitCents });
+    // Footage lines show the length only; we don't advertise a per-foot rate.
+    const detail = unitLabel.endsWith("ft") ? `${qty} ${unitLabel}` : `${qty} ${unitLabel} × ${usd(unitCents)}`;
+    lines.push({ key, label, detail, cents: qty * unitCents });
   };
 
   const roofRate = rooflineRateCents(b.stories);

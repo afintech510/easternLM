@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { HOLIDAY_LIGHTS } from "@/config/holiday-lights";
-import { getDesignByToken, imageUrl } from "@/lib/holiday-lights/designs";
+import { bookPageUrl, getDesignByToken, imageUrl } from "@/lib/holiday-lights/designs";
 import { CompareSlider } from "@/components/holiday-lights/compare-slider";
 import { CtaButton } from "@/components/holiday-lights/cta-button";
 import { SubPageShell } from "@/components/holiday-lights/sub-page-shell";
@@ -70,7 +70,7 @@ export default async function VisualizerResultPage({ params }: Props) {
             <p className="lead">This preview isn&apos;t ready yet. Give it a minute and refresh, or make your own below.</p>
           )}
           <div className="acts" style={{ display: "grid", gap: 12, marginTop: 22, maxWidth: 520 }}>
-            <CtaButton act="design" className="btn btn-gold">Make it real: get my exact price</CtaButton>
+            <a className="btn btn-gold" href={bookPageUrl(design.token)}>Make it real: price this look &amp; book it</a>
             <CtaButton act="reserve" className="btn btn-line">Reserve my week (${HOLIDAY_LIGHTS.pricing.depositCents / 100})</CtaButton>
             <a className="btn btn-line" href={`${HOLIDAY_LIGHTS.path}#visualizer`}>See your own house lit up, free</a>
           </div>

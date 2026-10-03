@@ -11,7 +11,7 @@ import {
   toPublicStatus,
   updateDesign,
 } from "@/lib/holiday-lights/designs";
-import { STYLE_LABELS } from "@/lib/holiday-lights/visualize";
+import { STYLE_LABELS, summarizeExtras } from "@/lib/holiday-lights/visualize";
 
 export const runtime = "nodejs";
 
@@ -63,7 +63,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     );
   }
   const gclid = design.gclid ?? (await cookies()).get("elm_gclid")?.value ?? null;
-  const styleLabel = design.visualizer_style ? STYLE_LABELS[design.visualizer_style] : null;
+  const styleLabel = design.visualizer_style ? (STYLE_LABELS[design.visualizer_style] ?? design.visualizer_style) : null;
+  const extrasText = summarizeExtras(design.build?.extras as Parameters<typeof summarizeExtras>[0]);
 
   // Lead: reuse a recent holiday-lights lead for this phone, otherwise create one.
   let leadId: string | null = null;
@@ -92,7 +93,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         service_type: "christmas-lights",
         source: "holiday_lights_visualizer",
         source_detail: design.visualizer_style ?? undefined,
-        description: `${HOLIDAY_LIGHTS.brand} AI visualizer${styleLabel ? ` — ${styleLabel}` : ""}`,
+        description: `${HOLIDAY_LIGHTS.brand} AI visualizer${styleLabel ? ` — ${styleLabel}` : ""}${extrasText ? `; ${extrasText}` : ""}`,
         metadata: { holiday_design_token: token, utm: design.utm ?? {}, gclid },
       });
       leadId = lead.id;

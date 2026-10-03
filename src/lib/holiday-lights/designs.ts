@@ -10,7 +10,9 @@ import {
   getPrediction,
   getVisualizerModel,
   startPrediction,
+  summarizeExtras,
   type FinalizeIO,
+  type VisualizerOptions,
   type VisualizerStyle,
 } from "./visualize";
 
@@ -38,6 +40,8 @@ export type HolidayDesign = {
   image_height: number | null;
   photo_check: Record<string, unknown> | null;
   visualizer_style: VisualizerStyle | null;
+  /** Visualizer rows: the last-rendered {style, extras}. Build & Book rows: a full BuildInput. */
+  build: Record<string, unknown> | null;
   replicate_prediction_id: string | null;
   visualizer_status: VisualizerStatus;
   visualizer_error: string | null;
@@ -133,6 +137,13 @@ export function resultPageUrl(token: string) {
   return `${getSiteOrigin()}${HOLIDAY_LIGHTS.path}/visualize/${token}`;
 }
 
+/** Build & Book, prefilled with this preview's style + extras. */
+export function bookPageUrl(token: string, absolute = false) {
+  const base = getDesignUrl();
+  const path = HOLIDAY_LIGHTS.designerUrl ? `${base}?design=${encodeURIComponent(token)}` : base;
+  return absolute && path.startsWith("/") ? `${getSiteOrigin()}${path}` : path;
+}
+
 export function toPublicStatus(d: HolidayDesign) {
   const unlocked = !!d.unlocked_at;
   const ready = d.visualizer_status === "ready" && !!d.visualizer_image_path;
@@ -148,6 +159,7 @@ export function toPublicStatus(d: HolidayDesign) {
     height: d.image_height,
     canRestyle: d.generation_count < MAX_GENERATIONS_PER_DESIGN,
     shareUrl: resultPageUrl(d.token),
+    bookUrl: bookPageUrl(d.token),
   };
 }
 
@@ -187,7 +199,7 @@ async function countRecentGenerations(ipHash?: string): Promise<number> {
  * Guardrails, cheapest first: kill switch → 3 per design → 5 per IP per day
  * (memory, then DB) → global daily cap (memory, then DB, rolling 24h).
  */
-export async function startVisualization(design: HolidayDesign, style: VisualizerStyle, ipHash: string): Promise<StartResult> {
+export async function startVisualization(design: HolidayDesign, options: VisualizerOptions, ipHash: string): Promise<StartResult> {
   if (!isVisualizerEnabled()) return { ok: false, status: 503, error: VISUALIZER_PAUSED_MESSAGE };
   if (!design.image_path) return { ok: false, status: 400, error: "Upload a photo first." };
   if (design.visualizer_status === "generating" || design.visualizer_status === "finalizing") {
@@ -216,16 +228,17 @@ export async function startVisualization(design: HolidayDesign, style: Visualize
 
   try {
     const url = await signedUrl(design.image_path, 3600);
-    const prediction = await startPrediction(url, style);
+    const prediction = await startPrediction(url, options);
     await db()
       .from("holiday_visualizer_generations")
-      .insert({ design_id: design.id, style, model: getVisualizerModel(), prediction_id: prediction.id, ip_hash: ipHash })
+      .insert({ design_id: design.id, style: options.style, model: getVisualizerModel(), prediction_id: prediction.id, ip_hash: ipHash })
       .then(
         () => undefined,
         (e: unknown) => console.warn("[holiday-lights] generation log failed:", e),
       );
     const updated = await updateDesign(design.id, {
-      visualizer_style: style,
+      visualizer_style: options.style,
+      build: options,
       replicate_prediction_id: prediction.id,
       visualizer_status: "generating",
       visualizer_error: null,
@@ -294,8 +307,7 @@ export async function refreshVisualization(design: HolidayDesign): Promise<Holid
 // ─── Delivery (SMS + staff email) ─────────────────────────────────────
 
 export function resultSmsBody(d: Pick<HolidayDesign, "token" | "name">) {
-  const designLink = getDesignUrl().startsWith("http") ? getDesignUrl() : `${getSiteOrigin()}${getDesignUrl()}`;
-  return `${HOLIDAY_LIGHTS.shortBrand}: Here's your house lit up 🎄 ${resultPageUrl(d.token)}\n\nGet your exact price: ${designLink}\n\nReply STOP to opt out.`;
+  return `${HOLIDAY_LIGHTS.shortBrand}: Here's your house lit up 🎄 ${resultPageUrl(d.token)}\n\nGet your exact price: ${bookPageUrl(d.token, true)}\n\nReply STOP to opt out.`;
 }
 
 /** Once the image is ready AND unlocked: text the link (once) and email staff (new leads only). */
@@ -334,7 +346,8 @@ export async function deliverResultOnce(design: HolidayDesign): Promise<HolidayD
 async function sendStaffEmail(d: HolidayDesign) {
   const phone = d.phone ?? "";
   const phoneFmt = formatPhone(phone);
-  const style = d.visualizer_style ? STYLE_LABELS[d.visualizer_style] : "—";
+  const style = d.visualizer_style ? (STYLE_LABELS[d.visualizer_style] ?? d.visualizer_style) : "—";
+  const extras = summarizeExtras(d.build?.extras as Parameters<typeof summarizeExtras>[0]) || "None";
   const utm = Object.entries(d.utm ?? {})
     .map(([k, v]) => `${escapeHtml(k)}=${escapeHtml(v)}`)
     .join(", ");
@@ -346,6 +359,7 @@ async function sendStaffEmail(d: HolidayDesign) {
         <tr><td style="padding:6px 12px;color:#666;">Name</td><td style="padding:6px 12px;font-weight:600;">${escapeHtml(d.name ?? "")}</td></tr>
         <tr><td style="padding:6px 12px;color:#666;">Phone</td><td style="padding:6px 12px;font-weight:600;"><a href="tel:+1${phone}">${phoneFmt}</a></td></tr>
         <tr><td style="padding:6px 12px;color:#666;">Style</td><td style="padding:6px 12px;">${escapeHtml(style)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#666;">Extras</td><td style="padding:6px 12px;">${escapeHtml(extras)}</td></tr>
         <tr><td style="padding:6px 12px;color:#666;">Source</td><td style="padding:6px 12px;">${utm || "direct"}${d.gclid ? " · Google Ads click" : ""}</td></tr>
       </table>
       <p><a href="${resultPageUrl(d.token)}">Open their concept preview</a></p>

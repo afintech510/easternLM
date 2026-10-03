@@ -36,8 +36,8 @@ export function GET() {
           ))}
         </div>
         <div style={{ fontSize: 84, fontWeight: 800, lineHeight: 1.05 }}>Tinsel Time Long Island</div>
-        <div style={{ fontSize: 44, marginTop: 20, color: "#ffffff" }}>Christmas lights, installed and yours to keep.</div>
-        <div style={{ fontSize: 32, marginTop: 24, color: "#fffaf0" }}>From $9/ft installed · See your own house lit up, free.</div>
+        <div style={{ fontSize: 44, marginTop: 20, color: "#ffffff" }}>Christmas lights, professionally designed and installed.</div>
+        <div style={{ fontSize: 32, marginTop: 24, color: "#fffaf0" }}>See your own house lit up, free.</div>
       </div>
     ),
     { width: 1200, height: 630 },

@@ -1,51 +1,161 @@
 import sharp from "sharp";
+import { BUILD_STYLES, normalizeBuild, type BuildInput } from "./pricing";
 
 /**
  * AI Visualizer: turn a customer's daytime house photo into a "your house lit up"
  * concept image via a Replicate image-editing model, then watermark it and make a
  * blurred teaser copy. Uses the raw-fetch Replicate pattern from image-processing.ts.
  *
+ * Styles and extras are the same ones Build & Book prices, so a preview carries
+ * straight over to /holiday-lights/book?design=<token>.
+ *
  * HOLIDAY_VISUALIZER_MOCK=1 skips Replicate and fakes a night render from the
  * original photo (tests + local dev).
  */
 
-export const STYLE_KEYS = ["warm", "multi", "candy", "elegant"] as const;
-export type VisualizerStyle = (typeof STYLE_KEYS)[number];
+export const STYLE_KEYS = BUILD_STYLES.map((s) => s.key);
+export type VisualizerStyle = (typeof BUILD_STYLES)[number]["key"];
 
-export const STYLE_LABELS: Record<VisualizerStyle, string> = {
-  warm: "Classic Warm White",
-  multi: "Multicolor",
-  candy: "Candy Cane",
-  elegant: "Elegant White + Wreaths",
-};
+export const STYLE_LABELS = Object.fromEntries(BUILD_STYLES.map((s) => [s.key, s.label])) as Record<VisualizerStyle, string>;
 
 export function isVisualizerStyle(v: unknown): v is VisualizerStyle {
   return typeof v === "string" && (STYLE_KEYS as readonly string[]).includes(v);
+}
+
+/** Takedown isn't visible in a photo, so the visualizer uses every other extra. */
+export type VisualizerExtras = Omit<BuildInput["extras"], "takedown">;
+export type VisualizerOptions = { style: VisualizerStyle; extras: VisualizerExtras };
+
+export const NO_EXTRAS: VisualizerExtras = {
+  wreath24: 0,
+  wreath36: 0,
+  wreath48: 0,
+  bushS: 0,
+  bushM: 0,
+  bushL: 0,
+  treeFt: 0,
+  windowFt: 0,
+  garlandFt: 0,
+  stakes: 0,
+};
+
+/** Coerce untrusted input (request body) into options; null when the style is missing/unknown. */
+export function parseVisualizerOptions(raw: { style?: unknown; extras?: unknown } | null | undefined): VisualizerOptions | null {
+  if (!raw || !isVisualizerStyle(raw.style)) return null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { takedown, ...extras } = normalizeBuild({ extras: raw.extras }).extras;
+  return { style: raw.style, extras };
 }
 
 /** Style-specific part of the prompt. */
 export const STYLE_PROMPTS: Record<VisualizerStyle, string> = {
   warm:
     "Classic Warm White: warm white (2700K) LED C9 bulbs in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak.",
+  cool:
+    "Cool White: crisp cool white (5000K, slightly blue-white) LED C9 bulbs in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak.",
   multi:
     "Multicolor: classic multicolor LED C9 bulbs repeating red, orange, green, blue and yellow in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak.",
   candy:
     "Candy Cane: LED C9 bulbs alternating red and white in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak.",
+  christmas:
+    "Red & Green: LED C9 bulbs alternating red and green in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak.",
   elegant:
-    "Elegant White + Wreaths: warm white LED C9 bulbs in a single straight, evenly spaced run along every roofline, eave, rake edge and gable peak, plus a lit evergreen wreath with a red bow on the front door and a smaller lit wreath centered above each front-facing window.",
+    "Elegant Warm White: soft champagne warm white LED C9 bulbs, closely and evenly spaced in a single straight run along every roofline, eave, rake edge and gable peak, for a refined, understated glow.",
 };
+
+/** Light color for extras (bush nets, trunk wraps, outlines, stakes) so they match the roofline. */
+const EXTRA_COLOR: Record<VisualizerStyle, string> = {
+  warm: "warm white",
+  cool: "cool white",
+  multi: "multicolor",
+  candy: "alternating red and white",
+  christmas: "alternating red and green",
+  elegant: "soft warm white",
+};
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** Extra-specific prompt sentences, in a stable order. Empty when nothing was picked. */
+export function describeExtras(style: VisualizerStyle, extras: VisualizerExtras = NO_EXTRAS): string[] {
+  const x = { ...NO_EXTRAS, ...extras };
+  const color = EXTRA_COLOR[style];
+  const out: string[] = [];
+
+  const wreaths = x.wreath24 + x.wreath36 + x.wreath48;
+  if (wreaths > 0) {
+    const sizes = [
+      x.wreath48 && `${x.wreath48} large 48-inch (4 ft across)`,
+      x.wreath36 && `${x.wreath36} medium 36-inch (3 ft across)`,
+      x.wreath24 && `${x.wreath24} small 24-inch (2 ft across)`,
+    ].filter(Boolean);
+    out.push(
+      `Add exactly ${plural(wreaths, "lit evergreen wreath")} with red bows and warm white mini lights: ${sizes.join(", ")}, at true scale against the doors and windows.` +
+        (wreaths === 1
+          ? " Hang it on the front door (a 48-inch wreath goes centered high on the main gable instead)."
+          : " Put the largest one in the most prominent spot (the main gable or above the garage for a 48-inch, otherwise the front door) and center the rest above front-facing windows or on the door."),
+    );
+  }
+
+  const bushes = x.bushS + x.bushM + x.bushL;
+  if (bushes > 0) {
+    const sizes = [x.bushL && `${x.bushL} large`, x.bushM && `${x.bushM} medium`, x.bushS && `${x.bushS} small`].filter(Boolean);
+    out.push(
+      `Cover ${plural(bushes, "existing shrub")} in front of the house (${sizes.join(", ")}) with ${color} net lights that follow each shrub's shape. Only light shrubs already in the photo; if there are fewer, light the ones that exist. Never add plants.`,
+    );
+  }
+
+  if (x.treeFt > 0) {
+    out.push(
+      `Wrap the trunk of the existing front-yard tree${x.treeFt > 15 ? "s" : ""} in tight ${color} spiral lights, about ${x.treeFt} vertical feet in total, from the ground up to the first branches. Never add trees; skip this if no tree is visible.`,
+    );
+  }
+
+  if (x.windowFt > 0) {
+    out.push(`Outline the front-facing windows and front door frames with ${color} mini lights (about ${x.windowFt} ft of outline in total).`);
+  }
+
+  if (x.garlandFt > 0) {
+    out.push(
+      `Add about ${x.garlandFt} ft of full evergreen garland with warm white mini lights, framing the front door${x.garlandFt > 25 ? " and draped along the porch railing or entry" : ""}.`,
+    );
+  }
+
+  if (x.stakes > 0) {
+    out.push(
+      `Line the front walkway (or the driveway edge if there is no walkway) with ${plural(x.stakes, "lit pathway stake")}: single ${color} C9 bulbs on short stakes, evenly spaced along both edges.`,
+    );
+  }
+
+  return out;
+}
 
 /** Rules every prompt must carry so the house itself is left untouched. */
 export const PRESERVATION_RULES =
-  "Keep the house architecture, roof shape, siding, windows, doors, landscaping, driveway, trees, camera angle and framing EXACTLY the same; do not add, remove, move or resize anything other than the lights described. Photorealistic photograph. No people, no text, no logos, no watermarks, no inflatables or lawn decorations.";
+  "Keep the house architecture, roof shape, siding, windows, doors, landscaping, driveway, trees, camera angle and framing EXACTLY the same; do not add, remove, move or resize anything other than the lights and decorations described. Photorealistic photograph. No people, no text, no logos, no watermarks, no inflatables, figures or other lawn decorations.";
 
-export function buildPrompt(style: VisualizerStyle): string {
+export function buildPrompt(style: VisualizerStyle, extras: VisualizerExtras = NO_EXTRAS): string {
   return [
     "Edit this photo of a house into a blue-hour night scene: deep twilight blue sky, the house exterior dim and naturally lit, warm light glowing from the windows.",
     "Add professionally installed large C9 Christmas light bulbs following the actual rooflines, eaves and gables of this exact house.",
     STYLE_PROMPTS[style],
+    ...describeExtras(style, extras),
     PRESERVATION_RULES,
   ].join(" ");
+}
+
+/** One-line human summary of the picked extras for leads and staff emails ("" when none). */
+export function summarizeExtras(extras: Partial<VisualizerExtras> | null | undefined): string {
+  const x = { ...NO_EXTRAS, ...(extras ?? {}) };
+  const parts: string[] = [];
+  const wreaths = [x.wreath24 && `${x.wreath24}×24"`, x.wreath36 && `${x.wreath36}×36"`, x.wreath48 && `${x.wreath48}×48"`].filter(Boolean);
+  if (wreaths.length) parts.push(`wreaths ${wreaths.join(" + ")}`);
+  const bushes = [x.bushS && `${x.bushS} S`, x.bushM && `${x.bushM} M`, x.bushL && `${x.bushL} L`].filter(Boolean);
+  if (bushes.length) parts.push(`bush wraps ${bushes.join(" / ")}`);
+  if (x.treeFt) parts.push(`${x.treeFt} ft tree wrap`);
+  if (x.windowFt) parts.push(`${x.windowFt} ft window/door`);
+  if (x.garlandFt) parts.push(`${x.garlandFt} ft garland`);
+  if (x.stakes) parts.push(`${x.stakes} pathway stakes`);
+  return parts.join(", ");
 }
 
 // ─── Replicate ────────────────────────────────────────────────────────
@@ -114,12 +224,12 @@ function replicateKey(): string {
   return key;
 }
 
-export async function startPrediction(imageUrl: string, style: VisualizerStyle, model = getVisualizerModel()): Promise<Prediction> {
+export async function startPrediction(imageUrl: string, options: VisualizerOptions, model = getVisualizerModel()): Promise<Prediction> {
   if (isMockMode()) {
     return { id: `${MOCK_PREFIX}${Date.now()}`, status: "starting", output: null, error: null };
   }
 
-  const input = buildModelInput(model, buildPrompt(style), imageUrl);
+  const input = buildModelInput(model, buildPrompt(options.style, options.extras), imageUrl);
   const [slug, version] = model.split(":");
   const url = version
     ? "https://api.replicate.com/v1/predictions"

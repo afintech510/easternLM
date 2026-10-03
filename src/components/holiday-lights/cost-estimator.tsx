@@ -76,7 +76,7 @@ export function CostEstimator({ children, bookHref }: { children?: React.ReactNo
           {money(r.lo)} – {money(r.hi)}
         </div>
         <span className="est-note" id="est-note">
-          Roofline, installed. About {r.ftLo}–{r.ftHi} ft. The lights are yours.
+          Roofline, installed. About {r.ftLo}–{r.ftHi} ft of roofline.
         </span>
         {bookHref && (
           <a className="btn btn-gold btn-block" href={`${bookHref}?home=${cur}`}>

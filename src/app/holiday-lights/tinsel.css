@@ -200,6 +200,13 @@ html:has(.tinsel){height:100%;scroll-padding-top:calc(72px + env(safe-area-inset
 .tinsel .bar-fill{height:100%;width:0;background:var(--gold);border-radius:99px;animation:tt-fill 2.4s ease forwards}
 @keyframes tt-fill{to{width:100%}}
 .tinsel .vcard .fine{color:var(--muted)}
+/* visualizer extras: the vcard is always white, so pin these to light colors in both themes */
+.tinsel .vcard .vextras{background:#faf6ee;border-color:var(--line);margin:0 0 14px}
+.tinsel .vcard .vextras summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:50px;padding:12px 44px 12px 14px;font-size:.92rem}
+.tinsel .vextras-n{font-weight:500;font-size:.8rem;color:var(--muted);white-space:nowrap}
+.tinsel .vcard .vextras .a{padding:0 14px 14px;color:var(--ink)}
+.tinsel .vcard .vextras .xgroup{margin-bottom:10px}
+.tinsel .vcard .stepbtn{background:#fff;color:#14202c}
 .tinsel .vhouse{border-radius:12px;overflow:hidden;margin-bottom:10px}
 .tinsel .vhouse svg{display:block;width:100%;height:auto}
 .tinsel .link{background:none;border:0;padding:8px 0;color:#0b4f7a;font:600 .9rem var(--sans);text-decoration:underline;cursor:pointer}

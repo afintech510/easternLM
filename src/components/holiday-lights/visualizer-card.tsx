@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { SMS_CONSENT_TEXT } from "@/config/holiday-lights";
+import { SMS_CONSENT_TEXT, getDesignUrl } from "@/config/holiday-lights";
 import { trackEvent, trackGenerateLead, trackMetaEvent } from "@/lib/bulk-analytics";
+import { BUILD_STYLES, LIMITS, type BuildStyle } from "@/lib/holiday-lights/pricing";
+import type { VisualizerExtras } from "@/lib/holiday-lights/visualize";
 import { CompareSlider } from "./compare-slider";
 import { CtaButton } from "./cta-button";
 import { getUtm, toast } from "./events";
 import { PhoneInput, phoneDigits } from "./phone-input";
+import { Stepper } from "./stepper";
 
-type Style = "warm" | "multi" | "candy" | "elegant";
+type Style = BuildStyle;
 type Step = "v1" | "v2" | "v3" | "v4";
 
 type VizStatus = {
@@ -19,14 +22,63 @@ type VizStatus = {
   height: number | null;
   canRestyle: boolean;
   shareUrl: string;
+  bookUrl: string;
 };
 
-const STYLES: { value: Style; label: string; color: string }[] = [
-  { value: "warm", label: "Classic Warm White", color: "#ffdf9c" },
-  { value: "multi", label: "Multicolor", color: "#4a95ff" },
-  { value: "candy", label: "Candy Cane", color: "#ff3d3d" },
-  { value: "elegant", label: "Elegant White + Wreaths", color: "#fff3d6" },
+/** One swatch per style; multi-color styles get a striped swatch. */
+function swatch(colors: readonly string[]): string {
+  if (colors.length === 1) return colors[0];
+  const step = 100 / colors.length;
+  return `linear-gradient(90deg, ${colors.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(", ")})`;
+}
+
+const NO_EXTRAS: VisualizerExtras = {
+  wreath24: 0,
+  wreath36: 0,
+  wreath48: 0,
+  bushS: 0,
+  bushM: 0,
+  bushL: 0,
+  treeFt: 0,
+  windowFt: 0,
+  garlandFt: 0,
+  stakes: 0,
+};
+
+/** Same extras as Build & Book (minus takedown, which you can't see in a photo). */
+const EXTRA_GROUPS: { legend: string; items: { key: keyof VisualizerExtras; label: string; feet?: boolean }[] }[] = [
+  {
+    legend: "Wreaths",
+    items: [
+      { key: "wreath24", label: '24" wreath' },
+      { key: "wreath36", label: '36" wreath' },
+      { key: "wreath48", label: '48" wreath' },
+    ],
+  },
+  {
+    legend: "Bush wraps",
+    items: [
+      { key: "bushS", label: "Small bush" },
+      { key: "bushM", label: "Medium bush" },
+      { key: "bushL", label: "Large bush" },
+    ],
+  },
+  {
+    legend: "Trees, windows & garland",
+    items: [
+      { key: "treeFt", label: "Tree trunk wrap", feet: true },
+      { key: "windowFt", label: "Window & door outlines", feet: true },
+      { key: "garlandFt", label: "Lit garland", feet: true },
+    ],
+  },
+  { legend: "Pathway", items: [{ key: "stakes", label: "Pathway light stakes" }] },
 ];
+
+const optionsKey = (style: Style, extras: VisualizerExtras) => JSON.stringify({ style, extras });
+
+function extrasCount(x: VisualizerExtras): number {
+  return EXTRA_GROUPS.flatMap((g) => g.items).filter((i) => x[i.key] > 0).length;
+}
 
 const POLL_MS = 2000;
 const TEASER_POLL_MS = 2500;
@@ -87,6 +139,7 @@ export function VisualizerCard() {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<Style>("warm");
+  const [extras, setExtras] = useState<VisualizerExtras>(NO_EXTRAS);
   const [photoErr, setPhotoErr] = useState(false);
 
   const [name, setName] = useState("");
@@ -103,7 +156,7 @@ export function VisualizerCard() {
   const [failed, setFailed] = useState(false);
   const [pipelineErr, setPipelineErr] = useState<string | null>(null);
 
-  const pipeline = useRef<{ file: File; style: Style; promise: Promise<string> } | null>(null);
+  const pipeline = useRef<{ file: File; key: string; promise: Promise<string> } | null>(null);
   const started = useRef(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -125,7 +178,7 @@ export function VisualizerCard() {
   }
 
   /** Upload → start generation. Resolves to the design token. */
-  function startPipeline(f: File, s: Style): Promise<string> {
+  function startPipeline(f: File, s: Style, x: VisualizerExtras): Promise<string> {
     const promise = (async () => {
       const { blob, width, height } = await downscale(f);
       setBeforeUrl(URL.createObjectURL(blob));
@@ -138,14 +191,14 @@ export function VisualizerCard() {
         method: "POST",
         body: form,
       });
-      trackEvent("lights_visualizer_upload", { style: s });
+      trackEvent("lights_visualizer_upload", { style: s, extras: extrasCount(x) });
       if (up.width && up.height) setRatio(`${up.width} / ${up.height}`);
       setToken(up.token);
-      const st = await api<VizStatus>("/api/holiday-lights/visualize", json({ token: up.token, style: s }));
+      const st = await api<VizStatus>("/api/holiday-lights/visualize", json({ token: up.token, style: s, extras: x }));
       setViz(st);
       return up.token;
     })();
-    pipeline.current = { file: f, style: s, promise };
+    pipeline.current = { file: f, key: optionsKey(s, x), promise };
     // Surface failures without an unhandled rejection; v2 submit re-awaits and reports.
     promise.catch((e) => setPipelineErr(e instanceof Error ? e.message : "Upload failed."));
     return promise;
@@ -161,10 +214,10 @@ export function VisualizerCard() {
     setFailed(false);
     setSlow(false);
 
-    // "Try another style" on an unlocked design → same photo, new style.
+    // "Change the style or extras" on an unlocked design → same photo, new look.
     if (token && viz?.unlocked && pipeline.current?.file === file) {
       try {
-        setViz(await api<VizStatus>(`/api/holiday-lights/visualize/${token}/restyle`, json({ style })));
+        setViz(await api<VizStatus>(`/api/holiday-lights/visualize/${token}/restyle`, json({ style, extras })));
         setStep("v3");
       } catch (err) {
         toast(err instanceof Error ? err.message : "Couldn't start a new style.");
@@ -173,11 +226,11 @@ export function VisualizerCard() {
     }
 
     const p = pipeline.current;
-    if (!p || p.file !== file || p.style !== style || pipelineErr) {
+    if (!p || p.file !== file || p.key !== optionsKey(style, extras) || pipelineErr) {
       setToken(null);
       setViz(null);
       setPipelineErr(null);
-      startPipeline(file, style);
+      startPipeline(file, style, extras);
     }
     setStep("v2");
     setTimeout(() => nameRef.current?.focus(), 0);
@@ -245,7 +298,7 @@ export function VisualizerCard() {
   }, [token, step, viz?.status === "ready"]);
 
   useEffect(() => {
-    if (step === "v4") trackEvent("lights_visualizer_view", { style });
+    if (step === "v4") trackEvent("lights_visualizer_view", { style, extras: extrasCount(extras) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
@@ -254,7 +307,7 @@ export function VisualizerCard() {
     setFailed(false);
     setSlow(false);
     try {
-      setViz(await api<VizStatus>(`/api/holiday-lights/visualize/${token}/restyle`, json({ style })));
+      setViz(await api<VizStatus>(`/api/holiday-lights/visualize/${token}/restyle`, json({ style, extras })));
     } catch (err) {
       setFailed(true);
       toast(err instanceof Error ? err.message : "Couldn't try again.");
@@ -287,11 +340,12 @@ export function VisualizerCard() {
   }
 
   const teaserUrl = step === "v2" && viz?.status === "ready" ? viz.imageUrl : null;
+  const picked = extrasCount(extras);
 
   return (
     <div className="vcard" id="vcard" data-step={step}>
       <form id="v1" hidden={step !== "v1"} onSubmit={onV1} noValidate>
-        <p className="steplbl">Step 1 of 2 · Your photo</p>
+        <p className="steplbl">Step 1 of 2 · Your photo &amp; look</p>
         <label className="field">
           <span>Front of your house</span>
           <span className="drop" id="drop">
@@ -316,10 +370,10 @@ export function VisualizerCard() {
         <fieldset style={{ border: 0, padding: 0, margin: "0 0 14px" }}>
           <legend style={{ fontWeight: 600, fontSize: ".92rem", marginBottom: 6, padding: 0 }}>Pick a style</legend>
           <div className="opts">
-            {STYLES.map((s) => (
-              <label className="opt" key={s.value}>
-                <input className="vh" type="radio" name="style" value={s.value} checked={style === s.value} onChange={() => setStyle(s.value)} />
-                <span style={{ "--c": s.color } as React.CSSProperties}>
+            {BUILD_STYLES.map((s) => (
+              <label className="opt" key={s.key}>
+                <input className="vh" type="radio" name="style" value={s.key} checked={style === s.key} onChange={() => setStyle(s.key)} />
+                <span style={{ "--c": swatch(s.colors) } as React.CSSProperties}>
                   <i />
                   {s.label}
                 </span>
@@ -327,6 +381,33 @@ export function VisualizerCard() {
             ))}
           </div>
         </fieldset>
+        <details className="vextras" data-testid="viz-extras">
+          <summary>
+            Add wreaths, bushes, trees &amp; more
+            <span className="vextras-n">{picked ? `${picked} added` : "Optional"}</span>
+          </summary>
+          <div className="a">
+            {EXTRA_GROUPS.map((g) => (
+              <fieldset className="xgroup" key={g.legend}>
+                <legend>{g.legend}</legend>
+                {g.items.map((it) => (
+                  <Stepper
+                    key={it.key}
+                    id={`v-${it.key}`}
+                    label={it.label}
+                    unitSuffix={it.feet ? "ft" : undefined}
+                    value={extras[it.key]}
+                    min={it.feet ? LIMITS.feet.min : LIMITS.count.min}
+                    max={it.feet ? LIMITS.feet.max : LIMITS.count.max}
+                    step={it.feet ? 5 : 1}
+                    onChange={(n) => setExtras((x) => ({ ...x, [it.key]: n }))}
+                  />
+                ))}
+              </fieldset>
+            ))}
+            <p className="fine" style={{ margin: 0 }}>We only light bushes and trees that are already in your photo.</p>
+          </div>
+        </details>
         <button className="btn btn-gold btn-block" type="submit">
           {viz?.unlocked ? "Light it up" : "Next"}
         </button>
@@ -380,7 +461,7 @@ export function VisualizerCard() {
             )}
             <p style={{ margin: "10px 0 0" }}>
               <button type="button" className="btn btn-out btn-block" onClick={() => { setFailed(false); setStep("v1"); }}>
-                Pick a different photo or style
+                Pick a different photo or look
               </button>
             </p>
           </>
@@ -415,7 +496,13 @@ export function VisualizerCard() {
         <p className="fine" id="v-msg">
           Here&apos;s your house{name.trim() ? `, ${name.trim()}` : ""}. We texted you the link too. Artistic concept, not your design or price.
         </p>
-        <CtaButton act="design" className="btn btn-gold btn-block">Design it &amp; get my exact price</CtaButton>
+        <a
+          className="btn btn-gold btn-block"
+          href={viz?.bookUrl ?? getDesignUrl()}
+          onClick={() => trackEvent("lights_cta_click", { action: "design", from: "visualizer" })}
+        >
+          Price this look &amp; book it
+        </a>
         <div className="acts2">
           <button type="button" className="btn btn-out" onClick={textMe}>Text me this</button>
           <button type="button" className="btn btn-out" onClick={share}>Share</button>
@@ -423,7 +510,7 @@ export function VisualizerCard() {
         {viz?.canRestyle !== false && (
           <p style={{ margin: "10px 0 0" }}>
             <button type="button" className="btn btn-out btn-block" id="v-reset" onClick={() => setStep("v1")}>
-              Try another style
+              Change the style or extras
             </button>
           </p>
         )}

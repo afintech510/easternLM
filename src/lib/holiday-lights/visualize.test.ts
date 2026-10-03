@@ -1,14 +1,18 @@
 import sharp from "sharp";
 import {
   DEFAULT_VISUALIZER_MODEL,
+  NO_EXTRAS,
   PRESERVATION_RULES,
   STYLE_KEYS,
   buildModelInput,
   buildPrompt,
+  describeExtras,
   finalizeResult,
   getPrediction,
   isVisualizerStyle,
+  parseVisualizerOptions,
   resultPaths,
+  summarizeExtras,
   type FinalizeIO,
 } from "./visualize";
 
@@ -50,15 +54,63 @@ describe("buildPrompt", () => {
 
   it("varies by style", () => {
     expect(buildPrompt("candy")).toMatch(/alternating red and white/);
+    expect(buildPrompt("christmas")).toMatch(/alternating red and green/);
+    expect(buildPrompt("cool")).toMatch(/cool white/);
     expect(buildPrompt("multi")).toMatch(/multicolor/);
-    expect(buildPrompt("elegant")).toMatch(/wreath/);
     expect(buildPrompt("warm")).not.toMatch(/wreath/);
+    expect(buildPrompt("elegant")).not.toMatch(/wreath/);
+  });
+
+  it("adds no extras by default", () => {
+    expect(describeExtras("warm")).toEqual([]);
+  });
+
+  it("describes wreaths by size and count", () => {
+    const p = buildPrompt("warm", { ...NO_EXTRAS, wreath24: 2, wreath48: 1 });
+    expect(p).toMatch(/exactly 3 lit evergreen wreaths/);
+    expect(p).toMatch(/1 large 48-inch/);
+    expect(p).toMatch(/2 small 24-inch/);
+    expect(p).not.toMatch(/36-inch/);
+  });
+
+  it("describes bushes, trees, windows, garland and stakes in the style's color", () => {
+    const p = buildPrompt("candy", { ...NO_EXTRAS, bushM: 3, treeFt: 10, windowFt: 40, garlandFt: 20, stakes: 12 });
+    expect(p).toMatch(/3 existing shrubs .*alternating red and white net lights/);
+    expect(p).toMatch(/Never add plants/);
+    expect(p).toMatch(/about 10 vertical feet/);
+    expect(p).toMatch(/about 40 ft of outline/);
+    expect(p).toMatch(/about 20 ft of full evergreen garland/);
+    expect(p).toMatch(/12 lit pathway stakes/);
+    expect(p).toContain(PRESERVATION_RULES);
+  });
+});
+
+describe("parseVisualizerOptions", () => {
+  it("requires a known style", () => {
+    expect(parseVisualizerOptions({ style: "glow" })).toBeNull();
+    expect(parseVisualizerOptions(null)).toBeNull();
+  });
+
+  it("clamps extras and drops takedown", () => {
+    const o = parseVisualizerOptions({ style: "multi", extras: { wreath36: 99, bushS: -4, garlandFt: "25", takedown: true } });
+    expect(o).not.toBeNull();
+    expect(o!.style).toBe("multi");
+    expect(o!.extras).toMatchObject({ wreath36: 30, bushS: 0, garlandFt: 25, stakes: 0 });
+    expect(o!.extras).not.toHaveProperty("takedown");
+  });
+});
+
+describe("summarizeExtras", () => {
+  it("is empty with no extras and readable otherwise", () => {
+    expect(summarizeExtras(null)).toBe("");
+    expect(summarizeExtras({ wreath24: 1, wreath48: 2, bushL: 1, stakes: 6 })).toBe('wreaths 1×24" + 2×48", bush wraps 1 L, 6 pathway stakes');
   });
 });
 
 describe("isVisualizerStyle", () => {
-  it("accepts only the four UI styles", () => {
+  it("accepts the Build & Book styles", () => {
     expect(isVisualizerStyle("warm")).toBe(true);
+    expect(isVisualizerStyle("christmas")).toBe(true);
     expect(isVisualizerStyle("glow")).toBe(false);
     expect(isVisualizerStyle(undefined)).toBe(false);
   });

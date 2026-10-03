@@ -72,7 +72,7 @@ export default async function BookedPage({ searchParams }: { searchParams: Promi
               <ul className="ticks">
                 <li>We verify your roofline footage and text you your final, locked price.</li>
                 <li>Our crew installs during your week and does a final check.</li>
-                <li>The balance is charged to your saved card after install. No card fees.</li>
+                <li>The balance is charged to your saved card after install.</li>
               </ul>
               {pending && <p className="fine">Waiting for the payment confirmation from Stripe. This page updates automatically; we&apos;ll also text you.</p>}
             </div>

@@ -144,7 +144,7 @@ export function ReserveDialog() {
         <button className="btn btn-gold btn-block" type="submit" disabled={busy}>
           {busy ? "Opening secure checkout…" : `Pay $${DEPOSIT} deposit`}
         </button>
-        <p className="fine" style={{ textAlign: "center" }}>Secure checkout by Stripe. No card fees.</p>
+        <p className="fine" style={{ textAlign: "center" }}>Secure checkout by Stripe.</p>
       </form>
     </dialog>
   );

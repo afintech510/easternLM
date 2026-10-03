@@ -19,7 +19,7 @@ export const revalidate = 300;
 
 const TITLE = "Christmas Light Installation on Long Island | Tinsel Time Long Island";
 const DESCRIPTION =
-  "Tinsel Time Long Island: professional Christmas light installation in Brookhaven, Riverhead, Southold and Southampton. Roofline lights from $9/ft, installed, and the lights are yours. See your own house lit up, free.";
+  "Tinsel Time Long Island: professional Christmas light installation in Brookhaven, Riverhead, Southold and Southampton. Custom designs installed by our own crew, projects from $899. See your own house lit up, free.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -39,9 +39,7 @@ export const metadata: Metadata = {
 const P = HOLIDAY_LIGHTS.pricing;
 const $ = (cents: number) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
-const RATE = $(P.rooflinePerFtCents);
 const MIN = $(P.minimumCents);
-const REINSTALL = $(P.reinstallPerFtCents);
 const DEPOSIT = $(P.depositCents);
 const EXAMPLE_CENTS = 120 * P.rooflinePerFtCents + 2 * P.wreathCents.in24;
 const TOWN_LIST = "Brookhaven, Riverhead, Southold and Southampton";
@@ -49,15 +47,11 @@ const TOWN_LIST = "Brookhaven, Riverhead, Southold and Southampton";
 const FAQS = [
   {
     question: "How much does Christmas light installation cost?",
-    answer: `Roofline lighting starts at ${RATE} per foot, installed, with an ${MIN} minimum project. Use the build & book tool below for your exact price. NY sales tax applies.`,
+    answer: `Every house is different, so we price your exact design. Projects start at ${MIN}, installed. Build yours online for an instant price. NY sales tax applies.`,
   },
   {
     question: "When should I book?",
     answer: `Installs run Nov 1 – Dec 12, and we take ${HOLIDAY_LIGHTS.capacity} spots this season. Book by Oct 31 to take $100 off. A ${DEPOSIT} deposit holds your week and is credited to your total.`,
-  },
-  {
-    question: "Do I really own the lights?",
-    answer: `Yes. You buy commercial-grade LED C9 lights once. Next year you pay installation labor only, about ${REINSTALL}/ft.`,
   },
   {
     question: "What's included?",
@@ -126,10 +120,9 @@ export default async function HolidayLightsPage() {
           "@type": "Offer",
           priceCurrency: "USD",
           priceSpecification: {
-            "@type": "UnitPriceSpecification",
-            price: (P.rooflinePerFtCents / 100).toFixed(2),
+            "@type": "PriceSpecification",
+            minPrice: (P.minimumCents / 100).toFixed(2),
             priceCurrency: "USD",
-            unitText: "per linear foot, installed",
           },
         },
       }),
@@ -168,14 +161,14 @@ export default async function HolidayLightsPage() {
         <div className="wrap hero-in">
           <div className="hero-copy">
             <p className="chip">Serving Brookhaven, Riverhead, Southold &amp; Southampton</p>
-            <h1>Long Island Christmas lights, professionally installed and yours to keep.</h1>
+            <h1>Long Island Christmas lights, professionally designed and installed.</h1>
             <p className="sub">Custom roofline design from a local yard you can drive to. See your own house lit up before you spend a dollar.</p>
             <div className="cta-row">
               <CtaButton act="visualize" className="btn btn-gold">See your house lit up, free</CtaButton>
               <CtaButton act="design" className="btn btn-line">Get my exact price</CtaButton>
             </div>
             <p className="priceline">
-              Roofline lights from <b>{RATE}/ft</b>, installed · {MIN} minimum · the lights are yours
+              Installed from <b>{MIN}</b> · Commercial-grade LED C9s · Clips, never nails
             </p>
             <ul className="trust" aria-label="Why homeowners trust us">
               {hasRating && (
@@ -199,8 +192,8 @@ export default async function HolidayLightsPage() {
                 </li>
               ) : (
                 <li>
-                  <Tick path={<><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>} />
-                  <span>No credit card fees</span>
+                  <Tick path={<><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>} />
+                  <span>Our own W-2 crew</span>
                 </li>
               )}
             </ul>
@@ -214,27 +207,27 @@ export default async function HolidayLightsPage() {
           <div className="wrap">
             <span className="eyebrow">Starting prices</span>
             <h2 id="pr-h">Honest pricing. No surprises.</h2>
-            <p className="lead">We quote by the foot, we say what is included, and our team confirms your final price before install.</p>
+            <p className="lead">Every house gets its own design and price. We say what is included, and our team confirms your final price before install.</p>
             <div className="grid two">
               <article className="card">
-                <p className="tagline">Year 1 · Roofline lighting</p>
-                <div className="bigp">{RATE}<small>/ft, from</small></div>
-                <p>Installed, with commercial-grade LED C9 lights that you own. {MIN} minimum project.</p>
+                <p className="tagline">Roofline lighting</p>
+                <div className="bigp">{MIN}<small>, from</small></div>
+                <p>Installed, with commercial-grade LED C9 lights, custom-fit to your house.</p>
                 <ul className="ticks">
                   <li>Custom design for your house</li>
                   <li>Clips only, no nails</li>
                   <li>Installation and a final check by our own crew</li>
-                  <li>No credit card fees (NY sales tax applies)</li>
+                  <li>Outage fixes all season</li>
                 </ul>
               </article>
               <article className="card">
-                <p className="tagline">Year 2 and after · Reinstall</p>
-                <div className="bigp">{REINSTALL}<small>/ft, about</small></div>
-                <p>You already own the lights, so you pay installation labor only.</p>
+                <p className="tagline">Finishing touches</p>
+                <div className="bigp">{$(P.bushWrapCents.s)}<small>, from</small></div>
+                <p>Lit wreaths, bush and tree wraps, window outlines, garland and pathway stakes.</p>
                 <ul className="ticks">
+                  <li>Wreaths in 24&quot;, 36&quot; and 48&quot;</li>
                   <li>Optional takedown and labeled storage</li>
-                  <li>Same design, or a fresh one</li>
-                  <li>Reinstall price confirmed at booking</li>
+                  <li>Add them online and watch your price update</li>
                 </ul>
               </article>
             </div>
@@ -246,35 +239,12 @@ export default async function HolidayLightsPage() {
           </div>
         </section>
 
-        {/* OWN VS RENT */}
-        <section className="sec alt" id="own" aria-labelledby="own-h">
-          <div className="wrap">
-            <span className="eyebrow">Own, don&apos;t rent</span>
-            <h2 id="own-h">Buy the lights once. Pay for labor after that.</h2>
-            <p className="lead">Many companies rent you their lights every season. We sell you commercial-grade LED C9 lights, so they stay yours.</p>
-            <div className="tblwrap">
-              <table className="cmpt">
-                <caption className="vh">Owning lights with Tinsel Time compared with a typical rental service</caption>
-                <thead>
-                  <tr><th scope="col"></th><th scope="col">Tinsel Time</th><th scope="col">Typical rental service</th></tr>
-                </thead>
-                <tbody>
-                  <tr><th scope="row">Who owns the lights</th><td className="us">You do</td><td>The company</td></tr>
-                  <tr><th scope="row">Year 1</th><td className="us">From {RATE}/ft installed ({MIN} minimum)</td><td>Rental plus labor</td></tr>
-                  <tr><th scope="row">Year 2 and after</th><td className="us">Installation labor only, about {REINSTALL}/ft</td><td>Rental plus labor, again</td></tr>
-                  <tr><th scope="row">After Christmas</th><td className="us">Optional takedown and labeled storage</td><td>They take the lights back</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         {/* AI VISUALIZER */}
         <section className="sec nv" id="visualizer" aria-labelledby="viz-h">
           <div className="wrap">
             <span className="eyebrow">AI Visualizer</span>
             <h2 id="viz-h" style={{ color: "#fff" }}>See your own house lit up, before you buy.</h2>
-            <p className="lead">Upload one photo of the front of your home, pick a style, and we send you a concept preview. It&apos;s free, and it&apos;s your house, not a stock photo.</p>
+            <p className="lead">Upload one photo of the front of your home, pick a style, add wreaths, bushes and more, and we send you a concept preview. It&apos;s free, and it&apos;s your house, not a stock photo.</p>
             <div className="viz">
               <div>
                 <div id="viz-slider">
@@ -302,11 +272,11 @@ export default async function HolidayLightsPage() {
             <h2 id="num-h">Why Long Island homeowners choose Tinsel Time.</h2>
             <div className="stats nv" style={{ padding: "30px 18px", borderRadius: "var(--r)" }}>
               <div className="stat"><b>{HOLIDAY_LIGHTS.capacity}</b><span>install spots this season</span></div>
-              <div className="stat"><b>{RATE}/ft</b><span>roofline, installed</span></div>
+              <div className="stat"><b>Free</b><span>AI preview of your house</span></div>
               {hasRating ? (
                 <div className="stat"><b>{rating} ★</b><span>Google rating, {reviewsData!.totalReviews} reviews</span></div>
               ) : (
-                <div className="stat"><b>$0</b><span>credit card fees</span></div>
+                <div className="stat"><b>0</b><span>nails in your roof</span></div>
               )}
               <div className="stat"><b>{HOLIDAY_LIGHTS.towns.length}</b><span>towns, no travel surcharge</span></div>
             </div>
@@ -344,7 +314,7 @@ export default async function HolidayLightsPage() {
                 <div className="body">
                   <span className="badge">Most popular</span>
                   <h3>Roofline Lighting</h3>
-                  <div className="from">From {RATE}/ft</div>
+                  <div className="from">From {MIN}</div>
                   <p>Commercial-grade LED C9 lights along your roofline and eaves, custom-cut to your house. Clips only, no nails.</p>
                   <CtaButton act="design" className="btn btn-gold">Get my exact price</CtaButton>
                 </div>
@@ -362,8 +332,8 @@ export default async function HolidayLightsPage() {
                 <div className="img" id="svc3" role="img" aria-label="House in daylight after takedown"><HouseSvg /></div>
                 <div className="body">
                   <h3>Takedown &amp; Labeled Storage</h3>
-                  <div className="from">{$(P.takedownPerFtCents)}/ft</div>
-                  <p>Optional. We take everything down after the holidays and store it, labeled, so next year is just labor.</p>
+                  <div className="from">Optional add-on</div>
+                  <p>We take everything down after the holidays and store it, labeled, until next season.</p>
                   <CtaButton act="design" className="btn btn-out">Add it to my quote</CtaButton>
                 </div>
               </article>
@@ -378,7 +348,7 @@ export default async function HolidayLightsPage() {
             <h2 id="why-h">The easy way to a house everyone slows down for.</h2>
             <div className="why">
               <div className="card"><h3>Custom design</h3><p>Planned around your roofline, not a template.</p></div>
-              <div className="card"><h3>You own the lights</h3><p>Pay labor only from year two.</p></div>
+              <div className="card"><h3>Instant pricing</h3><p>Build your design online and see the price live.</p></div>
               <div className="card"><h3>See it first</h3><p>A free AI preview of your own home.</p></div>
               <div className="card"><h3>A local yard</h3><p>We&apos;re in Center Moriches. Drive over any time.</p></div>
               <div className="card"><h3>Our own crew</h3><p>W-2 employees, licensed and insured.</p></div>
