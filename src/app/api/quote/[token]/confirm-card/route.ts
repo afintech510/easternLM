@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -32,12 +33,35 @@ export async function POST(
     return NextResponse.json({ ok: true, orderId: quote.converted_order_id, alreadyConverted: true });
   }
 
-  const ccSurcharge = Math.round(quote.total_cents * 0.035);
+  // Verify the payment actually went through for this quote before booking anything.
+  if (!paymentIntentId) {
+    return NextResponse.json({ error: "paymentIntentId required" }, { status: 400 });
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  if (!["succeeded", "processing"].includes(pi.status)) {
+    return NextResponse.json({ error: `Payment status is ${pi.status}` }, { status: 400 });
+  }
+  if (pi.metadata?.quote_id !== quote.id) {
+    return NextResponse.json({ error: "Payment does not match this quote" }, { status: 400 });
+  }
 
-  // Update quote status
+  // The PI carries the base amount applied to the quote (deposit or full total)
+  // and the card fee charged on top of it.
+  const paidBaseCents = parseInt(pi.metadata?.base_amount || "0", 10) || quote.total_cents;
+  const ccSurcharge = parseInt(pi.metadata?.cc_surcharge || "0", 10) || Math.round(paidBaseCents * 0.035);
+  const chargedCents = paidBaseCents + ccSurcharge;
+  const isDeposit = paidBaseCents < quote.total_cents;
+  const paidAt = new Date().toISOString();
+
+  // Record the payment on the quote so the final-invoice flow can credit it
+  // later (post-job items → finalize → pay balance).
   await supabase.from("quotes").update({
     status: "accepted",
-    accepted_at: new Date().toISOString(),
+    accepted_at: quote.accepted_at ?? paidAt,
+    deposit_paid_cents: paidBaseCents,
+    deposit_paid_at: paidAt,
+    deposit_stripe_payment_id: pi.id,
   }).eq("id", quote.id);
 
   // Create order with all delivery details
@@ -63,7 +87,14 @@ export async function POST(
     tax_cents: quote.tax_cents,
     cc_surcharge_cents: ccSurcharge,
     grand_total_cents: quote.total_cents + ccSurcharge,
-    metadata: { quote_id: quote.id, quote_number: quote.quote_number, source: "quote_card" },
+    metadata: {
+      quote_id: quote.id,
+      quote_number: quote.quote_number,
+      source: "quote_card",
+      deposit_paid_cents: paidBaseCents,
+      balance_paid_cents: 0,
+      balance_due_cents: Math.max(0, quote.total_cents - paidBaseCents),
+    },
   }).select("id").single();
 
   if (order) {
@@ -94,7 +125,7 @@ export async function POST(
   // Send confirmation email to customer
   try {
     const { sendQuoteConfirmationEmail } = await import("@/lib/email/quote-confirmation");
-    await sendQuoteConfirmationEmail(quote, { depositAmountCents: quote.deposit_required_cents > 0 ? (quote.deposit_required_cents + Math.round(quote.deposit_required_cents * 0.035)) : (quote.total_cents + ccSurcharge), paymentMethod: "card" });
+    await sendQuoteConfirmationEmail(quote, { depositAmountCents: chargedCents, paymentMethod: "card" });
   } catch (err) { console.error("[confirm-card] Customer email error:", err); }
 
   // Notify office
@@ -116,8 +147,10 @@ export async function POST(
     const smsLines = [
       `🆕 QUOTE ORDER — ${quote.customer_name}`,
       `📦 ${itemsSummary}`,
-      `💰 ${f(quote.total_cents + ccSurcharge)} (materials ${f(quote.subtotal_cents)})`,
-      `💳 Card payment (${quote.quote_number})`,
+      `💰 ${f(quote.total_cents)} job (materials ${f(quote.subtotal_cents)})`,
+      isDeposit
+        ? `💳 Card deposit ${f(chargedCents)} — balance due ${f(quote.total_cents - paidBaseCents)} (${quote.quote_number})`
+        : `💳 Card payment ${f(chargedCents)} (${quote.quote_number})`,
     ];
     if (isDelivery) {
       smsLines.push(`🚛 Delivery: ${quote.delivery_address}`);
@@ -133,7 +166,7 @@ export async function POST(
     await resend.emails.send({
       from: `Eastern LM <${process.env.RESEND_FROM_EMAIL ?? "orders@easternlm.com"}>`,
       to: ["adam@easternbuilding.supply", "ronnie@easternbuilding.supply"],
-      subject: `Card Order: ${quote.customer_name} — ${itemsSummary} — ${f(quote.total_cents + ccSurcharge)}`,
+      subject: `Card ${isDeposit ? "Deposit" : "Order"}: ${quote.customer_name} — ${itemsSummary} — ${f(chargedCents)} paid`,
       html: `<div style="font-family:sans-serif;max-width:560px;">
         <h2 style="color:#1a3a5c;margin-bottom:4px;">Quote Order — Card Payment</h2>
         <p style="color:#666;margin-top:0;">${quote.quote_number}</p>
@@ -161,8 +194,11 @@ export async function POST(
           <tr><td>Materials:</td><td style="text-align:right;">${f(quote.subtotal_cents)}</td></tr>
           ${isDelivery ? `<tr><td>Delivery:</td><td style="text-align:right;">${f(quote.delivery_fee_cents || 0)}</td></tr>` : ""}
           <tr><td>Tax:</td><td style="text-align:right;">${f(quote.tax_cents)}</td></tr>
+          <tr style="font-weight:bold;"><td>Job Total:</td><td style="text-align:right;">${f(quote.total_cents)}</td></tr>
+          <tr><td>${isDeposit ? "Deposit" : "Paid"} (card):</td><td style="text-align:right;">${f(paidBaseCents)}</td></tr>
           <tr><td>CC Surcharge:</td><td style="text-align:right;">${f(ccSurcharge)}</td></tr>
-          <tr style="font-weight:bold;font-size:16px;"><td>Total:</td><td style="text-align:right;">${f(quote.total_cents + ccSurcharge)}</td></tr>
+          <tr style="font-weight:bold;font-size:16px;"><td>Charged:</td><td style="text-align:right;">${f(chargedCents)}</td></tr>
+          ${isDeposit ? `<tr style="color:#b45309;font-weight:bold;"><td>Balance Due:</td><td style="text-align:right;">${f(quote.total_cents - paidBaseCents)}</td></tr>` : ""}
         </table>
 
         <div style="background:#f9f9f9;border-radius:6px;padding:12px;margin:12px 0;">

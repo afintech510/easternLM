@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { syncOrderFromQuote } from "@/lib/quotes/sync-order";
 
 /**
  * POST /api/quote/[token]/confirm-balance
@@ -61,6 +62,14 @@ export async function POST(
   const fullyPaid = totalPaid + 5 >= (quote.total_cents ?? 0);
 
   let orderId: string | null = quote.converted_order_id ?? null;
+
+  // Order already booked when the deposit was paid — record the balance on it.
+  if (orderId) {
+    await syncOrderFromQuote(supabase, quote.id, {
+      stripePaymentId: pi.id,
+      ccSurchargeCents: parseInt((pi.metadata?.cc_surcharge as string) || "0", 10),
+    });
+  }
 
   if (fullyPaid && !orderId) {
     // Convert quote to order, inline (mirrors /api/admin/quotes/[id]/convert).

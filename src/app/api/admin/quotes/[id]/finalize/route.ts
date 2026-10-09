@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { syncOrderFromQuote } from "@/lib/quotes/sync-order";
 
 const TAX_RATE = 0.0875;
 
@@ -58,10 +59,13 @@ export async function POST(
   }
 
   // Recompute totals from current line_items so finalize captures any post-job additions.
+  // Same formula as the admin editor: the separate delivery fee is part of the
+  // total, and NY tax applies to materials + delivery.
   const items: LineItem[] = (quote.line_items as LineItem[]) ?? [];
   const subtotal = items.reduce((s, i) => s + (i.total_cents ?? 0), 0);
-  const tax = quote.tax_exempt ? 0 : Math.round(subtotal * TAX_RATE);
-  const total = subtotal + tax;
+  const deliveryFee = quote.delivery_fee_cents ?? 0;
+  const tax = quote.tax_exempt ? 0 : Math.round((subtotal + deliveryFee) * TAX_RATE);
+  const total = subtotal + deliveryFee + tax;
 
   const { error: updateError } = await supabase
     .from("quotes")
@@ -77,6 +81,9 @@ export async function POST(
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  // Quotes paid on the quote page already have an order — bring it up to the billed job.
+  await syncOrderFromQuote(supabase, id);
 
   const balanceOwedCents = Math.max(
     0,

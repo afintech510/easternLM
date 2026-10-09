@@ -6,6 +6,7 @@ import { ensureCustomerForOrder, linkCustomerToOrder } from "@/lib/customers/lif
 import { deductInventoryForOrder } from "@/lib/inventory/deduct";
 import { createDeliveryAssignments } from "@/lib/dispatch/auto-assign";
 import { createProjectFromQuote } from "@/lib/projects/auto-create";
+import { syncOrderFromQuote } from "@/lib/quotes/sync-order";
 import type { Database } from "@/types/database";
 import type { Json } from "@/types/database";
 import { sendSms } from "@/lib/sms";
@@ -804,7 +805,7 @@ export async function POST(request: Request) {
         const quoteId = pi.metadata.quote_id;
         const { data: quote } = await sb
           .from("quotes")
-          .select("id, public_token, total_cents, deposit_paid_cents, balance_paid_cents, balance_stripe_payment_id")
+          .select("id, public_token, total_cents, deposit_paid_cents, balance_paid_cents, balance_stripe_payment_id, converted_order_id")
           .eq("id", quoteId)
           .maybeSingle();
         if (quote && quote.balance_stripe_payment_id !== pi.id) {
@@ -818,6 +819,12 @@ export async function POST(request: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", quoteId);
+          if (quote.converted_order_id) {
+            await syncOrderFromQuote(sb, quoteId, {
+              stripePaymentId: pi.id,
+              ccSurchargeCents: parseInt((pi.metadata.cc_surcharge as string) || "0", 10),
+            });
+          }
         }
         return NextResponse.json({ received: true });
       }

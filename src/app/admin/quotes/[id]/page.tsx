@@ -66,6 +66,15 @@ interface Quote {
 
 const TAX_RATE = 0.0875;
 
+// Quotes with a deposit paid stay editable — even once 'converted' to an order —
+// so admin can add post-job items before finalizing into a balance-due invoice.
+// Declined, finalized, or converted-without-deposit quotes are locked.
+function isQuoteLocked(q: Quote): boolean {
+  if (q.status === "declined") return true;
+  if (q.status === "converted") return !q.deposit_paid_at || !!q.finalized_at;
+  return false;
+}
+
 function centsToStr(c: number): string { return (c / 100).toFixed(2); }
 function strToCents(s: string): number { return Math.round(parseFloat(s || "0") * 100); }
 
@@ -279,9 +288,8 @@ export default function QuoteDetailPage() {
   async function handleFinalizeInvoice() {
     if (!confirm("Finalize this quote as an invoice? This locks the current line items as billable and lets the customer pay the balance.")) return;
     setSaving(true);
-    // Converted quotes are read-only; skip the form save (finalize recomputes
-    // totals from the stored line items). Editable quotes save post-job edits first.
-    if (!["declined", "converted"].includes(quote?.status ?? "")) await handleSave();
+    // Save post-job edits first (finalize recomputes totals from the stored line items).
+    if (quote && !isQuoteLocked(quote)) await handleSave();
     const r = await fetch(`/api/admin/quotes/${id}/finalize`, { method: "POST" });
     const d = await r.json();
     setSaving(false);
@@ -367,9 +375,7 @@ export default function QuoteDetailPage() {
 
   const { subtotal, tax, total } = recalcTotals(lineItems);
   const statusCfg = STATUS_CONFIG[quote.status] ?? STATUS_CONFIG.draft;
-  // Accepted quotes with deposit paid remain editable so admin can add post-job items
-  // before finalizing into a balance-due invoice. Declined / fully-converted stay locked.
-  const isReadOnly = ["declined", "converted"].includes(quote.status);
+  const isReadOnly = isQuoteLocked(quote);
   const balanceOwedCents = Math.max(0, total - (quote.deposit_paid_cents || 0) - (quote.balance_paid_cents || 0));
   // A deposit has been paid and a balance is still owed — the final-invoice /
   // balance-paylink flow applies. Works for 'accepted' quotes and 'converted'
