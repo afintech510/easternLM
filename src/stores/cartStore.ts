@@ -5,10 +5,12 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { calculateDeliveryFees, type CartItem } from "@/lib/delivery";
 import { defaultDeliveryPricingConfig, defaultTruckTypes } from "@/lib/delivery-defaults";
+import { fetchLivePrices } from "@/lib/use-live-prices";
 import type { CartStoreState, CustomerInfo, DeliveryAccessInfo, DeliveryAddress } from "@/types/cart";
 
 type CartStoreActions = {
   loadDeliveryConfig: () => Promise<void>;
+  refreshPrices: () => Promise<void>;
   addItem: (item: CartItem) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
@@ -123,12 +125,33 @@ export const useCartStore = create<CartStore>()(
             isConfigLoading: false,
             error: null,
           });
+          await get().refreshPrices();
           await get().recalculateDelivery();
         } catch (error) {
           set({
             isConfigLoading: false,
             error: error instanceof Error ? error.message : "Unable to load delivery configuration.",
           });
+        }
+      },
+
+      // Sync catalog items to current web prices (persisted carts and calculators
+      // can hold stale prices; checkout reprices server-side the same way).
+      refreshPrices: async () => {
+        const items = get().items;
+        if (items.length === 0) return;
+        try {
+          const prices = await fetchLivePrices(items.map((i) => i.id));
+          set((state) => ({
+            items: state.items.map((item) => {
+              const p = prices[item.id];
+              return p
+                ? { ...item, unitPriceCents: p.unitPriceCents, deliveryType: p.deliveryType, materialClass: p.materialClass }
+                : item;
+            }),
+          }));
+        } catch {
+          // Keep existing prices — checkout will reject a mismatched total.
         }
       },
 

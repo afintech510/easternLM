@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { mulchCalculation, estimatePrice } from "@/lib/calculators";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 import { CalculatorShell, CalcInput, CalcSelect, type CalculatorResult } from "./calculator-shell";
 
 const MULCH_PRODUCTS = [
@@ -16,6 +17,7 @@ export function MulchCalculator() {
   const [width, setWidth] = useState("10");
   const [depth, setDepth] = useState("3");
   const [product, setProduct] = useState(MULCH_PRODUCTS[1].slug);
+  const prices = useLivePrices(MULCH_PRODUCTS.map((p) => p.slug));
 
   const result = useMemo((): CalculatorResult | null => {
     const l = Number(length), w = Number(width), d = Number(depth);
@@ -42,7 +44,7 @@ export function MulchCalculator() {
           </div>
           <CalcInput label="Depth" value={depth} onChange={setDepth} unit="inches" hint={"2\" for refresh, 3\" for new beds"} />
           <CalcSelect label="Mulch type" value={product} onChange={setProduct}
-            options={MULCH_PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(p.price / 100).toFixed(0)}/yd` }))} />
+            options={MULCH_PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(livePrice(prices, p.slug, p.price) / 100).toFixed(0)}/yd` }))} />
         </div>
       }
       result={result}

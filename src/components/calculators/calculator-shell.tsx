@@ -6,6 +6,7 @@ import { ArrowRight, Phone, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -38,17 +39,29 @@ type CalculatorShellProps = {
   result: CalculatorResult | null;
 };
 
-export function CalculatorShell({ title, description, inputs, result }: CalculatorShellProps) {
+export function CalculatorShell({ title, description, inputs, result: rawResult }: CalculatorShellProps) {
   const addItem = useCartStore((s) => s.addItem);
+  const prices = useLivePrices([rawResult?.productSlug, rawResult?.secondary?.productSlug].filter((s): s is string => !!s));
+
+  // Calculators pass a fallback price; the live catalog web price wins once loaded.
+  const result = rawResult && {
+    ...rawResult,
+    pricePerYardCents: livePrice(prices, rawResult.productSlug, rawResult.pricePerYardCents),
+    secondary: rawResult.secondary && {
+      ...rawResult.secondary,
+      pricePerYardCents: livePrice(prices, rawResult.secondary.productSlug, rawResult.secondary.pricePerYardCents),
+    },
+  };
 
   function handleAddToCart(name: string, slug: string, yards: number, priceCents: number) {
+    const product = prices[slug];
     addItem({
-      id: slug,
+      id: product?.productId ?? slug,
       name,
       quantity: yards,
       unitPriceCents: priceCents,
-      deliveryType: "bulk",
-      materialClass: "default",
+      deliveryType: product?.deliveryType ?? "bulk",
+      materialClass: product?.materialClass ?? "default",
     });
     toast.success(`${name} added to cart`, {
       description: `${yards} yd × ${formatUsd(priceCents)} = ${formatUsd(Math.round(yards * priceCents))}`,

@@ -15,7 +15,7 @@ export default function FillCalculatorPage() {
       calculator={<FillCalculator />}
       products={[
         { name: "Clean Fill", slug: "clean-fill-exc-dirt-unscreened", price: 1500, unit: "per cubic yard" },
-        { name: "Bank Run", slug: "bank-run-sandy-fill-w-gravel-varying-in-size", price: 1800, unit: "per cubic yard" },
+        { name: "Bank Run", slug: "bank-run-sandy-fill-w-gravel-varying-in-size", price: 4500, unit: "per cubic yard" },
       ]}
       tips="Clean fill is excavated dirt — use it for raising grade and filling large areas. Bank run is a natural sand/gravel mix that compacts well and drains — good for sub-base and pipe bedding. Neither is suitable as a planting surface; add topsoil on top if you're planting."
       faqs={[

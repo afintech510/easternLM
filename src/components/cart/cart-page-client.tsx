@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { useCartStore } from "@/stores/cartStore";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 import { siteConfig } from "@/config/site";
 
 function formatUsd(cents: number) {
@@ -679,9 +680,9 @@ export function CartPageClient() {
 // ─── Installation Upsell Component ──────────────────────────
 
 const WEED_BLOCK_OPTIONS = [
-  { id: "60b8e8c6-e358-4be0-8ace-9662acfbfd7a", name: "Landscape Fabric 3'×100' (300 sq ft)", label: "300 sq ft", priceCents: 2900 },
-  { id: "7e8acff7-8e14-4e70-9f53-08a320dc1317", name: "Landscape Fabric 3'×300' (900 sq ft)", label: "900 sq ft", priceCents: 6000 },
-  { id: "d7c6ca4c-8118-48fe-a4f4-06c327b956ec", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 9500 },
+  { id: "60b8e8c6-e358-4be0-8ace-9662acfbfd7a", name: "Landscape Fabric 3'×100' (300 sq ft)", label: "300 sq ft", priceCents: 3400 },
+  { id: "7e8acff7-8e14-4e70-9f53-08a320dc1317", name: "Landscape Fabric 3'×300' (900 sq ft)", label: "900 sq ft", priceCents: 6900 },
+  { id: "d7c6ca4c-8118-48fe-a4f4-06c327b956ec", name: "Landscape Fabric 6'×300' (1,800 sq ft)", label: "1,800 sq ft", priceCents: 11000 },
 ];
 
 // ─── Pricing formulas (all round up to nearest $5) ──────────
@@ -884,9 +885,11 @@ function WeedBlockUpsell() {
   const cartItems = useCartStore((s) => s.items);
   const getQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
   const fmt = (c: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(c / 100);
+  const prices = useLivePrices(WEED_BLOCK_OPTIONS.map((o) => o.id));
+  const priceOf = (opt: typeof WEED_BLOCK_OPTIONS[0]) => livePrice(prices, opt.id, opt.priceCents);
 
   function add(opt: typeof WEED_BLOCK_OPTIONS[0]) {
-    addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: opt.priceCents, deliveryType: "non-bulk", materialClass: "default" });
+    addItem({ id: opt.id, name: opt.name, quantity: 1, unitPriceCents: priceOf(opt), deliveryType: "non-bulk", materialClass: "default" });
   }
 
   return (
@@ -899,7 +902,7 @@ function WeedBlockUpsell() {
           return qty ? (
             <div key={opt.id} className="flex flex-col items-center rounded-xl border-2 border-amber-500 bg-amber-100 p-3 text-center">
               <span className="text-sm font-bold text-amber-900">{opt.label}</span>
-              <span className="text-xs text-amber-700 mb-2">{fmt(opt.priceCents)}</span>
+              <span className="text-xs text-amber-700 mb-2">{fmt(priceOf(opt))}</span>
               <div className="flex items-center gap-2">
                 <button className="flex size-9 items-center justify-center rounded-lg border-2 border-amber-300 text-lg font-bold hover:bg-white transition-colors" onClick={() => qty <= 1 ? removeItem(opt.id) : updateQuantity(opt.id, qty - 1)}>−</button>
                 <span className="text-lg font-bold w-6 text-center">{qty}</span>
@@ -913,7 +916,7 @@ function WeedBlockUpsell() {
               className="flex flex-col items-center justify-center rounded-xl border-2 border-amber-200 bg-white/70 p-3 text-center hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer"
             >
               <span className="text-sm font-bold text-amber-900">{opt.label}</span>
-              <span className="text-xs text-amber-700">{fmt(opt.priceCents)}</span>
+              <span className="text-xs text-amber-700">{fmt(priceOf(opt))}</span>
               <span className="mt-1.5 text-xs font-semibold text-amber-600 bg-amber-100 rounded-full px-3 py-0.5">+ Add</span>
             </button>
           );

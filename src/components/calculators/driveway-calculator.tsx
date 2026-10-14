@@ -17,10 +17,10 @@ export function DrivewayCalculator() {
       yards: calc.surfaceYards, exact: calc.surfaceYards, label: "Driveway Surface",
       formula: `${l}ft × ${w}ft driveway: ${bd}" base + ${sd}" surface`,
       recommendation: "4\" of RCA base compacted, then 2\" of bluestone surface is the standard recipe for Long Island driveways.",
-      pricePerYardCents: 8800, productSlug: "34-inch-bluestone", productName: "3/4\" Bluestone (surface)",
+      pricePerYardCents: 9500, productSlug: "34-inch-bluestone", productName: "3/4\" Bluestone (surface)",
       secondary: calc.baseYards > 0 ? {
         yards: calc.baseYards, label: "Base layer",
-        pricePerYardCents: 2700, productSlug: "state-grade-rca-95-concrete-made-to-spec-not-certified", productName: "State Grade RCA (base)",
+        pricePerYardCents: 3000, productSlug: "state-grade-rca-95-concrete-made-to-spec-not-certified", productName: "State Grade RCA (base)",
       } : undefined,
     };
   }, [length, width, baseDepth, surfaceDepth]);

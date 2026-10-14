@@ -18,7 +18,7 @@ export function SandCalculator() {
       yards: calc.yards, exact: calc.exact, label: "Sand",
       formula: `${l}ft × ${w}ft × ${d}" ÷ 324 = ${calc.exact.toFixed(2)} yd → ${calc.yards.toFixed(1)} yd`,
       recommendation: type === "paver-bedding" ? "1\" of fine sand as a setting bed under pavers. Screed level before placing pavers." : type === "masonry-mix" ? "State concrete sand for mixing mortar and concrete." : "Fine sand for leveling and filling.",
-      pricePerYardCents: 6000, productSlug: slug, productName: calc.material,
+      pricePerYardCents: 6500, productSlug: slug, productName: calc.material,
     };
   }, [length, width, depth, type]);
 

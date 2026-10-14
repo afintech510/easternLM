@@ -18,7 +18,7 @@ export function BaseCalculator() {
       yards: calc.yards, exact: calc.exact, label: "Base Stone",
       formula: `${dims} × ${d}" depth + 15% compaction = ${calc.yards.toFixed(1)} yd`,
       recommendation: "4\" of compacted 3/4 crushed stone is standard for shed pads and patio bases. Add 6\" edge buffer for a stable perimeter.",
-      pricePerYardCents: 8800, productSlug: "34-inch-bluestone", productName: calc.material,
+      pricePerYardCents: 9500, productSlug: "34-inch-bluestone", productName: calc.material,
     };
   }, [length, width, depth, buffer]);
 

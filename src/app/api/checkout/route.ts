@@ -13,6 +13,7 @@ import {
 } from "@/lib/delivery";
 import { fetchGoogleDistanceMatrix } from "@/lib/google-maps";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { repriceCartItems } from "@/lib/catalog-prices";
 import type { Database, Json } from "@/types/database";
 
 /**
@@ -323,7 +324,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid checkout payload.", details: parsed.error.issues }, { status: 400 });
     }
 
-    const payload = parsed.data;
+    // Never trust client prices — reprice catalog items from the products table.
+    const repricedItems = await repriceCartItems(parsed.data.cartItems);
+    for (const item of repricedItems) {
+      const original = parsed.data.cartItems.find((i) => i.id === item.id);
+      if (original && original.unitPriceCents !== item.unitPriceCents) {
+        console.warn(`[checkout] repriced ${item.id}: client ${original.unitPriceCents} → catalog ${item.unitPriceCents}`);
+      }
+    }
+    const payload = { ...parsed.data, cartItems: repricedItems };
     if (payload.deliveryMethod === "delivery" && !payload.deliveryAddress) {
       return NextResponse.json(
         { error: "Delivery address is required for delivery checkout." },
@@ -742,11 +751,10 @@ export async function POST(request: Request) {
       if (!insertedOrder.error && insertedOrder.data) {
         const orderId = insertedOrder.data.id;
         createdOrderId = orderId;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const orderItemRows: Database["public"]["Tables"]["order_items"]["Insert"][] = payload.cartItems.map(
           (item, index) => ({
           order_id: orderId,
-          product_id: uuidRegex.test(item.id) ? item.id : null,
+          product_id: item.productId,
           product_name: item.name,
           product_slug: null,
           quantity: item.quantity,

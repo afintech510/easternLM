@@ -4,7 +4,7 @@ import { CalculatorPageLayout } from "@/components/calculators/calculator-page-l
 
 export const metadata: Metadata = {
   title: "Sand Calculator | Paver Bedding & Masonry Sand",
-  description: "Calculate fine sand or concrete sand for paver bedding, leveling, and masonry work. Suffolk County delivery from $60/yd.",
+  description: "Calculate fine sand or concrete sand for paver bedding, leveling, and masonry work. Suffolk County delivery from $65/yd.",
 };
 
 export default function SandCalculatorPage() {
@@ -14,8 +14,8 @@ export default function SandCalculatorPage() {
       subtitle="Calculate sand for paver bedding, leveling, and masonry work"
       calculator={<SandCalculator />}
       products={[
-        { name: "Fine Sand", slug: "fine-sand", price: 6000, unit: "per cubic yard" },
-        { name: "State Concrete Sand", slug: "state-concrete-sand", price: 6000, unit: "per cubic yard" },
+        { name: "Fine Sand", slug: "fine-sand", price: 6500, unit: "per cubic yard" },
+        { name: "State Concrete Sand", slug: "state-concrete-sand", price: 6500, unit: "per cubic yard" },
       ]}
       tips="For paver bedding, use 1 inch of fine sand screeded level over compacted base stone. Do not compact the sand layer — pavers compact it when placed. For mixing mortar, use state concrete sand (coarser gradation). For leveling or pool bases, fine sand works best."
       faqs={[

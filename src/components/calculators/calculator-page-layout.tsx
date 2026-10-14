@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { ArrowRight, Phone, Users } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 
 type ProductCard = { name: string; slug: string; price: number; unit: string };
 type Faq = { q: string; a: string };
@@ -25,6 +26,7 @@ function formatUsd(cents: number) {
 }
 
 export function CalculatorPageLayout({ title, subtitle, calculator, products, tips, faqs, serviceSlug, serviceLabel }: Props) {
+  const prices = useLivePrices(products.map((p) => p.slug));
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 md:py-12 space-y-10">
       {/* Calculator — above the fold */}
@@ -41,7 +43,7 @@ export function CalculatorPageLayout({ title, subtitle, calculator, products, ti
                   <p className="text-sm font-semibold">{p.name}</p>
                   <p className="text-xs text-muted-foreground">{p.unit}</p>
                 </div>
-                <span className="text-lg font-bold text-accent">{formatUsd(p.price)}/yd</span>
+                <span className="text-lg font-bold text-accent">{formatUsd(livePrice(prices, p.slug, p.price))}/yd</span>
               </Link>
             ))}
           </div>

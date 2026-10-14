@@ -4,7 +4,7 @@ import { CalculatorPageLayout } from "@/components/calculators/calculator-page-l
 
 export const metadata: Metadata = {
   title: "RCA Calculator | Recycled Concrete for Driveways",
-  description: "Calculate recycled concrete aggregate (RCA) for driveways, parking pads, and road base. State Grade or Regular. Suffolk County delivery from $20/yd.",
+  description: "Calculate recycled concrete aggregate (RCA) for driveways, parking pads, and road base. State Grade or Regular. Suffolk County delivery from $23/yd.",
 };
 
 export default function RcaCalculatorPage() {
@@ -14,8 +14,8 @@ export default function RcaCalculatorPage() {
       subtitle="Calculate recycled concrete aggregate for driveways, parking pads, and road base"
       calculator={<RcaCalculator />}
       products={[
-        { name: "State Grade RCA", slug: "state-grade-rca-95-concrete-made-to-spec-not-certified", price: 2700, unit: "per cubic yard" },
-        { name: "Regular RCA", slug: "regular-rca-blend-of-concrete-brick-and-blacktop", price: 2000, unit: "per cubic yard" },
+        { name: "State Grade RCA", slug: "state-grade-rca-95-concrete-made-to-spec-not-certified", price: 3000, unit: "per cubic yard" },
+        { name: "Regular RCA", slug: "regular-rca-blend-of-concrete-brick-and-blacktop", price: 2300, unit: "per cubic yard" },
       ]}
       tips="RCA is recycled crushed concrete — it compacts into a solid, durable base and hardens over time. State Grade RCA is 95% concrete and more uniform. Regular RCA includes brick and blacktop — cheaper but more varied in color. Both work well for driveways and parking areas."
       faqs={[

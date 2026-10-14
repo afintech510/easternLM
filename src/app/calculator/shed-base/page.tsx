@@ -14,9 +14,9 @@ export default function ShedBaseCalculatorPage() {
       subtitle="Calculate crushed stone for shed pads, patio sub-base, and equipment pads"
       calculator={<BaseCalculator />}
       products={[
-        { name: "3/4\" Bluestone", slug: "34-inch-bluestone", price: 8800, unit: "per cubic yard" },
-        { name: "3/4\" Wash Gravel", slug: "34-inch-wash-gravel", price: 8000, unit: "per cubic yard" },
-        { name: "Bluestone Screenings", slug: "bluestone-screenings-stone-dust-fines", price: 8500, unit: "per cubic yard" },
+        { name: "3/4\" Bluestone", slug: "34-inch-bluestone", price: 9500, unit: "per cubic yard" },
+        { name: "3/4\" Wash Gravel", slug: "34-inch-wash-gravel", price: 9200, unit: "per cubic yard" },
+        { name: "Bluestone Screenings", slug: "bluestone-screenings-stone-dust-fines", price: 10200, unit: "per cubic yard" },
       ]}
       tips="A proper base is 4 inches of compacted 3/4 crushed stone with a 6-inch edge buffer on all sides. Compact in 2-inch lifts with a plate compactor. Add 1 inch of screenings or sand on top as a leveling layer before placing the shed or pavers."
       faqs={[

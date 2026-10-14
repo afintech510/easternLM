@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
 import { fillCalculation } from "@/lib/calculators";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 import { CalculatorShell, CalcInput, CalcSelect, type CalculatorResult } from "./calculator-shell";
 
 const PRODUCTS = [
   { slug: "clean-fill-exc-dirt-unscreened", name: "Clean Fill", price: 1500 },
-  { slug: "bank-run-sandy-fill-w-gravel-varying-in-size", name: "Bank Run", price: 1800 },
+  { slug: "bank-run-sandy-fill-w-gravel-varying-in-size", name: "Bank Run", price: 4500 },
 ];
 
 export function FillCalculator() {
@@ -15,6 +16,7 @@ export function FillCalculator() {
   const [diameter, setDiameter] = useState("6");
   const [depth, setDepth] = useState("6");
   const [product, setProduct] = useState(PRODUCTS[0].slug);
+  const prices = useLivePrices(PRODUCTS.map((p) => p.slug));
 
   const result = useMemo((): CalculatorResult | null => {
     const d = Number(depth);
@@ -47,7 +49,7 @@ export function FillCalculator() {
         )}
         <CalcInput label="Depth" value={depth} onChange={setDepth} unit="inches" />
         <CalcSelect label="Material" value={product} onChange={setProduct}
-          options={PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(p.price / 100).toFixed(0)}/yd` }))} />
+          options={PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(livePrice(prices, p.slug, p.price) / 100).toFixed(0)}/yd` }))} />
       </div>} result={result} />
   );
 }

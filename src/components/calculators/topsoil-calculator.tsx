@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { topsoilCalculation } from "@/lib/calculators";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 import { CalculatorShell, CalcInput, CalcSelect, type CalculatorResult } from "./calculator-shell";
 
 const PRODUCTS = [
@@ -14,6 +15,7 @@ export function TopsoilCalculator() {
   const [depth, setDepth] = useState("4");
   const [purpose, setPurpose] = useState("new-lawn");
   const [product, setProduct] = useState(PRODUCTS[0].slug);
+  const prices = useLivePrices(PRODUCTS.map((p) => p.slug));
 
   const result = useMemo((): CalculatorResult | null => {
     const l = Number(length), w = Number(width), d = Number(depth);
@@ -41,7 +43,7 @@ export function TopsoilCalculator() {
           { value: "garden-bed", label: "Garden bed / raised bed" }, { value: "fill", label: "Fill / grading" },
         ]} />
         <CalcSelect label="Material" value={product} onChange={setProduct}
-          options={PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(p.price / 100).toFixed(0)}/yd` }))} />
+          options={PRODUCTS.map((p) => ({ value: p.slug, label: `${p.name} — $${(livePrice(prices, p.slug, p.price) / 100).toFixed(0)}/yd` }))} />
       </div>} result={result} />
   );
 }

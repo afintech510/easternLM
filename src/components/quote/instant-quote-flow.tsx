@@ -19,6 +19,7 @@ import {
   sandCalculation,
 } from "@/lib/calculators";
 import { trackCalcEvent } from "@/lib/calculator-events";
+import { livePrice, useLivePrices } from "@/lib/use-live-prices";
 
 function formatUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -42,6 +43,13 @@ const PROJECTS: Array<{ id: ProjectType; icon: string; label: string; desc: stri
 
 type MaterialLine = { name: string; slug: string; yards: number; priceCents: number };
 
+// Hardcoded prices below are fallbacks; live catalog web prices replace them.
+const QUOTE_SLUGS = [
+  "state-grade-rca-95-concrete-made-to-spec-not-certified", "regular-rca-blend-of-concrete-brick-and-blacktop",
+  "34-inch-bluestone", "dark-natural-mulch", "black-mulch", "chocolate-mulch", "red-mulch",
+  "topsoil-screened-organic", "clean-fill-exc-dirt-unscreened", "fine-sand",
+];
+
 // ─── Component ────────────────────────────────────────────────────
 
 export function InstantQuoteFlow() {
@@ -50,6 +58,8 @@ export function InstantQuoteFlow() {
   const [materials, setMaterials] = useState<MaterialLine[]>([]);
   const [showInstall, setShowInstall] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const prices = useLivePrices(QUOTE_SLUGS);
+  const yd = (slug: string, fallback: number) => `$${(livePrice(prices, slug, fallback) / 100).toFixed(0)}/yd`;
 
   // Step 2 inputs
   const [length, setLength] = useState("20");
@@ -83,8 +93,8 @@ export function InstantQuoteFlow() {
     switch (project) {
       case "driveway": {
         const calc = drivewayCalculation({ lengthFt: l, widthFt: w, baseDepthInches: d, surfaceDepthInches: d2 });
-        if (calc.baseYards > 0) lines.push({ name: "State Grade RCA (base)", slug: "state-grade-rca-95-concrete-made-to-spec-not-certified", yards: calc.baseYards, priceCents: 2700 });
-        if (calc.surfaceYards > 0) lines.push({ name: "3/4\" Bluestone (surface)", slug: "34-inch-bluestone", yards: calc.surfaceYards, priceCents: 8800 });
+        if (calc.baseYards > 0) lines.push({ name: "State Grade RCA (base)", slug: "state-grade-rca-95-concrete-made-to-spec-not-certified", yards: calc.baseYards, priceCents: 3000 });
+        if (calc.surfaceYards > 0) lines.push({ name: "3/4\" Bluestone (surface)", slug: "34-inch-bluestone", yards: calc.surfaceYards, priceCents: 9500 });
         break;
       }
       case "mulch": {
@@ -101,7 +111,7 @@ export function InstantQuoteFlow() {
       }
       case "base": {
         const calc = baseCalculation({ lengthFt: l, widthFt: w, depthInches: d, addEdgeBuffer: true });
-        lines.push({ name: "3/4\" Crushed Bluestone", slug: "34-inch-bluestone", yards: calc.yards, priceCents: 8800 });
+        lines.push({ name: "3/4\" Crushed Bluestone", slug: "34-inch-bluestone", yards: calc.yards, priceCents: 9500 });
         break;
       }
       case "fill": {
@@ -112,16 +122,17 @@ export function InstantQuoteFlow() {
       case "rca": {
         const calc = rcaCalculation({ lengthFt: l, widthFt: w, depthInches: d, grade: rcaGrade as "state" | "regular" });
         const slug = rcaGrade === "state" ? "state-grade-rca-95-concrete-made-to-spec-not-certified" : "regular-rca-blend-of-concrete-brick-and-blacktop";
-        lines.push({ name: rcaGrade === "state" ? "State Grade RCA" : "Regular RCA", slug, yards: calc.yards, priceCents: rcaGrade === "state" ? 2700 : 2000 });
+        lines.push({ name: rcaGrade === "state" ? "State Grade RCA" : "Regular RCA", slug, yards: calc.yards, priceCents: rcaGrade === "state" ? 3000 : 2300 });
         break;
       }
       case "sand": {
         const calc = sandCalculation({ sqFt: l * w, depthInches: d, type: "paver-bedding" });
-        lines.push({ name: "Fine Sand", slug: "fine-sand", yards: calc.yards, priceCents: 6000 });
+        lines.push({ name: "Fine Sand", slug: "fine-sand", yards: calc.yards, priceCents: 6500 });
         break;
       }
     }
 
+    for (const m of lines) m.priceCents = livePrice(prices, m.slug, m.priceCents);
     setMaterials(lines);
     setStep(3);
     const totalCents = lines.reduce((s, m) => s + Math.round(m.yards * m.priceCents), 0);
@@ -130,7 +141,15 @@ export function InstantQuoteFlow() {
 
   function handleAddToCart() {
     for (const m of materials) {
-      addItem({ id: m.slug, name: m.name, quantity: m.yards, unitPriceCents: m.priceCents, deliveryType: "bulk", materialClass: "default" });
+      const product = prices[m.slug];
+      addItem({
+        id: product?.productId ?? m.slug,
+        name: m.name,
+        quantity: m.yards,
+        unitPriceCents: m.priceCents,
+        deliveryType: product?.deliveryType ?? "bulk",
+        materialClass: product?.materialClass ?? (project === "mulch" ? "mulch" : "default"),
+      });
     }
     const totalCents = materials.reduce((s, m) => s + Math.round(m.yards * m.priceCents), 0);
     toast.success("Materials added to cart", { description: formatUsd(totalCents), action: { label: "View Cart", onClick: () => { window.location.href = "/cart"; } } });
@@ -234,10 +253,10 @@ export function InstantQuoteFlow() {
                 <div>
                   <label className="mb-1 block text-sm font-medium">Mulch color</label>
                   <select value={mulchColor} onChange={(e) => setMulchColor(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                    <option value="black-mulch">Black Mulch — $30/yd</option>
-                    <option value="chocolate-mulch">Chocolate Mulch — $30/yd</option>
-                    <option value="dark-natural-mulch">Dark Natural — $20/yd</option>
-                    <option value="red-mulch">Red Mulch — $38/yd</option>
+                    <option value="black-mulch">Black Mulch — {yd("black-mulch", 3000)}</option>
+                    <option value="chocolate-mulch">Chocolate Mulch — {yd("chocolate-mulch", 3000)}</option>
+                    <option value="dark-natural-mulch">Dark Natural — {yd("dark-natural-mulch", 2000)}</option>
+                    <option value="red-mulch">Red Mulch — {yd("red-mulch", 3800)}</option>
                   </select>
                 </div>
               )}
@@ -258,8 +277,8 @@ export function InstantQuoteFlow() {
                 <div>
                   <label className="mb-1 block text-sm font-medium">Grade</label>
                   <select value={rcaGrade} onChange={(e) => setRcaGrade(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                    <option value="state">State Grade ($27/yd) — 95% concrete</option>
-                    <option value="regular">Regular ($20/yd) — concrete/brick mix</option>
+                    <option value="state">State Grade ({yd("state-grade-rca-95-concrete-made-to-spec-not-certified", 3000)}) — 95% concrete</option>
+                    <option value="regular">Regular ({yd("regular-rca-blend-of-concrete-brick-and-blacktop", 2300)}) — concrete/brick mix</option>
                   </select>
                 </div>
               )}
