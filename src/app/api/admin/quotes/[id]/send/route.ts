@@ -45,7 +45,7 @@ function buildQuoteEmailHtml(quote: Record<string, unknown>, quoteUrl: string): 
         Review &amp; Accept Quote →
       </a>
     </p>
-    ${quote.description ? `<p style="color:#4b5563;border-left:3px solid #e5e7eb;padding-left:12px;">${quote.description}</p>` : ""}
+    ${quote.description ? `<p style="color:#4b5563;border-left:3px solid #e5e7eb;padding-left:12px;white-space:pre-wrap;">${quote.description}</p>` : ""}
     <table style="width:100%;border-collapse:collapse;margin:24px 0;">
       <thead>
         <tr style="background:#f9fafb;">

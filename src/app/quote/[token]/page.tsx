@@ -14,7 +14,7 @@ import {
   Loader2, Phone, Mail, MessageSquare, Lock, Shield, User,
   CheckCircle, XCircle, MapPin, Calendar, Clock,
   Truck, AlertTriangle, FileText, Package,
-  TreePine, Mountain, Droplets, Wrench, Box,
+  TreePine, Mountain, Droplets, Wrench, Box, Tag,
 } from "lucide-react";
 
 // ─── Stripe ─────────────────────────────────────────────────────────────────
@@ -994,12 +994,15 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
   // Card surcharge 3.5% applied when paying by card
   const ccSurchargeCents = Math.round(cashTotal * 0.035);
   const cardTotal = cashTotal + ccSurchargeCents;
-  const laborItems = materialItems.filter(i => {
+  // Negative lines (bundle discounts, etc.) get their own row instead of landing in materials
+  const discountItems = materialItems.filter(i => i.total_cents < 0);
+  const chargeItems = materialItems.filter(i => !discountItems.includes(i));
+  const laborItems = chargeItems.filter(i => {
     const d = i.description.toLowerCase();
     return d.includes("labor") || d.includes("install") || d.includes("service") ||
       d.includes("grading") || d.includes("excavat") || d.includes("prep") || d.includes("spread");
   });
-  const productItems = materialItems.filter(i => !laborItems.includes(i));
+  const productItems = chargeItems.filter(i => !laborItems.includes(i));
 
   const activeConstraints = Object.entries(quote.access_constraints ?? {})
     .filter(([, v]) => v)
@@ -1018,7 +1021,7 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
               <FileText className="size-3.5" /> Project Scope
             </h2>
             <h3 className="text-base font-semibold text-zinc-900 mb-2">{quote.title}</h3>
-            <p className="text-sm text-zinc-600 leading-relaxed">{quote.description}</p>
+            <p className="text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap">{quote.description}</p>
             {quote.photo_urls && quote.photo_urls.length > 0 && (
               <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
                 {quote.photo_urls.map((url, i) => (
@@ -1091,6 +1094,25 @@ function QuoteView({ quote, token, onAccepted, onDeclined }: {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Discount line items */}
+            {discountItems.length > 0 && (
+              <div className="border-t border-zinc-100 pt-3 space-y-3">
+                {discountItems.map((item, i) => (
+                  <div key={i} className="flex gap-3 items-start">
+                    <div className="size-14 flex-shrink-0 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
+                      <Tag className="size-6" />
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <p className="font-semibold text-zinc-900 text-sm leading-snug">{item.description}</p>
+                    </div>
+                    <p className="font-bold text-green-700 text-sm whitespace-nowrap pt-0.5">
+                      {fmt(item.total_cents)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </section>
