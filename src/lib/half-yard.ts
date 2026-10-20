@@ -25,6 +25,27 @@ export function calculateLineTotal(
   return baseTotal + adder;
 }
 
+type HalfYardCustomer = {
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
+  charge_account_name?: string | null;
+  tags?: string[] | null;
+};
+
+/**
+ * Customers who never pay the half-yard adder: GP Landscape (by name — they
+ * have more than one customer record), or anyone tagged `no-half-yard-fee`.
+ */
+export function waivesHalfYardFee(customer: HalfYardCustomer | null | undefined): boolean {
+  if (!customer) return false;
+  if (customer.tags?.includes("no-half-yard-fee")) return true;
+  const name = [customer.charge_account_name, customer.company_name, customer.first_name, customer.last_name]
+    .filter(Boolean)
+    .join(" ");
+  return /\bgp\s+landscap/i.test(name);
+}
+
 /** Returns true if the quantity has a fractional (.5) component. */
 export function isHalfYardQty(quantity: number): boolean {
   return quantity % 1 !== 0;

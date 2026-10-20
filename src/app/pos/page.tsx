@@ -34,7 +34,7 @@ declare global {
   }
 }
 import { formatUsd } from "@/lib/format";
-import { calculateLineTotal } from "@/lib/half-yard";
+import { calculateLineTotal, waivesHalfYardFee } from "@/lib/half-yard";
 import { formatShortDateTime, formatDeliveryDate, formatShortDeliveryDate, formatTimeWindow, formatPhone, formatPaymentMethod } from "@/lib/format-date";
 import { PosTerminal } from "@/lib/pos/terminal";
 import { ReceiptPrinter } from "@/lib/pos/printer";
@@ -467,12 +467,21 @@ export default function PosRegisterPage() {
     return item.price_cents;
   }
 
+  // Some accounts (GP Landscape) never pay the half-yard adder
+  const halfYardWaived = waivesHalfYardFee(selectedCustomer);
+
+  // Half-yard adder charged on this line (0 when waived or qty is whole)
+  function halfYardAdder(item: LineItem): number {
+    if (halfYardWaived || !item.product.half_yard_enabled || item.quantity % 1 === 0) return 0;
+    return item.product.half_yard_adder_cents;
+  }
+
   // Line total including half-yard adder when applicable
   function lineTotal(item: LineItem): number {
     return calculateLineTotal(
       item.quantity,
       effectivePrice(item),
-      item.product.half_yard_adder_cents,
+      halfYardWaived ? 0 : item.product.half_yard_adder_cents,
       item.product.half_yard_enabled,
     );
   }
@@ -998,7 +1007,7 @@ export default function PosRegisterPage() {
             unitPriceCents: i.price_cents,
             price_cents: i.price_cents,
             deliveryType: i.product.delivery_type,
-            halfYardAdderCents: i.product.half_yard_enabled ? i.product.half_yard_adder_cents : 0,
+            halfYardAdderCents: i.product.half_yard_enabled && !halfYardWaived ? i.product.half_yard_adder_cents : 0,
           })),
           customer: {
             name: delName || customerName,
@@ -1187,7 +1196,7 @@ export default function PosRegisterPage() {
           quantity: i.quantity,
           unit_price_cents: effectivePrice(i),
           line_total_cents: lineTotal(i),
-          half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0,
+          half_yard_adder_cents: halfYardAdder(i),
           unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
           delivery_type: i.product.delivery_type,
         })),
@@ -1303,7 +1312,7 @@ export default function PosRegisterPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: lineTotal(i), half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0, unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
+        items: items.map(i => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: i.price_cents, line_total_cents: lineTotal(i), half_yard_adder_cents: halfYardAdder(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type })),
         customer_name: customerName,
         customer_phone: customerPhone || null,
         delivery_method: deliveryMethod,
@@ -1449,7 +1458,7 @@ export default function PosRegisterPage() {
                   quantity: i.quantity,
                   unit_price_cents: effectivePrice(i),
                   line_total_cents: lineTotal(i),
-                  half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0,
+                  half_yard_adder_cents: halfYardAdder(i),
                   unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea",
                   delivery_type: i.product.delivery_type,
                 })),
@@ -2668,7 +2677,7 @@ export default function PosRegisterPage() {
                     </div>
                     <span className="shrink-0 text-xs text-zinc-500">
                       {formatUsd(effectivePrice(item))}/{item.product.unit_label}
-                      {item.product.half_yard_enabled && item.quantity % 1 !== 0 && item.product.half_yard_adder_cents > 0 && (
+                      {halfYardAdder(item) > 0 && (
                         <span className="text-amber-400"> +{formatUsd(item.product.half_yard_adder_cents)}</span>
                       )}
                     </span>
@@ -3010,7 +3019,7 @@ export default function PosRegisterPage() {
                 // Full store credit payment — create order as "paid" with store_credit method
                 setProcessing(true);
                 const orderPayload: any = {
-                  items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: lineTotal(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0 })),
+                  items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: lineTotal(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: halfYardAdder(i) })),
                   subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : taxCents,
                   cc_fee_cents: 0, delivery_fee_cents: deliveryFeeCents,
                   grand_total_cents: cashTotalCents,
@@ -3046,7 +3055,7 @@ export default function PosRegisterPage() {
                 ? `split_store_credit_${creditRemainderMethod}`
                 : "split";
               const orderPayload: any = {
-                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: i.product.half_yard_enabled && i.quantity % 1 !== 0 ? i.product.half_yard_adder_cents : 0 })),
+                items: items.map((i: any) => ({ product_id: i.product.id, product_name: i.product.name, product_slug: i.product.slug, quantity: i.quantity, unit_price_cents: effectivePrice(i), line_total_cents: i.quantity * effectivePrice(i), unit: i.product.delivery_type === "bulk" ? "cu. yard" : i.product.unit_label || "ea", delivery_type: i.product.delivery_type, half_yard_adder_cents: halfYardAdder(i) })),
                 subtotal_cents: subtotalCents, tax_cents: taxExempt ? 0 : Math.round(subtotalCents * TAX_RATE),
                 cc_fee_cents: payments.filter(p => p.method === "card_terminal" || p.method === "card_manual").reduce((s, p) => s + Math.round(p.amountCents * 0.035 / 1.035), 0),
                 delivery_fee_cents: deliveryFeeCents, grand_total_cents: effectiveTotal,
