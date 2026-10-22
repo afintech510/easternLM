@@ -599,6 +599,7 @@ function PaymentSection({
 }: { quote: Quote; token: string; onAccepted: () => void; onDeclined: () => void }) {
   const hasDeposit = (quote.deposit_required_cents ?? 0) > 0;
   const isService = hasDeposit; // Quotes with a deposit use the accept flow
+  const alreadyAccepted = quote.status === "accepted";
   const depositAmount = quote.deposit_required_cents ?? 0;
   const baseAmount = hasDeposit ? depositAmount : quote.total_cents;
   // 3.5% card surcharge applied on card payments
@@ -659,12 +660,15 @@ function PaymentSection({
         location = [geo.city, geo.region, geo.country_name].filter(Boolean).join(", ");
       } catch { /* non-fatal */ }
 
-      const r = await fetch(`/api/quote/${token}/accept`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ typedName: quote.customer_name ?? "Accepted online", ip, location, smsVerified: false }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed to accept quote");
+      // Already accepted on an earlier visit — /accept would reject it, go straight to payment
+      if (!alreadyAccepted) {
+        const r = await fetch(`/api/quote/${token}/accept`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ typedName: quote.customer_name ?? "Accepted online", ip, location, smsVerified: false }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Failed to accept quote");
+      }
       // Now create payment intent for deposit
       await startCardPayment();
     } catch (err) {
@@ -695,8 +699,17 @@ function PaymentSection({
       {mode === "choose" && (
         <div className="p-5 space-y-4">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-            Accept &amp; Pay
+            {alreadyAccepted ? "Complete Your Payment" : <>Accept &amp; Pay</>}
           </h2>
+
+          {alreadyAccepted && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+              <CheckCircle className="size-4 text-green-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-green-800 leading-relaxed">
+                You&apos;ve accepted this quote. Pay below to lock in your spot on the schedule.
+              </p>
+            </div>
+          )}
 
           {/* Card option */}
           {isService ? (
@@ -816,12 +829,14 @@ function PaymentSection({
             </>
           )}
 
-          <button
-            onClick={() => setMode("decline")}
-            className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600 pt-1"
-          >
-            Decline this quote
-          </button>
+          {!alreadyAccepted && (
+            <button
+              onClick={() => setMode("decline")}
+              className="w-full text-center text-xs text-zinc-400 hover:text-zinc-600 pt-1"
+            >
+              Decline this quote
+            </button>
+          )}
         </div>
       )}
 
@@ -1354,9 +1369,20 @@ function PublicQuoteInner() {
     );
   }
 
+  // Accepted but the deposit never went through (closed the tab, card declined, etc.).
+  // Keep the full quote + payment options up so they can still pay.
+  const awaitingDeposit =
+    quote.status === "accepted" &&
+    (quote.deposit_required_cents ?? 0) > 0 &&
+    (quote.deposit_paid_cents ?? 0) === 0 &&
+    !quote.deposit_paid_at &&
+    outcome !== "accepted" && !depositSuccess;
+
   // Already-accepted / already-declined states (server-side or just completed)
-  const isAccepted = quote.status === "accepted" || quote.status === "converted" ||
-    outcome === "accepted" || depositSuccess;
+  const isAccepted = !awaitingDeposit && (
+    quote.status === "accepted" || quote.status === "converted" ||
+    outcome === "accepted" || depositSuccess
+  );
   const isDeclined = quote.status === "declined" || outcome === "declined";
 
   // Finalized-invoice mode: deposit was paid, admin added post-job items and finalized.
