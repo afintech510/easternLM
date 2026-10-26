@@ -1,5 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
+import { getQrScanSource, logQrScan } from "@/lib/qr-scans";
 import { verifyYardSession, YARD_COOKIE_NAME } from "@/lib/yard-session";
 
 // ─── Legacy URL redirects (old GoDaddy site + WooCommerce) ────────
@@ -57,8 +58,12 @@ function getTinselHostPath(host: string | null, pathname: string): string | null
 const YARD_PUBLIC = ["/yard/login", "/yard/unauthorized"];
 const ADMIN_PUBLIC = ["/admin/login", "/admin/unauthorized", "/api/admin/login"];
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
+
+  // ─── Printed QR scans (utm_source=*_qr) → qr_scans, without delaying the page ──
+  const qrSource = getQrScanSource(request);
+  if (qrSource) event.waitUntil(logQrScan(request, qrSource));
 
   // ─── Check legacy redirects first (307 redirect) ────────────────
   const redirect = getLegacyRedirect(pathname);

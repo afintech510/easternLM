@@ -1,10 +1,10 @@
--- QR scan log for printed codes (shirts, etc.). One row per scan of a tracked
--- redirect like /shirt. GA gets the UTMs too; this is the hard count.
+-- QR scan log for printed codes (shirts, banner). One row per landing with
+-- utm_source=*_qr (logged by middleware). GA gets the UTMs too; this is the hard count.
 
 CREATE TABLE IF NOT EXISTS public.qr_scans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  source text NOT NULL,          -- which printed code, e.g. 'shirt'
-  variant text,                  -- optional ?s= id (print run, crew member, event)
+  source text NOT NULL,          -- utm_source, e.g. 'shirt_qr'
+  variant text,                  -- utm_content (print run, crew member, event)
   ip_hash text,                  -- salted hash, for unique-scanner counts
   user_agent text,
   referer text,

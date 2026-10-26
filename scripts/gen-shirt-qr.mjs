@@ -2,7 +2,8 @@
 // Usage: node scripts/gen-shirt-qr.mjs [variant] [--invert]
 //   → tmp/qr/eastern-lm-qr-shirt[-variant][-white].{svg,png}
 // --invert: white dots + white "e" on a transparent background, for dark shirts.
-// The code points at /shirt, which logs the scan to qr_scans and redirects home with UTMs.
+// The code points at the homepage with utm_source=shirt_qr; middleware logs each
+// landing to qr_scans and GA attributes the visit (variant → utm_content).
 import fs from "node:fs";
 import path from "node:path";
 import QRCode from "qrcode";
@@ -11,7 +12,7 @@ import sharp from "sharp";
 const args = process.argv.slice(2);
 const invert = args.includes("--invert");
 const variant = args.find((a) => !a.startsWith("--"));
-const URL = `https://easternlm.com/shirt${variant ? `?s=${variant}` : ""}`;
+const URL = `https://www.easternlm.com/?utm_source=shirt_qr&utm_medium=print&utm_campaign=shirts_2026${variant ? `&utm_content=${variant}` : ""}`;
 const SIZE = 2400;
 const INK = invert ? "#ffffff" : "#1a1a1a";
 
